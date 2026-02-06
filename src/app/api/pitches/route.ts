@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const authContext = await getAuthContext(request);
-  if (!requireRole(authContext, ["founder", "admin"])) {
+  if (!authContext || !requireRole(authContext, ["founder", "admin"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

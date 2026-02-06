@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const authContext = await getAuthContext(request);
-  if (!requireRole(authContext, ["founder", "investor", "admin"])) {
+  if (!authContext || !requireRole(authContext, ["founder", "investor", "admin"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
