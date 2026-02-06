@@ -6,6 +6,22 @@ export const runtime = "nodejs";
 
 const validTabs = new Set(["trending", "fresh", "food", "fashion"]);
 
+type PitchFeedItem = {
+  pitch_id: string;
+  startup_id: string;
+  startup_name: string;
+  category: string | null;
+  city: string | null;
+  one_liner: string | null;
+  video_path: string | null;
+  poster_path: string | null;
+  created_at: string;
+  in_count: number;
+  out_count: number;
+  comment_count: number;
+  score: number;
+};
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tab = searchParams.get("tab") ?? "trending";
@@ -23,8 +39,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const rows = (data ?? []) as PitchFeedItem[];
   const enriched = await Promise.all(
-    (data ?? []).map(async (item) => {
+    rows.map(async (item: PitchFeedItem) => {
       let video_url: string | null = null;
       let poster_url: string | null = null;
 
