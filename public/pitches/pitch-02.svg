@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280">
+  <defs>
+    <linearGradient id="g2" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#1a2033" />
+      <stop offset="100%" stop-color="#0b0b0b" />
+    </linearGradient>
+  </defs>
+  <rect width="720" height="1280" fill="url(#g2)" />
+  <circle cx="160" cy="220" r="160" fill="#5871ff" opacity="0.35" />
+  <circle cx="580" cy="980" r="220" fill="#8b5bff" opacity="0.18" />
+  <rect x="80" y="160" width="560" height="960" rx="36" fill="#111" opacity="0.55" />
+  <text x="120" y="300" fill="#f2f2f2" font-family="Segoe UI, sans-serif" font-size="42" font-weight="600">LoomWear</text>
+  <text x="120" y="360" fill="#cfcfcf" font-family="Segoe UI, sans-serif" font-size="24">On-demand ethnic drops</text>
+  <text x="120" y="980" fill="#f2f2f2" font-family="Segoe UI, sans-serif" font-size="22">Pitch Preview</text>
+</svg>

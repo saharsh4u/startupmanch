@@ -1,6 +1,7 @@
 import AdColumn from "@/components/AdColumn";
 import FeaturedListings from "@/components/FeaturedListings";
 import HomeHero from "@/components/HomeHero";
+import PitchFeed from "@/components/PitchFeed";
 import { leftAdSlots, rightAdSlots } from "@/data/ads";
 import { getSeedCompanies } from "@/lib/seed-companies";
 
@@ -20,6 +21,7 @@ export default function Home() {
         <AdColumn slots={leftAdSlots} />
         <div className="center-panel">
           <HomeHero />
+          <PitchFeed />
           <FeaturedListings items={featured} />
         </div>
         <AdColumn slots={rightAdSlots} />
