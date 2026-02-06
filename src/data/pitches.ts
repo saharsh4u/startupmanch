@@ -15,7 +15,7 @@ export const pitches: Pitch[] = [
   {
     id: "masala-mile",
     name: "MasalaMile",
-    tagline: "Cloud kitchen meals built for office teams",
+    tagline: "Cloud kitchen for office teams",
     category: "Food & Beverage",
     city: "Bengaluru",
     ask: "₹50L",
@@ -27,7 +27,7 @@ export const pitches: Pitch[] = [
   {
     id: "loomwear",
     name: "LoomWear",
-    tagline: "D2C apparel with on-demand ethnic drops",
+    tagline: "Ethnic drops, on-demand",
     category: "Fashion",
     city: "Jaipur",
     ask: "₹80L",
@@ -39,7 +39,7 @@ export const pitches: Pitch[] = [
   {
     id: "health-bridge",
     name: "HealthBridge",
-    tagline: "Primary care clinics for tier-2 India",
+    tagline: "Clinics for tier-2 India",
     category: "Healthcare",
     city: "Lucknow",
     ask: "₹1.2 Cr",

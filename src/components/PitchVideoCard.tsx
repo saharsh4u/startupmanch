@@ -5,7 +5,7 @@ export default function PitchVideoCard({ pitch }: { pitch: Pitch }) {
     <article className="pitch-card">
       <div className="pitch-media" style={{ backgroundImage: `url(${pitch.poster})` }}>
         <div className="pitch-media-overlay">
-          <span className="pitch-badge">Muted Autoplay</span>
+          <span className="pitch-badge">60s pitch</span>
           <span className="pitch-play">▶</span>
         </div>
         <div className="pitch-ask">

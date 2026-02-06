@@ -5,25 +5,26 @@ export default function HomeHero() {
         <span className="brand-star">✦</span>
         <span>StartupManch</span>
       </div>
-      <h1>The database of verified startup revenues</h1>
+      <h1>India’s Pitch Stage</h1>
+      <p className="hero-subline">Watch. Judge. Back.</p>
       <div className="hero-actions">
         <div className="hero-search">
           <span className="search-icon">⌕</span>
           <input
             type="text"
-            placeholder="Search startups, founders, categories..."
-            aria-label="Search startups"
+            placeholder="Search pitches, founders, categories..."
+            aria-label="Search pitches"
           />
         </div>
         <button type="button" className="hero-btn">
-          + Add startup
+          + Post pitch
         </button>
       </div>
       <div className="hero-tabs">
-        <span>New</span>
-        <span>Stats</span>
-        <span>Acquisition</span>
-        <span>$1 vs $1,000,000</span>
+        <span>Trending</span>
+        <span>Fresh</span>
+        <span>Food</span>
+        <span>Fashion</span>
       </div>
     </section>
   );

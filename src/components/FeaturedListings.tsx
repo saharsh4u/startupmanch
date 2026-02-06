@@ -13,7 +13,7 @@ export default function FeaturedListings({ items }: FeaturedListingsProps) {
   return (
     <section className="featured">
       <div className="featured-header">
-        <h3>Featured listings</h3>
+        <h3>Hot this week</h3>
         <span className="featured-link">View all →</span>
       </div>
       <div className="featured-grid">

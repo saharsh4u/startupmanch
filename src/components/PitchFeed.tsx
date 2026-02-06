@@ -6,8 +6,8 @@ export default function PitchFeed() {
     <section className="pitch-section">
       <div className="pitch-header">
         <div>
-          <h3>Startup of the Week</h3>
-          <span>60s elevator pitch</span>
+          <h3>Pitch of the Week</h3>
+          <span>60s hook</span>
         </div>
         <span className="pitch-link">View all</span>
       </div>
