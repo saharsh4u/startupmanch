@@ -77,7 +77,7 @@ export async function POST(request: Request) {
   }
 
   const payload = await request.json();
-  const { startup_id, type, duration_sec } = payload ?? {};
+  const { startup_id, type, duration_sec, ask, equity, valuation } = payload ?? {};
 
   if (!startup_id || typeof startup_id !== "string") {
     return NextResponse.json({ error: "startup_id is required" }, { status: 400 });
@@ -103,6 +103,9 @@ export async function POST(request: Request) {
       startup_id,
       type: type === "demo" ? "demo" : "elevator",
       duration_sec: typeof duration_sec === "number" ? duration_sec : null,
+      ask: typeof ask === "string" ? ask : null,
+      equity: typeof equity === "string" ? equity : null,
+      valuation: typeof valuation === "string" ? valuation : null,
       status: "pending",
     })
     .select("id, startup_id, type, status, created_at")
