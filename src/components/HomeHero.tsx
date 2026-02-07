@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export default function HomeHero() {
   return (
     <section className="hero">
@@ -18,9 +16,9 @@ export default function HomeHero() {
             aria-label="Search pitches"
           />
         </div>
-        <Link href="/submit" className="hero-btn">
+        <a href="https://www.startupmanch.com/submit" className="hero-btn">
           + Post pitch
-        </Link>
+        </a>
       </div>
       <div className="hero-tabs">
         <span>Trending</span>
