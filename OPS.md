@@ -249,3 +249,15 @@ npm run dev
 - Admin queue page: `src/app/admin/page.tsx`
 - Pitch arena grid: `src/components/PitchArenaCard.tsx`
 - Drawer feed: `src/components/PitchDrawer.tsx`
+
+## Next Roadmap (Suggested)
+1. **Public voting + comments**
+   - Enable “I’m In / I’m Out” and Boardroom comments on live pitches.
+2. **Investor gating**
+   - Approve investors + gate deck downloads.
+3. **Founder profiles**
+   - Public profile page + claim flow.
+4. **Quality controls**
+   - Require video upload, block empty startups, add retry upload button in admin.
+5. **Analytics**
+   - Track views, watch time, and conversion metrics.
