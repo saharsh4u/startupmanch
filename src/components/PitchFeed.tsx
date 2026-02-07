@@ -101,7 +101,7 @@ export default function PitchFeed() {
   return (
     <section className="pitch-section">
       <div className="pitch-header">
-        <h3>Pitch of the Week</h3>
+        <h3>Hot video pitches</h3>
       </div>
       <div className={`pitch-week${loaded ? " is-loaded" : ""}`}>
         {featureCards.map((pitch) => (

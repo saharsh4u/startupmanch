@@ -27,6 +27,19 @@ body {
   font-family: var(--font-body), "Segoe UI", sans-serif;
   background: radial-gradient(circle at top, #1c1c1c 0%, #0b0b0b 60%);
   color: var(--text);
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20% -10% auto -10%;
+  height: 70vh;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 159, 63, 0.12), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(120, 92, 255, 0.12), transparent 60%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 h1,
@@ -67,14 +80,14 @@ a {
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(0, 820px) minmax(220px, 1fr);
-  gap: 24px;
+  gap: 28px;
   align-items: start;
 }
 
 .center-panel {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
   align-items: stretch;
 }
 
@@ -110,6 +123,16 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: var(--shadow);
   backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.ad-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.12), transparent 60%);
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 .ad-face.back {
@@ -154,9 +177,9 @@ a {
 .hero::after {
   content: "";
   position: absolute;
-  inset: -30px 20% auto 20%;
-  height: 160px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 70%);
+  inset: -40px 15% auto 15%;
+  height: 190px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent 72%);
   z-index: -1;
 }
 
@@ -200,8 +223,8 @@ a {
   gap: 10px;
   padding: 10px 16px;
   border-radius: 999px;
-  background: #111111;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(22, 22, 22, 0.95), rgba(12, 12, 12, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.12);
   min-width: min(460px, 70vw);
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
 }
@@ -226,6 +249,12 @@ a {
   border-radius: 999px;
   font-weight: 600;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.35);
 }
 
 .submit-page {
@@ -502,7 +531,7 @@ a {
 }
 
 .featured {
-  background: rgba(21, 21, 21, 0.6);
+  background: linear-gradient(180deg, rgba(21, 21, 21, 0.7), rgba(12, 12, 12, 0.9));
   border-radius: var(--radius-lg);
   padding: 18px;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1015,7 +1044,7 @@ a {
 }
 
 .listing-card {
-  background: var(--panel-soft);
+  background: linear-gradient(160deg, rgba(28, 28, 28, 0.95), rgba(16, 16, 16, 0.9));
   border-radius: var(--radius-md);
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
