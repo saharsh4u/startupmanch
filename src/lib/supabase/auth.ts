@@ -14,6 +14,8 @@ const getBearerToken = (request: Request) => {
   return token ?? null;
 };
 
+const adminEmail = "saharashsharma3@gmail.com";
+
 export const getAuthContext = async (request: Request): Promise<AuthContext | null> => {
   const token = getBearerToken(request);
   if (!token) return null;
@@ -27,7 +29,32 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
     .eq("id", data.user.id)
     .single();
 
-  if (profileError || !profile) return null;
+  if (profileError || !profile) {
+    const email = data.user.email ?? "";
+    const role = email.toLowerCase() === adminEmail ? "admin" : "founder";
+    const { data: created, error: createError } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        {
+          id: data.user.id,
+          email,
+          role,
+        },
+        { onConflict: "id" }
+      )
+      .select("id, role, email")
+      .single();
+
+    if (createError || !created) {
+      return null;
+    }
+
+    return {
+      userId: created.id,
+      email: created.email ?? email,
+      role: created.role,
+    };
+  }
 
   return {
     userId: profile.id,
