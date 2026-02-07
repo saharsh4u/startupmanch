@@ -532,20 +532,125 @@ a {
 .pitch-link {
   font-size: 0.8rem;
   color: rgba(235, 235, 235, 0.6);
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
-.pitch-grid {
+.arena-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
   padding: 16px;
   border-radius: 22px;
   background: rgba(13, 13, 13, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.pitch-grid.is-loaded {
+.arena-grid.is-loaded {
   animation: fadeUp 0.6s ease both;
+}
+
+.arena-main {
+  grid-column: span 6;
+}
+
+.arena-mini {
+  grid-column: span 3;
+}
+
+.arena-card {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111111;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
+}
+
+.arena-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.5);
+}
+
+.arena-main-card {
+  aspect-ratio: 9 / 16;
+  min-height: 420px;
+}
+
+.arena-mini-card {
+  aspect-ratio: 9 / 16;
+  height: 220px;
+}
+
+.arena-video,
+.arena-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.arena-poster {
+  background-size: cover;
+  background-position: center;
+}
+
+.arena-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.75));
+  color: #f3f3f3;
+}
+
+.arena-badge {
+  align-self: flex-start;
+  background: rgba(17, 17, 17, 0.7);
+  color: #e6e6e6;
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.arena-text {
+  text-align: center;
+  padding-bottom: 12px;
+}
+
+.arena-text h4 {
+  font-size: 1.2rem;
+  margin-bottom: 6px;
+  text-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+}
+
+.arena-text p {
+  font-size: 0.82rem;
+  color: rgba(235, 235, 235, 0.7);
+}
+
+.arena-meta,
+.arena-mini-meta {
+  font-size: 0.75rem;
+  color: rgba(235, 235, 235, 0.6);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.arena-mini-meta {
+  text-align: center;
+}
+
+.arena-mini-card.is-active {
+  border-color: rgba(255, 159, 63, 0.55);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55);
 }
 
 .pitch-card {
@@ -869,8 +974,21 @@ a {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .pitch-grid {
+  .arena-grid {
     grid-template-columns: 1fr;
+  }
+
+  .arena-main,
+  .arena-mini {
+    grid-column: span 1;
+  }
+
+  .arena-main-card {
+    min-height: 360px;
+  }
+
+  .arena-mini-card {
+    height: 200px;
   }
 
   .pitch-drawer-panel {
