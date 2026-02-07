@@ -347,6 +347,145 @@ a {
   color: #ff9b9b;
 }
 
+.admin-page {
+  display: flex;
+  justify-content: center;
+}
+
+.admin-shell {
+  width: min(1100px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-hero {
+  text-align: center;
+}
+
+.admin-hero p {
+  color: rgba(235, 235, 235, 0.7);
+}
+
+.admin-card {
+  background: rgba(21, 21, 21, 0.6);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-card-header span {
+  font-size: 0.8rem;
+  color: rgba(235, 235, 235, 0.6);
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 160px);
+  gap: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(12, 12, 12, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-info h4 {
+  margin-bottom: 6px;
+}
+
+.admin-info p {
+  font-size: 0.82rem;
+  color: rgba(235, 235, 235, 0.7);
+  margin-bottom: 4px;
+}
+
+.admin-email {
+  font-size: 0.78rem;
+  color: rgba(235, 235, 235, 0.55);
+}
+
+.admin-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.admin-tags span {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  color: rgba(235, 235, 235, 0.75);
+}
+
+.admin-media {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-media video,
+.admin-media img,
+.admin-placeholder {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f0f0f;
+}
+
+.admin-placeholder {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  color: rgba(235, 235, 235, 0.5);
+  font-size: 0.8rem;
+}
+
+.admin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.admin-actions button {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 16px;
+  background: #ff9f3f;
+  color: #1a1207;
+  font-weight: 600;
+}
+
+.admin-actions button.ghost {
+  background: transparent;
+  color: rgba(235, 235, 235, 0.9);
+}
+
+.admin-empty {
+  font-size: 0.85rem;
+  color: rgba(235, 235, 235, 0.6);
+}
+
 .hero-tabs {
   display: flex;
   justify-content: center;
@@ -635,6 +774,10 @@ a {
   }
 
   .pitch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-row {
     grid-template-columns: 1fr;
   }
 }

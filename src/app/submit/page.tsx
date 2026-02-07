@@ -194,7 +194,7 @@ export default function SubmitPage() {
       }
 
       setSubmitStatus("done");
-      setSubmitMessage("Pitch submitted! We’ll review and publish it soon.");
+      setSubmitMessage("Your pitch is under review. Approval in 24 hours.");
     } catch (error: any) {
       setSubmitStatus("error");
       setSubmitMessage(error.message ?? "Something went wrong.");

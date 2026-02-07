@@ -1,6 +1,11 @@
-import type { Pitch } from "@/data/pitches";
+export type PitchCardData = {
+  id: string;
+  name: string;
+  tagline: string;
+  poster: string;
+};
 
-export default function PitchVideoCard({ pitch }: { pitch: Pitch }) {
+export default function PitchVideoCard({ pitch }: { pitch: PitchCardData }) {
   return (
     <article className="pitch-card">
       <div className="pitch-story" style={{ backgroundImage: `url(${pitch.poster})` }}>
