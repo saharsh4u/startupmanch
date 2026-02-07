@@ -563,12 +563,12 @@ a {
 }
 
 .pitch-show-card.feature {
-  width: min(320px, 100%);
+  width: min(280px, 100%);
   aspect-ratio: 9 / 16;
 }
 
 .pitch-show-card.row {
-  width: 180px;
+  width: 210px;
   aspect-ratio: 9 / 16;
   flex: 0 0 auto;
 }
