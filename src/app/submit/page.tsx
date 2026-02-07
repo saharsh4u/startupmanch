@@ -109,7 +109,8 @@ export default function SubmitPage() {
       body: file,
     });
     if (!response.ok) {
-      throw new Error("Upload failed");
+      const errorBody = await response.text();
+      throw new Error(`Upload failed (${response.status}). ${errorBody || ""}`.trim());
     }
   };
 
@@ -123,6 +124,10 @@ export default function SubmitPage() {
       }
       if (!videoFile) {
         throw new Error("Please upload your pitch video.");
+      }
+      const maxVideoBytes = 50 * 1024 * 1024;
+      if (videoFile.size > maxVideoBytes) {
+        throw new Error("Video too large. Max 50MB on the free plan.");
       }
 
       const { data: sessionData } = await supabaseBrowser.auth.getSession();
@@ -181,6 +186,10 @@ export default function SubmitPage() {
       await uploadToSignedUrl(videoUpload, videoFile);
 
       if (posterUpload && posterFile) {
+        const maxPosterBytes = 8 * 1024 * 1024;
+        if (posterFile.size > maxPosterBytes) {
+          throw new Error("Poster too large. Max 8MB.");
+        }
         await uploadToSignedUrl(posterUpload, posterFile);
       }
 
@@ -376,6 +385,7 @@ export default function SubmitPage() {
                 accept="video/mp4,video/*"
                 onChange={(event) => setVideoFile(event.target.files?.[0] ?? null)}
               />
+              <span className="form-hint">Max 50MB. Use 60s elevator pitch.</span>
             </div>
             <div className="form-field">
               <label>Poster image (optional)</label>
@@ -384,6 +394,7 @@ export default function SubmitPage() {
                 accept="image/*"
                 onChange={(event) => setPosterFile(event.target.files?.[0] ?? null)}
               />
+              <span className="form-hint">Max 8MB.</span>
             </div>
           </div>
           <div className="submit-actions">

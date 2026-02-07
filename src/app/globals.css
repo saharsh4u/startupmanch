@@ -293,6 +293,11 @@ a {
   color: rgba(235, 235, 235, 0.6);
 }
 
+.form-hint {
+  font-size: 0.75rem;
+  color: rgba(235, 235, 235, 0.5);
+}
+
 .form-field input,
 .form-field select {
   background: #111111;
