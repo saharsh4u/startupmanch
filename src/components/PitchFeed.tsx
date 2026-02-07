@@ -24,7 +24,7 @@ export default function PitchFeed() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/pitches?mode=week&limit=6", { cache: "no-store" });
+        const res = await fetch("/api/pitches?mode=feed&tab=fresh&limit=6", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load");
         const payload = await res.json();
         const data = (payload?.data ?? []) as ApiPitch[];
