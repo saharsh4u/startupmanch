@@ -541,9 +541,11 @@ a {
 }
 
 .pitch-week {
-  display: flex;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
   padding: 4px 6px 18px;
+  justify-items: center;
 }
 
 .pitch-week.is-loaded {
@@ -566,7 +568,8 @@ a {
 }
 
 .pitch-show-card.feature {
-  width: min(280px, 100%);
+  width: 100%;
+  max-width: 300px;
   aspect-ratio: 9 / 16;
 }
 
@@ -1167,6 +1170,10 @@ a {
 
   .hero-search {
     min-width: 100%;
+  }
+
+  .pitch-week {
+    grid-template-columns: 1fr;
   }
 
   .pitch-row {

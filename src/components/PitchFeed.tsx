@@ -73,8 +73,13 @@ export default function PitchFeed() {
   );
 
   const baseFeed = items.length ? items : fallback;
-  const feature = weekPick ?? baseFeed[0] ?? fallback[0];
-  const rowSeed = baseFeed.filter((item) => item.id !== feature?.id);
+  const primary = weekPick ?? baseFeed[0] ?? fallback[0];
+  const secondaryPool = baseFeed.filter((item) => item.id !== primary?.id);
+  const secondary = secondaryPool[0] ?? fallback.find((item) => item.id !== primary?.id) ?? null;
+  const featureCards = [primary, secondary].filter(Boolean) as PitchShow[];
+
+  const featureIds = new Set(featureCards.map((item) => item.id));
+  const rowSeed = baseFeed.filter((item) => !featureIds.has(item.id));
   const rowExpanded =
     rowSeed.length >= 20
       ? rowSeed
@@ -99,7 +104,9 @@ export default function PitchFeed() {
         <h3>Pitch of the Week</h3>
       </div>
       <div className={`pitch-week${loaded ? " is-loaded" : ""}`}>
-        {feature ? <PitchShowCard pitch={feature} size="feature" /> : null}
+        {featureCards.map((pitch) => (
+          <PitchShowCard key={pitch.id} pitch={pitch} size="feature" />
+        ))}
       </div>
       <div className="pitch-rows">
         <div className="pitch-row">
