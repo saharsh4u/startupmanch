@@ -20,12 +20,6 @@ export default function HomeHero() {
           + Post pitch
         </a>
       </div>
-      <div className="hero-tabs">
-        <span>Trending</span>
-        <span>Fresh</span>
-        <span>Food</span>
-        <span>Fashion</span>
-      </div>
     </section>
   );
 }

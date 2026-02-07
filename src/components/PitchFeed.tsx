@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import PitchArenaCard, { type ArenaPitch } from "@/components/PitchArenaCard";
-import PitchDrawer from "@/components/PitchDrawer";
+import { useEffect, useMemo, useRef, useState } from "react";
+import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
 import { pitches as fallbackPitches } from "@/data/pitches";
 
 type ApiPitch = {
@@ -15,41 +14,44 @@ type ApiPitch = {
 };
 
 export default function PitchFeed() {
-  const [items, setItems] = useState<ArenaPitch[]>([]);
+  const [items, setItems] = useState<PitchShow[]>([]);
+  const [weekPick, setWeekPick] = useState<PitchShow | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [hoverLeft, setHoverLeft] = useState<ArenaPitch | null>(null);
-  const [hoverRight, setHoverRight] = useState<ArenaPitch | null>(null);
+  const rowOneRef = useRef<HTMLDivElement | null>(null);
+  const rowTwoRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/pitches?mode=feed&tab=fresh&limit=6", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to load");
-        const payload = await res.json();
-        const data = (payload?.data ?? []) as ApiPitch[];
-        const mapped = data.map((item, index) => ({
+        const [weekRes, feedRes] = await Promise.all([
+          fetch("/api/pitches?mode=week&limit=1&min_votes=10", { cache: "no-store" }),
+          fetch("/api/pitches?mode=feed&tab=trending&limit=20", { cache: "no-store" }),
+        ]);
+
+        if (!weekRes.ok && !feedRes.ok) throw new Error("Failed to load");
+
+        const weekPayload = weekRes.ok ? await weekRes.json() : null;
+        const feedPayload = feedRes.ok ? await feedRes.json() : null;
+
+        const weekData = (weekPayload?.data ?? []) as ApiPitch[];
+        const feedData = (feedPayload?.data ?? []) as ApiPitch[];
+
+        const mapPitch = (item: ApiPitch, index: number): PitchShow => ({
           id: item.pitch_id ?? `pitch-${index}`,
           name: item.startup_name ?? "Startup",
           tagline: item.one_liner ?? item.category ?? "New pitch",
           poster: item.poster_url ?? `/pitches/pitch-0${(index % 3) + 1}.svg`,
           video: item.video_url ?? null,
-        }));
+        });
 
-        if (mapped.length < 6) {
-          const needed = 6 - mapped.length;
-          const fallback = fallbackPitches.map((pitch) => ({
-            id: pitch.id,
-            name: pitch.name,
-            tagline: pitch.tagline,
-            poster: pitch.poster,
-          }));
-          const fill = Array.from({ length: needed }).map((_, idx) => fallback[idx % fallback.length]);
-          setItems([...mapped, ...fill]);
-        } else {
-          setItems(mapped);
-        }
+        const week = weekData[0] ? mapPitch(weekData[0], 0) : null;
+        const mapped = feedData.map((item, index) => mapPitch(item, index));
+        const filtered = week ? mapped.filter((item) => item.id !== week.id) : mapped;
+
+        setWeekPick(week);
+        setItems(filtered);
       } catch {
+        setWeekPick(null);
         setItems([]);
       } finally {
         setLoaded(true);
@@ -70,50 +72,63 @@ export default function PitchFeed() {
     []
   );
 
-  const display = items.length ? items : fallback;
-  const expanded =
-    display.length >= 6
-      ? display
-      : Array.from({ length: 6 }).map((_, index) => display[index % display.length]);
-  const mainLeft = hoverLeft ?? expanded[0];
-  const mainRight = hoverRight ?? expanded[1];
-  const minis = expanded.slice(2, 6);
+  const baseFeed = items.length ? items : fallback;
+  const feature = weekPick ?? baseFeed[0] ?? fallback[0];
+  const rowSeed = baseFeed.filter((item) => item.id !== feature?.id);
+  const rowExpanded =
+    rowSeed.length >= 20
+      ? rowSeed
+      : [
+          ...rowSeed,
+          ...Array.from({ length: Math.max(0, 20 - rowSeed.length) }).map(
+            (_, index) => fallback[index % fallback.length]
+          ),
+        ];
+  const rowOne = rowExpanded.slice(0, 10);
+  const rowTwo = rowExpanded.slice(10, 20);
+
+  const scrollRow = (ref: { current: HTMLDivElement | null }, direction: "left" | "right") => {
+    if (!ref.current) return;
+    const amount = direction === "left" ? -320 : 320;
+    ref.current.scrollBy({ left: amount, behavior: "smooth" });
+  };
 
   return (
     <section className="pitch-section">
       <div className="pitch-header">
         <h3>Pitch of the Week</h3>
-        <button className="pitch-link" type="button" onClick={() => setDrawerOpen(true)}>
-          Open story
-        </button>
       </div>
-      <div className={`arena-grid${loaded ? " is-loaded" : ""}`}>
-        {mainLeft ? (
-          <div className="arena-main">
-            <PitchArenaCard pitch={mainLeft} variant="main" />
-          </div>
-        ) : null}
-        {mainRight ? (
-          <div className="arena-main">
-            <PitchArenaCard pitch={mainRight} variant="main" />
-          </div>
-        ) : null}
-        {minis.map((pitch, index) => {
-          const side = index < 2 ? "left" : "right";
-          return (
-            <div className="arena-mini" key={pitch.id}>
-              <PitchArenaCard
-                pitch={pitch}
-                variant="mini"
-                active={(side === "left" && hoverLeft?.id === pitch.id) || (side === "right" && hoverRight?.id === pitch.id)}
-                onHover={(p) => (side === "left" ? setHoverLeft(p) : setHoverRight(p))}
-                onLeave={() => (side === "left" ? setHoverLeft(null) : setHoverRight(null))}
-              />
-            </div>
-          );
-        })}
+      <div className={`pitch-week${loaded ? " is-loaded" : ""}`}>
+        {feature ? <PitchShowCard pitch={feature} size="feature" /> : null}
       </div>
-      <PitchDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <div className="pitch-rows">
+        <div className="pitch-row">
+          <button type="button" className="row-arrow left" onClick={() => scrollRow(rowOneRef, "left")}>
+            ‹
+          </button>
+          <div className="pitch-row-track" ref={rowOneRef}>
+            {rowOne.map((pitch) => (
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
+            ))}
+          </div>
+          <button type="button" className="row-arrow right" onClick={() => scrollRow(rowOneRef, "right")}>
+            ›
+          </button>
+        </div>
+        <div className="pitch-row">
+          <button type="button" className="row-arrow left" onClick={() => scrollRow(rowTwoRef, "left")}>
+            ‹
+          </button>
+          <div className="pitch-row-track" ref={rowTwoRef}>
+            {rowTwo.map((pitch) => (
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
+            ))}
+          </div>
+          <button type="button" className="row-arrow right" onClick={() => scrollRow(rowTwoRef, "right")}>
+            ›
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
