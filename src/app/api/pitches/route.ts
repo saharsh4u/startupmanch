@@ -5,6 +5,7 @@ import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 export const runtime = "nodejs";
 
 const validTabs = new Set(["trending", "fresh", "food", "fashion"]);
+const validModes = new Set(["week", "feed"]);
 
 type PitchFeedItem = {
   pitch_id: string;
@@ -24,15 +25,24 @@ type PitchFeedItem = {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const modeParam = searchParams.get("mode") ?? "feed";
   const tab = searchParams.get("tab") ?? "trending";
   const limitParam = Number(searchParams.get("limit") ?? "20");
+  const offsetParam = Number(searchParams.get("offset") ?? "0");
+  const minVotesParam = Number(searchParams.get("min_votes") ?? "10");
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 20;
+  const offset = Number.isFinite(offsetParam) ? Math.max(offsetParam, 0) : 0;
+  const minVotes = Number.isFinite(minVotesParam) ? Math.max(minVotesParam, 0) : 10;
 
   const safeTab = validTabs.has(tab) ? tab : "trending";
+  const safeMode = validModes.has(modeParam) ? modeParam : "feed";
 
   const { data, error } = await supabaseAdmin.rpc("fetch_pitch_feed", {
+    mode: safeMode,
     tab: safeTab,
     max_items: limit,
+    offset_items: offset,
+    min_votes: minVotes,
   });
 
   if (error) {
@@ -67,7 +77,7 @@ export async function GET(request: Request) {
     })
   );
 
-  return NextResponse.json({ tab: safeTab, data: enriched });
+  return NextResponse.json({ mode: safeMode, tab: safeTab, data: enriched, offset, limit });
 }
 
 export async function POST(request: Request) {
