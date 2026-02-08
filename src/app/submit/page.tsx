@@ -17,8 +17,6 @@ type StartupPayload = {
 
 type PitchPayload = {
   ask: string;
-  equity: string;
-  valuation: string;
   type: "elevator" | "demo";
   duration_sec?: number;
 };
@@ -44,8 +42,6 @@ export default function SubmitPage() {
 
   const [pitch, setPitch] = useState<PitchPayload>({
     ask: "",
-    equity: "",
-    valuation: "",
     type: "elevator",
   });
 
@@ -208,8 +204,6 @@ export default function SubmitPage() {
           type: pitch.type,
           duration_sec: pitch.duration_sec,
           ask: pitch.ask,
-          equity: pitch.equity,
-          valuation: pitch.valuation,
         }),
       });
 
@@ -460,24 +454,6 @@ export default function SubmitPage() {
                 placeholder="₹50L"
                 value={pitch.ask}
                 onChange={(event) => setPitch({ ...pitch, ask: event.target.value })}
-              />
-            </div>
-            <div className="form-field">
-              <label>Equity</label>
-              <input
-                type="text"
-                placeholder="2%"
-                value={pitch.equity}
-                onChange={(event) => setPitch({ ...pitch, equity: event.target.value })}
-              />
-            </div>
-            <div className="form-field">
-              <label>Valuation</label>
-              <input
-                type="text"
-                placeholder="₹25 Cr"
-                value={pitch.valuation}
-                onChange={(event) => setPitch({ ...pitch, valuation: event.target.value })}
               />
             </div>
             <div className="form-field">
