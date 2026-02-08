@@ -5,7 +5,7 @@ export default function HomeHero() {
         <span className="brand-star">✦</span>
         <span>StartupManch</span>
       </div>
-      <h1>India’s Pitch Stage</h1>
+      <h1>Find Next Startup Through Real Pitches</h1>
       <p className="hero-subline">Watch. Judge. Back.</p>
       <div className="hero-actions">
         <div className="hero-search">

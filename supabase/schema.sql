@@ -104,6 +104,34 @@ create table if not exists public.investor_requests (
   unique (user_id)
 );
 
+-- Investor Connect
+create table if not exists public.investor_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  role text,
+  firm text,
+  cheque_min int,
+  cheque_max int,
+  linkedin_url text,
+  official_email text,
+  pan text,
+  cin text,
+  gst text,
+  verified_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.intro_requests (
+  id uuid primary key default gen_random_uuid(),
+  pitch_id uuid not null references public.pitches(id) on delete cascade,
+  investor_id uuid not null references public.investor_profiles(id) on delete cascade,
+  status public.request_status not null default 'pending',
+  note text,
+  cheque_hint int,
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  decided_by uuid references public.profiles(id)
+);
+
 create or replace view public.pitch_stats as
 select
   p.id as pitch_id,
