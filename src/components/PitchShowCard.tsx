@@ -15,7 +15,7 @@ export type PitchShow = {
 type PitchShowCardProps = {
   pitch: PitchShow;
   size: "feature" | "row" | "wide" | "mini";
-  onExpand?: Dispatch<SetStateAction<PitchShow | null>>;
+  onExpand?: (pitch: PitchShow) => void;
 };
 
 export default function PitchShowCard({ pitch, size, onExpand }: PitchShowCardProps) {
