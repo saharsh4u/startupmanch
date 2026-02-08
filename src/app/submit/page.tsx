@@ -12,6 +12,12 @@ type StartupPayload = {
   one_liner: string;
   website: string;
   is_d2c: boolean;
+  founder_photo_url: string;
+  founder_story: string;
+  monthly_revenue: string;
+  linkedin: string;
+  twitter: string;
+  instagram: string;
 };
 
 type PitchPayload = {
@@ -36,6 +42,12 @@ export default function SubmitPage() {
     one_liner: "",
     website: "",
     is_d2c: false,
+    founder_photo_url: "",
+    founder_story: "",
+    monthly_revenue: "",
+    linkedin: "",
+    twitter: "",
+    instagram: "",
   });
 
   const [pitch, setPitch] = useState<PitchPayload>({
@@ -136,13 +148,23 @@ export default function SubmitPage() {
         throw new Error("Please sign in first.");
       }
 
+      const socialLinks = {
+        website: startup.website || null,
+        linkedin: startup.linkedin || null,
+        twitter: startup.twitter || null,
+        instagram: startup.instagram || null,
+      };
+
       const startupRes = await fetch("/api/startups", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(startup),
+        body: JSON.stringify({
+          ...startup,
+          social_links: socialLinks,
+        }),
       });
 
       if (!startupRes.ok) {
@@ -306,6 +328,60 @@ export default function SubmitPage() {
                 placeholder="https://startup.com"
                 value={startup.website}
                 onChange={(event) => setStartup({ ...startup, website: event.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Founder photo URL</label>
+              <input
+                type="url"
+                placeholder="https://images.unsplash.com/..."
+                value={startup.founder_photo_url}
+                onChange={(event) => setStartup({ ...startup, founder_photo_url: event.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Founder story / background</label>
+              <textarea
+                placeholder="Ex-Flipkart PM building AI for retail..."
+                value={startup.founder_story}
+                onChange={(event) => setStartup({ ...startup, founder_story: event.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="form-field">
+              <label>Monthly revenue</label>
+              <input
+                type="text"
+                placeholder="$25k MRR"
+                value={startup.monthly_revenue}
+                onChange={(event) => setStartup({ ...startup, monthly_revenue: event.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>LinkedIn</label>
+              <input
+                type="url"
+                placeholder="https://linkedin.com/in/you"
+                value={startup.linkedin}
+                onChange={(event) => setStartup({ ...startup, linkedin: event.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Twitter</label>
+              <input
+                type="url"
+                placeholder="https://twitter.com/you"
+                value={startup.twitter}
+                onChange={(event) => setStartup({ ...startup, twitter: event.target.value })}
+              />
+            </div>
+            <div className="form-field">
+              <label>Instagram</label>
+              <input
+                type="url"
+                placeholder="https://instagram.com/you"
+                value={startup.instagram}
+                onChange={(event) => setStartup({ ...startup, instagram: event.target.value })}
               />
             </div>
             <label className="form-checkbox">
