@@ -23,8 +23,14 @@ export default function PitchShowCard({ pitch, size }: PitchShowCardProps) {
     videoRef.current.muted = true;
   }, [pitch.video]);
 
+  const label = `Pitch: ${pitch.name}, 60s`;
+
   return (
-    <article className={`pitch-show-card ${size}`}>
+    <article
+      className={`pitch-show-card ${size}`}
+      tabIndex={0}
+      aria-label={label}
+    >
       {pitch.video ? (
         <video
           ref={videoRef}

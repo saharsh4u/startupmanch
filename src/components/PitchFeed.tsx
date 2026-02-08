@@ -102,6 +102,14 @@ export default function PitchFeed() {
   const rowOne = fillPool.slice(0, 5);
   const rowTwo = fillPool.slice(5, 10);
 
+  useEffect(() => {
+    topPitches.forEach((pitch) => {
+      if (!pitch.poster) return;
+      const img = new Image();
+      img.src = pitch.poster;
+    });
+  }, [topPitches]);
+
   return (
     <section className="pitch-section">
       <div className="pitch-header">
