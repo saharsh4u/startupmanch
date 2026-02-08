@@ -15,13 +15,13 @@ export const leftAdSlots: AdSlot[] = [
     front: {
       name: "GojiberryAI",
       tagline: "Find warm leads and book sales calls automatically",
-      accent: "#442126",
+      accent: "#f7eedf",
       badge: "AI"
     },
     back: {
       name: "Postopus",
       tagline: "Post everywhere, all at once. Become a Founding Tentacle.",
-      accent: "#3b2043",
+      accent: "#f3ead8",
       badge: "SOCIAL"
     }
   },
@@ -29,13 +29,13 @@ export const leftAdSlots: AdSlot[] = [
     front: {
       name: "DataFast",
       tagline: "Analytics for your SaaS",
-      accent: "#3c2e1f",
+      accent: "#f4ecd9",
       badge: "DATA"
     },
     back: {
       name: "MedShotsAI",
       tagline: "AI-powered headshots & marketing photos for medical...",
-      accent: "#1f2f52",
+      accent: "#f2e6d4",
       badge: "AI"
     }
   },
@@ -43,13 +43,13 @@ export const leftAdSlots: AdSlot[] = [
     front: {
       name: "Chargeback.io",
       tagline: "Prevent chargebacks on autopilot",
-      accent: "#1e2b53",
+      accent: "#f6efe3",
       badge: "SECURE"
     },
     back: {
       name: "FeatureBot",
       tagline: "Stop building features nobody wants",
-      accent: "#1e3a4c",
+      accent: "#f2e9d9",
       badge: "BOT"
     }
   },
@@ -57,13 +57,13 @@ export const leftAdSlots: AdSlot[] = [
     front: {
       name: "Rank Press",
       tagline: "WordPress AI agent. High-authority content for Google",
-      accent: "#3e2f1f",
+      accent: "#f5edde",
       badge: "SEO"
     },
     back: {
       name: "StartupSubmit",
       tagline: "Get your startup listed on 300+ directories",
-      accent: "#2a2945",
+      accent: "#f1e7d6",
       badge: "LIST"
     }
   },
@@ -71,13 +71,13 @@ export const leftAdSlots: AdSlot[] = [
     front: {
       name: "VisiLead",
       tagline: "Identify visitors. Convert them with smart flows",
-      accent: "#2a2a2a",
+      accent: "#f8f1e6",
       badge: "ADS"
     },
     back: {
       name: "GojiberryAI",
       tagline: "Find warm leads and book sales calls automatically",
-      accent: "#442126",
+      accent: "#f7eedf",
       badge: "AI"
     }
   }
@@ -88,13 +88,13 @@ export const rightAdSlots: AdSlot[] = [
     front: {
       name: "StartClaw",
       tagline: "Setup OpenClaw in under 60 seconds",
-      accent: "#4a3720",
+      accent: "#f3ead8",
       badge: "LAUNCH"
     },
     back: {
       name: "Late",
       tagline: "Replace 12 social APIs with one",
-      accent: "#3f2f1f",
+      accent: "#f5edde",
       badge: "API"
     }
   },
@@ -102,13 +102,13 @@ export const rightAdSlots: AdSlot[] = [
     front: {
       name: "Brand.dev",
       tagline: "API to personalize your product with logos, colors...",
-      accent: "#3c1d4a",
+      accent: "#f1e7d6",
       badge: "BRAND"
     },
     back: {
       name: "Insight Analytics",
       tagline: "Professional stock research, powered by AI",
-      accent: "#1f3a56",
+      accent: "#f2e6d4",
       badge: "AI"
     }
   },
@@ -116,13 +116,13 @@ export const rightAdSlots: AdSlot[] = [
     front: {
       name: "SiteGPT",
       tagline: "Make AI your expert customer service agent",
-      accent: "#243b5f",
+      accent: "#f6efe3",
       badge: "AI"
     },
     back: {
       name: "Repllymer",
       tagline: "Human replies that sell your product",
-      accent: "#1d2f46",
+      accent: "#f2e9d9",
       badge: "CX"
     }
   },
@@ -130,13 +130,13 @@ export const rightAdSlots: AdSlot[] = [
     front: {
       name: "CodeFast",
       tagline: "Learn to code in days, not years",
-      accent: "#2a2a2a",
+      accent: "#f8f1e6",
       badge: "DEV"
     },
     back: {
       name: "Insight Analytics",
       tagline: "Professional stock research, powered by AI",
-      accent: "#1f3a56",
+      accent: "#f2e6d4",
       badge: "AI"
     }
   },
@@ -144,13 +144,13 @@ export const rightAdSlots: AdSlot[] = [
     front: {
       name: "Advertise",
       tagline: "3/20 spots left",
-      accent: "#141414",
+      accent: "#fdf8ec",
       badge: "AD"
     },
     back: {
       name: "Advertise",
       tagline: "3/20 spots left",
-      accent: "#141414",
+      accent: "#fdf8ec",
       badge: "AD"
     }
   }

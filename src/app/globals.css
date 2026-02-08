@@ -1,11 +1,11 @@
 :root {
-  --bg: #0b0b0b;
-  --panel: #151515;
-  --panel-soft: #1c1c1c;
-  --stroke: rgba(255, 255, 255, 0.08);
-  --text: #f3f3f3;
-  --muted: #a5a5a5;
-  --accent: #8b5bff;
+  --bg: #fdf8ec;
+  --panel: #f9f2e6;
+  --panel-soft: #f3ebdb;
+  --stroke: rgba(51, 51, 51, 0.12);
+  --text: #333333;
+  --muted: rgba(51, 51, 51, 0.65);
+  --accent: #333333;
   --shadow: 0 18px 36px rgba(0, 0, 0, 0.6);
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -25,7 +25,7 @@ body {
 
 body {
   font-family: var(--font-body), "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, #1c1c1c 0%, #0b0b0b 60%);
+  background: radial-gradient(circle at top, #fdf8ec 0%, #f3ebdb 65%);
   color: var(--text);
   position: relative;
 }
@@ -36,8 +36,8 @@ body::before {
   inset: -20% -10% auto -10%;
   height: 70vh;
   background:
-    radial-gradient(circle at 20% 20%, rgba(255, 159, 63, 0.12), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(120, 92, 255, 0.12), transparent 60%);
+    radial-gradient(circle at 20% 20%, rgba(51, 51, 51, 0.08), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(51, 51, 51, 0.06), transparent 60%);
   pointer-events: none;
   z-index: -1;
 }
@@ -120,18 +120,19 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(51, 51, 51, 0.12);
+  box-shadow: 0 16px 30px rgba(51, 51, 51, 0.12);
   backface-visibility: hidden;
   overflow: hidden;
+  color: #333333;
 }
 
 .ad-face::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(130deg, rgba(255, 255, 255, 0.12), transparent 60%);
-  opacity: 0.15;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.35), transparent 60%);
+  opacity: 0.25;
   pointer-events: none;
 }
 
@@ -140,8 +141,8 @@ a {
 }
 
 .ad-face.advertise {
-  border: 1px dashed rgba(255, 255, 255, 0.18);
-  background: #121212;
+  border: 1px dashed rgba(51, 51, 51, 0.3);
+  background: #fdf8ec;
   box-shadow: none;
 }
 
@@ -151,7 +152,7 @@ a {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(51, 51, 51, 0.08);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -164,7 +165,7 @@ a {
 
 .ad-face p {
   font-size: 0.75rem;
-  color: rgba(230, 229, 240, 0.7);
+  color: rgba(51, 51, 51, 0.7);
 }
 
 .hero {
@@ -179,7 +180,7 @@ a {
   position: absolute;
   inset: -40px 15% auto 15%;
   height: 190px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent 72%);
+  background: radial-gradient(circle, rgba(51, 51, 51, 0.08), transparent 72%);
   z-index: -1;
 }
 
@@ -188,13 +189,13 @@ a {
   align-items: center;
   gap: 10px;
   font-size: 0.9rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(51, 51, 51, 0.7);
   margin-bottom: 14px;
 }
 
 .brand-star {
   font-size: 1.1rem;
-  color: #ff9f3f;
+  color: #333333;
 }
 
 .hero h1 {
@@ -205,7 +206,7 @@ a {
 
 .hero-subline {
   font-size: 1rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(51, 51, 51, 0.7);
   margin-bottom: 18px;
 }
 
@@ -223,10 +224,10 @@ a {
   gap: 10px;
   padding: 10px 16px;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(22, 22, 22, 0.95), rgba(12, 12, 12, 0.9));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #ffffff;
+  border: 1px solid rgba(51, 51, 51, 0.18);
   min-width: min(460px, 70vw);
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 20px rgba(51, 51, 51, 0.12);
 }
 
 .hero-search input {
@@ -242,19 +243,19 @@ a {
 }
 
 .hero-btn {
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  background: #ff9f3f;
-  color: #1a1207;
+  border: 1px solid rgba(51, 51, 51, 0.4);
+  background: #333333;
+  color: #fdf8ec;
   padding: 8px 16px;
   border-radius: 999px;
   font-weight: 600;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 12px 20px rgba(51, 51, 51, 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .hero-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 16px 24px rgba(51, 51, 51, 0.28);
 }
 
 .submit-page {
@@ -282,11 +283,11 @@ a {
 }
 
 .submit-card {
-  background: rgba(21, 21, 21, 0.6);
+  background: rgba(253, 248, 236, 0.9);
   border-radius: var(--radius-lg);
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(51, 51, 51, 0.12);
+  box-shadow: 0 16px 28px rgba(51, 51, 51, 0.12);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -302,7 +303,7 @@ a {
 
 .submit-card-header span {
   font-size: 0.8rem;
-  color: rgba(235, 235, 235, 0.6);
+  color: rgba(51, 51, 51, 0.6);
 }
 
 .submit-grid {
@@ -319,18 +320,18 @@ a {
 
 .form-field label {
   font-size: 0.8rem;
-  color: rgba(235, 235, 235, 0.6);
+  color: rgba(51, 51, 51, 0.6);
 }
 
 .form-hint {
   font-size: 0.75rem;
-  color: rgba(235, 235, 235, 0.5);
+  color: rgba(51, 51, 51, 0.5);
 }
 
 .form-field input,
 .form-field select {
-  background: #111111;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid rgba(51, 51, 51, 0.18);
   color: var(--text);
   padding: 10px 12px;
   border-radius: 12px;
@@ -341,7 +342,7 @@ a {
   align-items: center;
   gap: 10px;
   font-size: 0.85rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(51, 51, 51, 0.7);
 }
 
 .submit-actions {
@@ -531,22 +532,22 @@ a {
 }
 
 .featured {
-  background: linear-gradient(180deg, rgba(21, 21, 21, 0.7), rgba(12, 12, 12, 0.9));
+  background: linear-gradient(180deg, rgba(253, 248, 236, 0.9), rgba(243, 235, 219, 0.95));
   border-radius: var(--radius-lg);
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(51, 51, 51, 0.12);
+  box-shadow: 0 18px 32px rgba(51, 51, 51, 0.14);
 }
 
 .pitch-section {
   background:
-    radial-gradient(circle at 20% 10%, rgba(255, 159, 63, 0.16), transparent 55%),
-    radial-gradient(circle at 80% 0%, rgba(120, 92, 255, 0.18), transparent 60%),
-    linear-gradient(180deg, rgba(18, 18, 18, 0.9), rgba(10, 10, 10, 0.98));
+    radial-gradient(circle at 20% 10%, rgba(51, 51, 51, 0.08), transparent 55%),
+    radial-gradient(circle at 80% 0%, rgba(51, 51, 51, 0.06), transparent 60%),
+    linear-gradient(180deg, rgba(253, 248, 236, 0.95), rgba(243, 235, 219, 0.98));
   border-radius: 26px;
   padding: 22px 22px 26px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(51, 51, 51, 0.14);
+  box-shadow: 0 22px 40px rgba(51, 51, 51, 0.18);
 }
 
 .pitch-header {
@@ -561,7 +562,7 @@ a {
   margin-bottom: 0;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: rgba(235, 235, 235, 0.75);
+  color: rgba(51, 51, 51, 0.75);
 }
 
 .pitch-link {
@@ -588,16 +589,16 @@ a {
   position: relative;
   border-radius: 24px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: #0f0f0f;
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(51, 51, 51, 0.16);
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(51, 51, 51, 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
 }
 
 .pitch-show-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.75);
-  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 24px 44px rgba(51, 51, 51, 0.28);
+  border-color: rgba(51, 51, 51, 0.28);
 }
 
 .pitch-show-card.feature {
@@ -631,22 +632,22 @@ a {
   justify-content: flex-end;
   gap: 10px;
   padding: 16px;
-  color: #f3f3f3;
+  color: #fdf8ec;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.85)),
-    linear-gradient(120deg, rgba(255, 159, 63, 0.12), transparent 50%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.8)),
+    linear-gradient(120deg, rgba(51, 51, 51, 0.15), transparent 50%);
 }
 
 .pitch-show-badge {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(12, 12, 12, 0.8);
-  color: rgba(255, 239, 220, 0.95);
+  background: rgba(253, 248, 236, 0.92);
+  color: #333333;
   font-size: 0.7rem;
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(51, 51, 51, 0.2);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -670,12 +671,12 @@ a {
 
 .pitch-show-card.feature .pitch-show-text p {
   font-size: 0.88rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(253, 248, 236, 0.75);
 }
 
 .pitch-show-card.row .pitch-show-text p {
   font-size: 0.78rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(253, 248, 236, 0.72);
 }
 
 .pitch-rows {
@@ -689,10 +690,10 @@ a {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  background: rgba(10, 10, 10, 0.55);
+  background: rgba(253, 248, 236, 0.9);
   border-radius: 18px;
   padding: 10px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(51, 51, 51, 0.12);
 }
 
 .pitch-row-track {
@@ -712,9 +713,9 @@ a {
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(18, 18, 18, 0.95);
-  color: rgba(235, 235, 235, 0.9);
+  border: 1px solid rgba(51, 51, 51, 0.2);
+  background: #ffffff;
+  color: rgba(51, 51, 51, 0.9);
   font-size: 1.4rem;
   display: grid;
   place-items: center;
@@ -723,7 +724,7 @@ a {
 
 .row-arrow:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 159, 63, 0.7);
+  border-color: rgba(51, 51, 51, 0.6);
 }
 
 .arena-grid {
@@ -1051,10 +1052,10 @@ a {
 }
 
 .listing-card {
-  background: linear-gradient(160deg, rgba(28, 28, 28, 0.95), rgba(16, 16, 16, 0.9));
+  background: #ffffff;
   border-radius: var(--radius-md);
   padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(51, 51, 51, 0.12);
   min-height: 150px;
   display: flex;
   flex-direction: column;
@@ -1065,18 +1066,18 @@ a {
 
 .listing-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 28px rgba(51, 51, 51, 0.18);
 }
 
 .listing-icon {
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  background: #0f0f0f;
+  background: rgba(51, 51, 51, 0.08);
   display: grid;
   place-items: center;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(51, 51, 51, 0.14);
 }
 
 .listing-title {
@@ -1094,19 +1095,19 @@ a {
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: rgba(255, 210, 110, 0.16);
-  color: #f4c766;
+  background: rgba(51, 51, 51, 0.1);
+  color: #333333;
   padding: 2px 6px;
   border-radius: 999px;
 }
 
 .listing-meta {
   font-size: 0.78rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(51, 51, 51, 0.7);
 }
 
 .listing-meta.muted {
-  color: rgba(235, 235, 235, 0.45);
+  color: rgba(51, 51, 51, 0.45);
 }
 
 @keyframes adFlip {
