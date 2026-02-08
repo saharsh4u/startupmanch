@@ -11,13 +11,8 @@ type StartupPayload = {
   city: string;
   one_liner: string;
   website: string;
-  is_d2c: boolean;
   founder_photo_url: string;
-  founder_story: string;
   monthly_revenue: string;
-  linkedin: string;
-  twitter: string;
-  instagram: string;
 };
 
 type PitchPayload = {
@@ -43,13 +38,8 @@ export default function SubmitPage() {
     city: "",
     one_liner: "",
     website: "",
-    is_d2c: false,
     founder_photo_url: "",
-    founder_story: "",
     monthly_revenue: "",
-    linkedin: "",
-    twitter: "",
-    instagram: "",
   });
 
   const [pitch, setPitch] = useState<PitchPayload>({
@@ -158,9 +148,6 @@ export default function SubmitPage() {
 
       const socialLinks = {
         website: startup.website || null,
-        linkedin: startup.linkedin || null,
-        twitter: startup.twitter || null,
-        instagram: startup.instagram || null,
       };
 
       const startupRes = await fetch("/api/startups", {
@@ -374,15 +361,6 @@ export default function SubmitPage() {
               />
             </div>
             <div className="form-field">
-              <label>Founder story / background</label>
-              <textarea
-                placeholder="Ex-Flipkart PM building AI for retail..."
-                value={startup.founder_story}
-                onChange={(event) => setStartup({ ...startup, founder_story: event.target.value })}
-                rows={3}
-              />
-            </div>
-            <div className="form-field">
               <label>Monthly revenue</label>
               <input
                 type="text"
@@ -391,41 +369,6 @@ export default function SubmitPage() {
                 onChange={(event) => setStartup({ ...startup, monthly_revenue: event.target.value })}
               />
             </div>
-            <div className="form-field">
-              <label>LinkedIn</label>
-              <input
-                type="url"
-                placeholder="https://linkedin.com/in/you"
-                value={startup.linkedin}
-                onChange={(event) => setStartup({ ...startup, linkedin: event.target.value })}
-              />
-            </div>
-            <div className="form-field">
-              <label>Twitter</label>
-              <input
-                type="url"
-                placeholder="https://twitter.com/you"
-                value={startup.twitter}
-                onChange={(event) => setStartup({ ...startup, twitter: event.target.value })}
-              />
-            </div>
-            <div className="form-field">
-              <label>Instagram</label>
-              <input
-                type="url"
-                placeholder="https://instagram.com/you"
-                value={startup.instagram}
-                onChange={(event) => setStartup({ ...startup, instagram: event.target.value })}
-              />
-            </div>
-            <label className="form-checkbox">
-              <input
-                type="checkbox"
-                checked={startup.is_d2c}
-                onChange={(event) => setStartup({ ...startup, is_d2c: event.target.checked })}
-              />
-              <span>D2C / Physical product</span>
-            </label>
           </div>
         </section>
 
