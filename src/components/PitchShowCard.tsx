@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import ContactModal from "./ContactModal";
 
 export type PitchShow = {
   id: string;
@@ -17,6 +18,7 @@ type PitchShowCardProps = {
 
 export default function PitchShowCard({ pitch, size }: PitchShowCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -30,6 +32,7 @@ export default function PitchShowCard({ pitch, size }: PitchShowCardProps) {
       className={`pitch-show-card ${size}`}
       tabIndex={0}
       aria-label={label}
+      onClick={() => dialogRef.current?.showModal()}
     >
       {pitch.video ? (
         <video
@@ -53,6 +56,7 @@ export default function PitchShowCard({ pitch, size }: PitchShowCardProps) {
           <p>{pitch.tagline}</p>
         </div>
       </div>
+      <ContactModal ref={dialogRef} pitch={pitch} />
     </article>
   );
 }

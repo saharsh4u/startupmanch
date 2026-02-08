@@ -132,6 +132,29 @@ create table if not exists public.intro_requests (
   decided_by uuid references public.profiles(id)
 );
 
+-- General contact requests from viewers to founders
+create table if not exists public.contact_requests (
+  id uuid primary key default gen_random_uuid(),
+  pitch_id uuid references public.pitches(id) on delete cascade,
+  name text,
+  email text,
+  message text,
+  offer_amount numeric,
+  created_at timestamptz not null default now()
+);
+
+alter table public.contact_requests enable row level security;
+
+create policy "Contact requests insertable" on public.contact_requests
+for insert
+to authenticated, anon
+with check (true);
+
+create policy "Contact requests viewable by admin" on public.contact_requests
+for select
+to authenticated
+using (public.is_admin());
+
 create or replace view public.pitch_stats as
 select
   p.id as pitch_id,
