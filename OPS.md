@@ -99,10 +99,10 @@ Usually video too large or bucket policy. Try smaller video first.
 
 ## Current Product State (Feb 7, 2026)
 ### Frontend UI
-- **Homepage “Hot video pitches”** uses a **2x2 vertical grid**:
-  - Top row: **2 vertical (9:16)** cards (left = Pitch of Week)
-  - Bottom row: **2 vertical (9:16)** cards (slightly larger)
-  - All pulled from live approved pitches
+- **Homepage “Hot video pitches”** layout:
+  - Top row: **2 smaller vertical (9:16)** cards (left = Pitch of Week)
+  - Two horizontal **scroll rows** below (5 cards each per row)
+  - All cards are vertical and pulled from live approved pitches
 - **Hero tabs removed** (Trending/Fresh/Food/Fashion are no longer shown under the search).
 - **Post pitch CTA** always links to: `https://www.startupmanch.com/submit`
 
@@ -113,7 +113,7 @@ Usually video too large or bucket policy. Try smaller video first.
   - Minimum 10 votes
 - Mosaic uses:
   - Week card + secondary: `/api/pitches?mode=week&limit=1&min_votes=10` + feed
-  - Remaining cards: `/api/pitches?mode=feed&tab=trending&limit=20`
+  - Row cards: `/api/pitches?mode=feed&tab=trending&limit=20` (filled to 10 items)
 
 ### Admin Workflow
 - `/admin` dashboard (combined queue)

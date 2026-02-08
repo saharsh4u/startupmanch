@@ -1,7 +1,7 @@
 :root {
-  --bg: #080808;
-  --panel: #111111;
-  --panel-soft: #191919;
+  --bg: #050505;
+  --panel: #0d0d0d;
+  --panel-soft: #161616;
   --stroke: rgba(255, 255, 255, 0.08);
   --text: #f7f7f7;
   --muted: rgba(255, 255, 255, 0.65);
@@ -25,7 +25,7 @@ body {
 
 body {
   font-family: var(--font-body), "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, #151515 0%, #080808 70%);
+  background: radial-gradient(circle at top, #121212 0%, #050505 75%);
   color: var(--text);
   position: relative;
 }
@@ -578,12 +578,10 @@ a {
 }
 
 .pitch-mosaic {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   padding: 4px 6px 18px;
-  justify-items: center;
-  align-items: start;
 }
 
 .pitch-mosaic.is-loaded {
@@ -606,9 +604,45 @@ a {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.pitch-top-grid {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.pitch-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pitch-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+}
+
+.pitch-row::-webkit-scrollbar {
+  height: 6px;
+}
+
+.pitch-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.pitch-row::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+}
+
 .pitch-show-card.feature {
-  width: 100%;
-  max-width: 280px;
+  height: clamp(320px, 45vh, 420px);
+  width: auto;
+  max-width: 240px;
   aspect-ratio: 9 / 16;
 }
 
@@ -620,14 +654,15 @@ a {
 
 .pitch-show-card.mini {
   width: 100%;
-  max-width: 320px;
+  max-width: 260px;
   aspect-ratio: 9 / 16;
 }
 
 .pitch-show-card.row {
-  width: 210px;
+  width: 260px;
   aspect-ratio: 9 / 16;
   flex: 0 0 auto;
+  scroll-snap-align: start;
 }
 
 .pitch-show-media {

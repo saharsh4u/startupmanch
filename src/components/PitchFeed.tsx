@@ -73,16 +73,19 @@ export default function PitchFeed() {
   const primary = weekPick ?? baseFeed[0] ?? fallback[0];
   const secondaryPool = baseFeed.filter((item) => item.id !== primary?.id);
   const secondary = secondaryPool[0] ?? fallback.find((item) => item.id !== primary?.id) ?? null;
-  const tertiary =
-    secondaryPool[1] ??
-    fallback.find((item) => item.id !== primary?.id && item.id !== secondary?.id) ??
-    null;
-  const quaternary =
-    secondaryPool[2] ??
-    fallback.find(
-      (item) => item.id !== primary?.id && item.id !== secondary?.id && item.id !== tertiary?.id
-    ) ??
-    null;
+
+  const topIds = new Set([primary?.id, secondary?.id].filter(Boolean));
+  const rowPool = baseFeed.filter((item) => !topIds.has(item.id));
+  const fallbackPool = fallback.filter((item) => !topIds.has(item.id));
+  const sourcePool = rowPool.length ? rowPool : fallbackPool;
+  const fillPool: PitchShow[] = [];
+  let cursor = 0;
+  while (fillPool.length < 10 && sourcePool.length) {
+    fillPool.push(sourcePool[cursor % sourcePool.length]);
+    cursor += 1;
+  }
+  const rowOne = fillPool.slice(0, 5);
+  const rowTwo = fillPool.slice(5, 10);
 
   return (
     <section className="pitch-section">
@@ -90,10 +93,22 @@ export default function PitchFeed() {
         <h3>Hot video pitches</h3>
       </div>
       <div className={`pitch-mosaic${loaded ? " is-loaded" : ""}`}>
-        {primary ? <PitchShowCard pitch={primary} size="feature" /> : null}
-        {secondary ? <PitchShowCard pitch={secondary} size="feature" /> : null}
-        {tertiary ? <PitchShowCard pitch={tertiary} size="mini" /> : null}
-        {quaternary ? <PitchShowCard pitch={quaternary} size="mini" /> : null}
+        <div className="pitch-top-grid">
+          {primary ? <PitchShowCard pitch={primary} size="feature" /> : null}
+          {secondary ? <PitchShowCard pitch={secondary} size="feature" /> : null}
+        </div>
+        <div className="pitch-rows">
+          <div className="pitch-row">
+            {rowOne.map((pitch) => (
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
+            ))}
+          </div>
+          <div className="pitch-row">
+            {rowTwo.map((pitch) => (
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
