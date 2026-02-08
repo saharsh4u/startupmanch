@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type AuthStatus = "idle" | "loading" | "authed" | "error";
@@ -26,6 +27,7 @@ type RevenueProvider = "stripe" | "razorpay";
 export default function SubmitPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export default function SubmitPage() {
   const [revMessage, setRevMessage] = useState<string | null>(null);
 
   const isAuthed = authStatus === "authed";
+  const authBusy = authStatus === "loading" || googleLoading;
 
   const authHelperText = useMemo(() => {
     if (isAuthed && sessionEmail) return `Signed in as ${sessionEmail}`;
@@ -103,6 +106,23 @@ export default function SubmitPage() {
     await supabaseBrowser.auth.signOut();
     setSessionEmail(null);
     setAuthStatus("idle");
+  };
+
+  const handleGoogle = async () => {
+    try {
+      setGoogleLoading(true);
+      setAuthError(null);
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      await supabaseBrowser.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: origin ? `${origin}/submit` : undefined,
+        },
+      });
+    } catch (error: any) {
+      setAuthError(error.message ?? "Google sign-in failed.");
+      setGoogleLoading(false);
+    }
   };
 
   const uploadToSignedUrl = async (signedUrl: string, file: File) => {
@@ -242,12 +262,15 @@ export default function SubmitPage() {
     <main className="page submit-page">
       <div className="submit-shell">
         <header className="submit-hero">
-          <div className="hero-brand">
+          <Link href="/" className="hero-brand">
             <span className="brand-star">✦</span>
             <span>StartupManch</span>
-          </div>
+          </Link>
           <h1>Post your pitch</h1>
           <p>Founders only. 60s pitch. Approval in 24 hours.</p>
+          <Link href="/" className="back-home">
+            ← Back to homepage
+          </Link>
         </header>
 
         <section className="submit-card">
@@ -276,11 +299,14 @@ export default function SubmitPage() {
                 />
               </div>
               <div className="submit-actions">
-                <button type="button" onClick={() => handleSignIn("signin")}>
+                <button type="button" disabled={authBusy} onClick={() => handleSignIn("signin")}>
                   Sign in
                 </button>
-                <button type="button" className="ghost" onClick={() => handleSignIn("signup")}>
+                <button type="button" className="ghost" disabled={authBusy} onClick={() => handleSignIn("signup")}>
                   Create account
+                </button>
+                <button type="button" className="google-button" disabled={authBusy} onClick={handleGoogle}>
+                  Continue with Google
                 </button>
               </div>
               {authError ? <p className="submit-error">{authError}</p> : null}
@@ -502,7 +528,7 @@ export default function SubmitPage() {
             </div>
           </div>
           <div className="submit-actions">
-            <button type="button" disabled={submitStatus === "submitting"} onClick={handleSubmit}>
+            <button type="button" disabled={submitStatus === "submitting" || authBusy} onClick={handleSubmit}>
               {submitStatus === "submitting" ? "Submitting…" : "Submit pitch"}
             </button>
             {submitMessage ? <p className="submit-note">{submitMessage}</p> : null}

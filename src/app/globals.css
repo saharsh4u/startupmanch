@@ -314,6 +314,18 @@ a {
   color: rgba(235, 235, 235, 0.7);
 }
 
+.back-home {
+  display: inline-flex;
+  margin-top: 8px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.back-home:hover {
+  text-decoration: underline;
+}
+
 .submit-card {
   background: rgba(18, 18, 18, 0.9);
   border-radius: var(--radius-lg);
@@ -442,6 +454,19 @@ a {
   background: transparent;
   color: rgba(235, 235, 235, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.google-button {
+  background: #ffffff;
+  color: #111;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+}
+
+.google-button:disabled,
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .submit-note {
