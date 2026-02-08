@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import ContactModal from "./ContactModal";
+import type { Dispatch, SetStateAction } from "react";
 
 export type PitchShow = {
   id: string;
@@ -14,9 +15,10 @@ export type PitchShow = {
 type PitchShowCardProps = {
   pitch: PitchShow;
   size: "feature" | "row" | "wide" | "mini";
+  onExpand?: Dispatch<SetStateAction<PitchShow | null>>;
 };
 
-export default function PitchShowCard({ pitch, size }: PitchShowCardProps) {
+export default function PitchShowCard({ pitch, size, onExpand }: PitchShowCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
 
@@ -32,7 +34,10 @@ export default function PitchShowCard({ pitch, size }: PitchShowCardProps) {
       className={`pitch-show-card ${size}`}
       tabIndex={0}
       aria-label={label}
-      onClick={() => dialogRef.current?.showModal()}
+      onClick={() => {
+        if (onExpand) return onExpand(pitch);
+        dialogRef.current?.showModal();
+      }}
     >
       {pitch.video ? (
         <video

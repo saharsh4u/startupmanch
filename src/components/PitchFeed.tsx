@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
+import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
 import { pitches as fallbackPitches } from "@/data/pitches";
 
 type ApiPitch = {
@@ -17,6 +18,7 @@ export default function PitchFeed() {
   const [items, setItems] = useState<PitchShow[]>([]);
   const [weekPicks, setWeekPicks] = useState<PitchShow[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [activePitch, setActivePitch] = useState<PitchShow | null>(null);
   useEffect(() => {
     const load = async () => {
       try {
@@ -118,23 +120,26 @@ export default function PitchFeed() {
       <div className={`pitch-mosaic${loaded ? " is-loaded" : ""}`}>
         <div className="pitch-top-grid">
           {topPitches.map((pitch) => (
-            <PitchShowCard key={pitch.id} pitch={pitch} size="feature" />
+            <PitchShowCard key={pitch.id} pitch={pitch} size="feature" onExpand={setActivePitch} />
           ))}
         </div>
         <div className="pitch-divider" />
         <div className="pitch-rows">
           <div className="pitch-row">
             {rowOne.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={setActivePitch} />
             ))}
           </div>
           <div className="pitch-row">
             {rowTwo.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={setActivePitch} />
             ))}
           </div>
         </div>
       </div>
+      {activePitch && (
+        <ExpandedPitchOverlay pitch={activePitch} onClose={() => setActivePitch(null)} />
+      )}
     </section>
   );
 }
