@@ -15,7 +15,7 @@ const AdFace = ({ item, isBack }: { item: AdItem; isBack?: boolean }) => (
 );
 
 export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "left" | "right" }) {
-  const columnClass = `ad-column${side ? ` ad-${side}` : ""}`;
+  const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}`;
   return (
     <aside className={columnClass}>
       {slots.map((slot, index) => (
