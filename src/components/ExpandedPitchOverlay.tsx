@@ -363,7 +363,15 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 playsInline
               />
             ) : (
-              <div className="expand-media" style={{ backgroundImage: `url(${pitch.poster})` }} />
+              <div
+                className="expand-media"
+                style={{
+                  backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
+                  backgroundColor: "#070707",
+                }}
+              >
+                {!pitch.poster ? <span className="trust-note">Video unavailable</span> : null}
+              </div>
             )}
           </div>
 
