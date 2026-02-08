@@ -14,9 +14,11 @@ const AdFace = ({ item, isBack }: { item: AdItem; isBack?: boolean }) => (
   </div>
 );
 
-export default function AdColumn({ slots }: { slots: AdSlot[] }) {
+export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "left" | "right" }) {
+  const columnClass = `ad-column${side ? ` ad-${side}` : ""}`;
   return (
-    <aside className="ad-column">
+    <aside className={columnClass}>
+      {side === "left" && <div className="ad-pointer" aria-hidden />}
       {slots.map((slot, index) => (
         <div
           key={`${slot.front.name}-${slot.back.name}`}

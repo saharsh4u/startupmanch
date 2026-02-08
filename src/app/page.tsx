@@ -18,13 +18,13 @@ export default function Home() {
   return (
     <main className="page">
       <div className="layout-grid">
-        <AdColumn slots={leftAdSlots} />
+        <AdColumn slots={leftAdSlots} side="left" />
         <div className="center-panel">
           <HomeHero />
           <PitchFeed />
           <FeaturedListings items={featured} />
         </div>
-        <AdColumn slots={rightAdSlots} />
+        <AdColumn slots={rightAdSlots} side="right" />
       </div>
     </main>
   );
