@@ -12,6 +12,14 @@
   --radius-sm: 12px;
 }
 
+@font-face {
+  font-family: "Daily Vibes";
+  src: url("/fonts/DailyVibes.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -24,7 +32,7 @@ body {
 }
 
 body {
-  font-family: var(--font-body), "Segoe UI", sans-serif;
+  font-family: "Daily Vibes", var(--font-body), "Segoe UI", sans-serif;
   background: radial-gradient(circle at top, #0f0f0f 0%, #040404 78%);
   color: var(--text);
   position: relative;
@@ -46,7 +54,7 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-display), "Segoe UI", sans-serif;
+  font-family: "Daily Vibes", var(--font-display), "Segoe UI", sans-serif;
   margin: 0;
 }
 
