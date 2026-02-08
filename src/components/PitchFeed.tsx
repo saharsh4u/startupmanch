@@ -19,6 +19,8 @@ export default function PitchFeed() {
   const [weekPicks, setWeekPicks] = useState<PitchShow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [activePitch, setActivePitch] = useState<PitchShow | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expandedList, setExpandedList] = useState<PitchShow[]>([]);
   useEffect(() => {
     const load = async () => {
       try {
@@ -112,6 +114,24 @@ export default function PitchFeed() {
     });
   }, [topPitches]);
 
+  useEffect(() => {
+    const list = [...topPitches, ...rowPool, ...fallbackPool];
+    setExpandedList(list);
+  }, [topPitches, rowPool, fallbackPool]);
+
+  const handleExpand = (pitch: PitchShow) => {
+    const list = expandedList.length ? expandedList : [...topPitches, ...rowPool, ...fallbackPool];
+    const idx = list.findIndex((p) => p.id === pitch.id);
+    setExpandedList(list);
+    setExpandedIndex(idx >= 0 ? idx : 0);
+    setActivePitch(pitch);
+  };
+
+  const closeExpand = () => {
+    setExpandedIndex(null);
+    setActivePitch(null);
+  };
+
   return (
     <section className="pitch-section">
       <div className="pitch-header">
@@ -120,25 +140,30 @@ export default function PitchFeed() {
       <div className={`pitch-mosaic${loaded ? " is-loaded" : ""}`}>
         <div className="pitch-top-grid">
           {topPitches.map((pitch) => (
-            <PitchShowCard key={pitch.id} pitch={pitch} size="feature" onExpand={setActivePitch} />
+            <PitchShowCard key={pitch.id} pitch={pitch} size="feature" onExpand={handleExpand} />
           ))}
         </div>
         <div className="pitch-divider" />
         <div className="pitch-rows">
           <div className="pitch-row">
             {rowOne.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={setActivePitch} />
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={handleExpand} />
             ))}
           </div>
           <div className="pitch-row">
             {rowTwo.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={setActivePitch} />
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={handleExpand} />
             ))}
           </div>
         </div>
       </div>
-      {activePitch && (
-        <ExpandedPitchOverlay pitch={activePitch} onClose={() => setActivePitch(null)} />
+      {activePitch && expandedIndex !== null && expandedList.length > 0 && (
+        <ExpandedPitchOverlay
+          pitches={expandedList}
+          index={expandedIndex}
+          setIndex={setExpandedIndex}
+          onClose={closeExpand}
+        />
       )}
     </section>
   );

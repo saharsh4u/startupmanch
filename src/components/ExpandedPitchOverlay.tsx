@@ -62,8 +62,9 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   const handleWheel = (e: React.WheelEvent) => {
     e.stopPropagation();
-    if (Math.abs(e.deltaY) < 24) return;
-    if (e.deltaY > 0) goNext();
+    e.preventDefault();
+    if (Math.abs(e.deltaY) < 10 && Math.abs(e.deltaX) < 10) return;
+    if (e.deltaY > 0 || e.deltaX > 0) goNext();
     else goPrev();
   };
 
