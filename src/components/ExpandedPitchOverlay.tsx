@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelEvent } from "react";
 import type { PitchShow } from "./PitchShowCard";
+import RevenueSparkline from "./RevenueSparkline";
 
 type Props = {
   pitches: PitchShow[];
@@ -51,6 +52,19 @@ type PitchDetail = {
   };
 };
 
+type RevenueData = {
+  provider: "stripe" | "razorpay" | null;
+  status: "active" | "error" | "revoked" | "missing";
+  last_updated: string | null;
+  metrics: {
+    all_time_revenue: number | null;
+    mrr: number | null;
+    active_subscriptions: number | null;
+  };
+  currency: string;
+  series: { date: string; amount: number }[];
+};
+
 export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -63,6 +77,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [detail, setDetail] = useState<PitchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [revenue, setRevenue] = useState<RevenueData | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
@@ -148,6 +164,20 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       }
     };
     loadDetail();
+    const loadRevenue = async () => {
+      setRevenueLoading(true);
+      try {
+        const res = await fetch(`/api/pitches/${pitch.id}/revenue`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Unable to load revenue");
+        const payload = (await res.json()) as RevenueData;
+        setRevenue(payload);
+      } catch {
+        setRevenue(null);
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+    loadRevenue();
   }, [pitch]);
 
   const handleWheel = (e: WheelEvent) => {
@@ -197,15 +227,19 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   }, [detail?.pitch.created_at]);
 
   const lastUpdatedDisplay = useMemo(() => {
-    if (!detail?.pitch.created_at) return "—";
-    return new Date(detail.pitch.created_at).toLocaleString();
-  }, [detail?.pitch.created_at]);
+    const ts = revenue?.last_updated ?? detail?.pitch.created_at;
+    if (!ts) return "—";
+    return new Date(ts).toLocaleString();
+  }, [revenue?.last_updated, detail?.pitch.created_at]);
 
-  const metricAllTimeRevenue = "—";
   const metricRank = "—";
-  const metricMrr = detail?.startup.monthly_revenue ?? "—";
-  const metricActiveSubs = "—";
-  const verificationSource = normalizedWebsite ? "Website linked" : "Not verified";
+  const metricMrr = revenue?.metrics.mrr ?? detail?.startup.monthly_revenue ?? "—";
+  const metricActiveSubs = revenue?.metrics.active_subscriptions ?? "—";
+  const verificationSource =
+    revenue?.provider && revenue?.status === "active"
+      ? `Verified via ${revenue.provider === "stripe" ? "Stripe" : "Razorpay"}`
+      : "Not verified";
+  const metricAllTime = revenue?.metrics.all_time_revenue ?? null;
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
@@ -325,7 +359,17 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
             <div className="trust-metric-grid">
               {[
-                { label: "All-time revenue", value: metricAllTimeRevenue },
+                {
+                  label: "All-time revenue",
+                  value:
+                    metricAllTime !== null
+                      ? new Intl.NumberFormat(undefined, {
+                          style: "currency",
+                          currency: revenue?.currency?.toUpperCase?.() || "USD",
+                          maximumFractionDigits: 0,
+                        }).format(metricAllTime)
+                      : "—",
+                },
                 { label: "Rank", value: metricRank },
                 { label: "MRR (est.)", value: metricMrr },
                 { label: "Active subscriptions", value: metricActiveSubs },
@@ -370,6 +414,12 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               <div className="trust-verify-badge">Revenue verified</div>
               <p className="metric-value">{verificationSource}</p>
               <p className="metric-label">Last updated {lastUpdatedDisplay}</p>
+            </div>
+
+            <div className="trust-insight">
+              <h5>Revenue (last 90 days)</h5>
+              {revenueLoading ? <p className="metric-label">Loading revenue…</p> : null}
+              {!revenueLoading && <RevenueSparkline series={revenue?.series ?? []} currency={revenue?.currency ?? "USD"} />}
             </div>
           </div>
         </div>

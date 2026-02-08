@@ -28,6 +28,8 @@ type PitchPayload = {
   duration_sec?: number;
 };
 
+type RevenueProvider = "stripe" | "razorpay";
+
 export default function SubmitPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -62,6 +64,11 @@ export default function SubmitPage() {
 
   const [submitStatus, setSubmitStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+
+  const [revProvider, setRevProvider] = useState<RevenueProvider>("stripe");
+  const [revKey, setRevKey] = useState("");
+  const [revStatus, setRevStatus] = useState<"idle" | "ready" | "error" | "saved">("idle");
+  const [revMessage, setRevMessage] = useState<string | null>(null);
 
   const isAuthed = authStatus === "authed";
 
@@ -129,6 +136,7 @@ export default function SubmitPage() {
   const handleSubmit = async () => {
     setSubmitStatus("submitting");
     setSubmitMessage(null);
+    setRevStatus(revKey ? "ready" : "idle");
 
     try {
       if (!startup.name) {
@@ -175,6 +183,32 @@ export default function SubmitPage() {
       const startupData = await startupRes.json();
       const startupId = startupData.startup?.id;
       if (!startupId) throw new Error("Startup creation failed.");
+
+      if (revKey) {
+        try {
+          const revRes = await fetch("/api/revenue/connections", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              startup_id: startupId,
+              provider: revProvider,
+              api_key: revKey.trim(),
+            }),
+          });
+          if (!revRes.ok) {
+            const payload = await revRes.json();
+            throw new Error(payload.error ?? "Revenue verification failed.");
+          }
+          setRevStatus("saved");
+          setRevMessage("Revenue key saved. We’ll sync daily.");
+        } catch (err: any) {
+          setRevStatus("error");
+          setRevMessage(err.message ?? "Unable to save revenue key.");
+        }
+      }
 
       const pitchRes = await fetch("/api/pitches", {
         method: "POST",
@@ -392,6 +426,81 @@ export default function SubmitPage() {
               />
               <span>D2C / Physical product</span>
             </label>
+          </div>
+        </section>
+
+        <section className="submit-card">
+          <div className="submit-card-header">
+            <h3>Revenue verification (optional)</h3>
+            <span>Improves trust. Read-only keys only.</span>
+          </div>
+          <div className="submit-grid revenue-verify-grid">
+            <div className="rev-tabs">
+              {(["stripe", "razorpay"] as RevenueProvider[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`chip ${revProvider === p ? "active" : ""}`}
+                  onClick={() => setRevProvider(p)}
+                >
+                  {p === "stripe" ? "Stripe" : "Razorpay"}
+                </button>
+              ))}
+              <span className="rev-chip muted">Optional · improves trust</span>
+            </div>
+            <div className="form-field rev-field">
+              <label>{revProvider === "stripe" ? "Stripe restricted key" : "Razorpay key_id:key_secret"}</label>
+              <input
+                type="text"
+                placeholder={revProvider === "stripe" ? "rk_live_..." : "rzp_live_xxx:your_secret"}
+                value={revKey}
+                onChange={(e) => {
+                  setRevKey(e.target.value);
+                  setRevStatus("idle");
+                  setRevMessage(null);
+                }}
+              />
+              <p className="form-hint">
+                {revProvider === "stripe"
+                  ? "Create a read-only Restricted key (Balance/Charges read). Don’t use your secret key."
+                  : "Paste key_id and key_secret as key_id:key_secret. Read-only permissions only."}
+              </p>
+              <div className="rev-actions">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    if (!revKey.trim()) {
+                      setRevStatus("error");
+                      setRevMessage("Enter a key to test.");
+                      return;
+                    }
+                    setRevStatus("ready");
+                    setRevMessage("Looks good. We’ll save and validate when you submit.");
+                  }}
+                >
+                  Test & save
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setRevKey("");
+                    setRevStatus("idle");
+                    setRevMessage(null);
+                  }}
+                >
+                  Remove key
+                </button>
+              </div>
+              {revMessage ? <p className={`submit-note ${revStatus === "error" ? "submit-error" : ""}`}>{revMessage}</p> : null}
+              <ul className="rev-checklist">
+                <li>We’ll sync daily</li>
+                <li>You can revoke anytime</li>
+                <li>No write access</li>
+              </ul>
+              <p className="form-hint">Keys are encrypted at rest (AES-256-GCM) and never shown back to you.</p>
+            </div>
           </div>
         </section>
 

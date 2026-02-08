@@ -344,6 +344,45 @@ a {
   gap: 14px;
 }
 
+.revenue-verify-grid {
+  grid-template-columns: 1fr;
+}
+
+.rev-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rev-tabs .chip {
+  cursor: pointer;
+}
+
+.rev-chip.muted {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rev-field {
+  grid-column: 1 / -1;
+}
+
+.rev-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.rev-checklist {
+  list-style: disc;
+  margin: 8px 0 0 18px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.8);
+  display: grid;
+  gap: 4px;
+}
+
 .form-field {
   display: flex;
   flex-direction: column;
@@ -902,6 +941,34 @@ a {
 
 .trust-insight p {
   margin: 0;
+}
+
+.sparkline-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sparkline-header,
+.sparkline-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sparkline-svg {
+  width: 100%;
+  height: 60px;
+  overflow: visible;
+}
+
+.sparkline-empty {
+  padding: 6px 0;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .trust-tags {
