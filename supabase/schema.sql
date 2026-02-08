@@ -50,13 +50,38 @@ create table if not exists public.profiles (
 create table if not exists public.startups (
   id uuid primary key default gen_random_uuid(),
   founder_id uuid not null references public.profiles(id) on delete cascade,
+  owner_id uuid references public.profiles(id) on delete set null,
   name text not null,
   category text,
   city text,
   one_liner text,
   website text,
+  founder_photo_url text,
+  founder_story text,
+  monthly_revenue text,
+  social_links jsonb,
   is_d2c boolean not null default false,
   status public.startup_status not null default 'pending',
+  created_at timestamptz not null default now()
+);
+
+-- Single analytics event stream for client instrumentation
+create table if not exists public.analytics (
+  id bigint generated always as identity primary key,
+  pitch_id uuid references public.pitches(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,
+  event_type text not null,
+  metadata jsonb,
+  created_at timestamptz not null default now()
+);
+
+-- Single analytics event stream for client instrumentation
+create table if not exists public.analytics (
+  id bigint generated always as identity primary key,
+  pitch_id uuid references public.pitches(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,
+  event_type text not null,
+  metadata jsonb,
   created_at timestamptz not null default now()
 );
 
