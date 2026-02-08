@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, WheelEvent } from "react";
+import type { WheelEvent } from "react";
 import type { PitchShow } from "./PitchShowCard";
 
 type Props = {
@@ -51,14 +51,6 @@ type PitchDetail = {
   };
 };
 
-type CommentItem = {
-  id: string;
-  body: string;
-  created_at: string;
-  user_id: string;
-  parent_id: string | null;
-};
-
 export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -72,11 +64,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const [comments, setComments] = useState<CommentItem[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentBody, setCommentBody] = useState("");
-  const [commentError, setCommentError] = useState<string | null>(null);
-  const [postingComment, setPostingComment] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const pauseCurrentVideo = () => {
@@ -160,23 +147,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
         setDetailLoading(false);
       }
     };
-    const loadComments = async () => {
-      setCommentsLoading(true);
-      setCommentError(null);
-      try {
-        const res = await fetch(`/api/pitches/${pitch.id}/comments`, { cache: "no-store" });
-        if (!res.ok) throw new Error("Unable to load comments");
-        const payload = await res.json();
-        setComments((payload?.comments as CommentItem[]) ?? []);
-      } catch (err) {
-        setCommentError((err as Error).message);
-        setComments([]);
-      } finally {
-        setCommentsLoading(false);
-      }
-    };
     loadDetail();
-    loadComments();
   }, [pitch]);
 
   const handleWheel = (e: WheelEvent) => {
@@ -208,8 +179,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const videoSrc = detail?.pitch.video_url ?? pitch?.video ?? null;
   const poster = detail?.pitch.poster_url ?? pitch?.poster ?? undefined;
 
-  const socialLinks = useMemo(() => detail?.startup.social_links ?? {}, [detail]);
-
   const website = detail?.startup.website ?? null;
   const normalizedWebsite = useMemo(() => {
     if (!website) return null;
@@ -231,29 +200,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     if (!detail?.pitch.created_at) return "—";
     return new Date(detail.pitch.created_at).toLocaleString();
   }, [detail?.pitch.created_at]);
-
-  const valueProposition = detail?.startup.one_liner ?? pitch.tagline ?? "—";
-  const problemSolved = detail?.startup.founder_story ?? "—";
-  const pricingInfo = detail?.startup.monthly_revenue
-    ? `${detail.startup.monthly_revenue} / mo`
-    : "—";
-  const targetAudience = detail?.startup.category ?? "—";
-  const businessDetails = [
-    detail?.pitch.ask ? `Ask: ${detail.pitch.ask}` : null,
-    detail?.pitch.equity ? `Equity: ${detail.pitch.equity}` : null,
-    detail?.pitch.valuation ? `Valuation: ${detail.pitch.valuation}` : null,
-  ]
-    .filter(Boolean)
-    .join(" • ") || "—";
-
-  const tagList = useMemo(() => {
-    const source = detail?.startup.category ?? pitch.tagline ?? "";
-    return source
-      .split(/[,&/]|\band\b/i)
-      .map((tag) => tag.trim())
-      .filter((tag, idx, arr) => tag && arr.indexOf(tag) === idx)
-      .slice(0, 6);
-  }, [detail?.startup.category, pitch.tagline]);
 
   const metricAllTimeRevenue = "—";
   const metricRank = "—";
@@ -278,30 +224,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       setShareFeedback("Share failed");
     } finally {
       setTimeout(() => setShareFeedback(null), 1800);
-    }
-  };
-
-  const handleCommentSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!commentBody.trim()) return;
-    setPostingComment(true);
-    setCommentError(null);
-    try {
-      const res = await fetch(`/api/pitches/${pitch.id}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: commentBody.trim() }),
-      });
-      if (res.status === 401) throw new Error("Sign in to comment.");
-      if (!res.ok) throw new Error("Failed to post comment.");
-      const payload = await res.json();
-      const newComment = payload?.comment as CommentItem | undefined;
-      if (newComment) setComments((prev) => [...prev, newComment]);
-      setCommentBody("");
-    } catch (err) {
-      setCommentError((err as Error).message);
-    } finally {
-      setPostingComment(false);
     }
   };
 
@@ -448,96 +370,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               <div className="trust-verify-badge">Revenue verified</div>
               <p className="metric-value">{verificationSource}</p>
               <p className="metric-label">Last updated {lastUpdatedDisplay}</p>
-            </div>
-
-            <div className="trust-insight">
-              <h5>Value proposition</h5>
-              <p>{valueProposition}</p>
-            </div>
-            <div className="trust-insight">
-              <h5>Problem solved</h5>
-              <p>{problemSolved}</p>
-            </div>
-            <div className="trust-insight">
-              <h5>Pricing</h5>
-              <p>{pricingInfo}</p>
-            </div>
-            <div className="trust-insight">
-              <h5>Target audience</h5>
-              <p>{targetAudience}</p>
-            </div>
-            <div className="trust-insight">
-              <h5>Business details</h5>
-              <p>{businessDetails}</p>
-            </div>
-
-            {tagList.length ? (
-              <div className="trust-tags">
-                {tagList.map((tag) => (
-                  <span key={tag} className="chip">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="founder-section">
-              <h5>Links</h5>
-              <div className="founder-links">
-                {socialLinks?.website ? (
-                  <a href={socialLinks.website} target="_blank" rel="noreferrer" className="chip">
-                    Website
-                  </a>
-                ) : null}
-                {socialLinks?.linkedin ? (
-                  <a href={socialLinks.linkedin} target="_blank" rel="noreferrer" className="chip">
-                    LinkedIn
-                  </a>
-                ) : null}
-                {socialLinks?.twitter ? (
-                  <a href={socialLinks.twitter} target="_blank" rel="noreferrer" className="chip">
-                    Twitter
-                  </a>
-                ) : null}
-                {socialLinks?.instagram ? (
-                  <a href={socialLinks.instagram} target="_blank" rel="noreferrer" className="chip">
-                    Instagram
-                  </a>
-                ) : null}
-                {!socialLinks ||
-                (!socialLinks.website && !socialLinks.linkedin && !socialLinks.twitter && !socialLinks.instagram) ? (
-                  <p className="muted">No links yet.</p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="founder-section">
-              <div className="founder-section-header">
-                <h5>Comments</h5>
-                <span className="muted">{detail?.stats.comment_count ?? comments.length} total</span>
-              </div>
-              {commentsLoading ? <p className="muted">Loading comments…</p> : null}
-              {commentError ? <p className="comment-error">{commentError}</p> : null}
-              <div className="comment-list">
-                {comments.map((item) => (
-                  <div key={item.id} className="comment-item">
-                    <p className="comment-body">{item.body}</p>
-                    <span className="comment-meta">{new Date(item.created_at).toLocaleString()}</span>
-                  </div>
-                ))}
-                {!commentsLoading && comments.length === 0 ? <p className="muted">No comments yet.</p> : null}
-              </div>
-              <form className="comment-input" onSubmit={handleCommentSubmit}>
-                <textarea
-                  value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
-                  placeholder="Share your thoughts"
-                  rows={3}
-                />
-                <button type="submit" disabled={postingComment || !commentBody.trim()}>
-                  {postingComment ? "Posting…" : "Post"}
-                </button>
-              </form>
             </div>
           </div>
         </div>
