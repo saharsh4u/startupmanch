@@ -99,20 +99,21 @@ Usually video too large or bucket policy. Try smaller video first.
 
 ## Current Product State (Feb 7, 2026)
 ### Frontend UI
-- **Homepage “Pitch of the Week”** shows **one** vertical hero card (9:16, wider than row cards).
-- **Below it:** two horizontal rows of vertical cards.
-  - Each row shows 5 cards at a time, with **left/right arrows** to scroll.
-  - Cards are filled from live approved pitches.
+- **Homepage “Hot video pitches”** uses a **mosaic layout**:
+  - 1 large **wide (16:9)** video on top
+  - 2 smaller **wide (16:9)** videos below
+  - All pulled from live approved pitches
 - **Hero tabs removed** (Trending/Fresh/Food/Fashion are no longer shown under the search).
 - **Post pitch CTA** always links to: `https://www.startupmanch.com/submit`
 
 ### Live Feed Logic
-- **Pitch of the Week = top 1 winner**
+- **Featured pitch = top 1 winner**
   - Rolling 7 days
   - Score = upvotes - downvotes
   - Minimum 10 votes
-- Rows use `/api/pitches?mode=feed&tab=trending&limit=20`
-- Feature card uses `/api/pitches?mode=week&limit=1&min_votes=10`
+- Mosaic uses:
+  - Top card: `/api/pitches?mode=week&limit=1&min_votes=10`
+  - Bottom cards: `/api/pitches?mode=feed&tab=trending&limit=20`
 
 ### Admin Workflow
 - `/admin` dashboard (combined queue)

@@ -12,7 +12,7 @@ export type PitchShow = {
 
 type PitchShowCardProps = {
   pitch: PitchShow;
-  size: "feature" | "row";
+  size: "feature" | "row" | "wide" | "mini";
 };
 
 export default function PitchShowCard({ pitch, size }: PitchShowCardProps) {

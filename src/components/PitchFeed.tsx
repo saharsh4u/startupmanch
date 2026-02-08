@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
 import { pitches as fallbackPitches } from "@/data/pitches";
 
@@ -17,9 +17,6 @@ export default function PitchFeed() {
   const [items, setItems] = useState<PitchShow[]>([]);
   const [weekPick, setWeekPick] = useState<PitchShow | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const rowOneRef = useRef<HTMLDivElement | null>(null);
-  const rowTwoRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -76,65 +73,20 @@ export default function PitchFeed() {
   const primary = weekPick ?? baseFeed[0] ?? fallback[0];
   const secondaryPool = baseFeed.filter((item) => item.id !== primary?.id);
   const secondary = secondaryPool[0] ?? fallback.find((item) => item.id !== primary?.id) ?? null;
-  const featureCards = [primary, secondary].filter(Boolean) as PitchShow[];
-
-  const featureIds = new Set(featureCards.map((item) => item.id));
-  const rowSeed = baseFeed.filter((item) => !featureIds.has(item.id));
-  const rowExpanded =
-    rowSeed.length >= 20
-      ? rowSeed
-      : [
-          ...rowSeed,
-          ...Array.from({ length: Math.max(0, 20 - rowSeed.length) }).map(
-            (_, index) => fallback[index % fallback.length]
-          ),
-        ];
-  const rowOne = rowExpanded.slice(0, 10);
-  const rowTwo = rowExpanded.slice(10, 20);
-
-  const scrollRow = (ref: { current: HTMLDivElement | null }, direction: "left" | "right") => {
-    if (!ref.current) return;
-    const amount = direction === "left" ? -320 : 320;
-    ref.current.scrollBy({ left: amount, behavior: "smooth" });
-  };
+  const tertiary =
+    secondaryPool[1] ??
+    fallback.find((item) => item.id !== primary?.id && item.id !== secondary?.id) ??
+    null;
 
   return (
     <section className="pitch-section">
       <div className="pitch-header">
         <h3>Hot video pitches</h3>
       </div>
-      <div className={`pitch-week${loaded ? " is-loaded" : ""}`}>
-        {featureCards.map((pitch) => (
-          <PitchShowCard key={pitch.id} pitch={pitch} size="feature" />
-        ))}
-      </div>
-      <div className="pitch-rows">
-        <div className="pitch-row">
-          <button type="button" className="row-arrow left" onClick={() => scrollRow(rowOneRef, "left")}>
-            ‹
-          </button>
-          <div className="pitch-row-track" ref={rowOneRef}>
-            {rowOne.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
-            ))}
-          </div>
-          <button type="button" className="row-arrow right" onClick={() => scrollRow(rowOneRef, "right")}>
-            ›
-          </button>
-        </div>
-        <div className="pitch-row">
-          <button type="button" className="row-arrow left" onClick={() => scrollRow(rowTwoRef, "left")}>
-            ‹
-          </button>
-          <div className="pitch-row-track" ref={rowTwoRef}>
-            {rowTwo.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" />
-            ))}
-          </div>
-          <button type="button" className="row-arrow right" onClick={() => scrollRow(rowTwoRef, "right")}>
-            ›
-          </button>
-        </div>
+      <div className={`pitch-mosaic${loaded ? " is-loaded" : ""}`}>
+        {primary ? <PitchShowCard pitch={primary} size="wide" /> : null}
+        {secondary ? <PitchShowCard pitch={secondary} size="mini" /> : null}
+        {tertiary ? <PitchShowCard pitch={tertiary} size="mini" /> : null}
       </div>
     </section>
   );
