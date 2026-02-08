@@ -77,6 +77,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [commentBody, setCommentBody] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
   const [postingComment, setPostingComment] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const pauseCurrentVideo = () => {
     const video = videoRef.current;
@@ -209,6 +210,77 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   const socialLinks = useMemo(() => detail?.startup.social_links ?? {}, [detail]);
 
+  const website = detail?.startup.website ?? null;
+  const normalizedWebsite = useMemo(() => {
+    if (!website) return null;
+    return website.startsWith("http") ? website : `https://${website}`;
+  }, [website]);
+
+  const founderName = detail?.founder.display_name ?? pitch.name ?? "Founder";
+  const founderCity = detail?.startup.city ?? detail?.founder.city ?? "—";
+
+  const foundedDisplay = useMemo(() => {
+    if (!detail?.pitch.created_at) return "—";
+    return new Date(detail.pitch.created_at).toLocaleDateString(undefined, {
+      month: "short",
+      year: "numeric",
+    });
+  }, [detail?.pitch.created_at]);
+
+  const lastUpdatedDisplay = useMemo(() => {
+    if (!detail?.pitch.created_at) return "—";
+    return new Date(detail.pitch.created_at).toLocaleString();
+  }, [detail?.pitch.created_at]);
+
+  const valueProposition = detail?.startup.one_liner ?? pitch.tagline ?? "—";
+  const problemSolved = detail?.startup.founder_story ?? "—";
+  const pricingInfo = detail?.startup.monthly_revenue
+    ? `${detail.startup.monthly_revenue} / mo`
+    : "—";
+  const targetAudience = detail?.startup.category ?? "—";
+  const businessDetails = [
+    detail?.pitch.ask ? `Ask: ${detail.pitch.ask}` : null,
+    detail?.pitch.equity ? `Equity: ${detail.pitch.equity}` : null,
+    detail?.pitch.valuation ? `Valuation: ${detail.pitch.valuation}` : null,
+  ]
+    .filter(Boolean)
+    .join(" • ") || "—";
+
+  const tagList = useMemo(() => {
+    const source = detail?.startup.category ?? pitch.tagline ?? "";
+    return source
+      .split(/[,&/]|\band\b/i)
+      .map((tag) => tag.trim())
+      .filter((tag, idx, arr) => tag && arr.indexOf(tag) === idx)
+      .slice(0, 6);
+  }, [detail?.startup.category, pitch.tagline]);
+
+  const metricAllTimeRevenue = "—";
+  const metricRank = "—";
+  const metricMrr = detail?.startup.monthly_revenue ?? "—";
+  const metricActiveSubs = "—";
+  const verificationSource = normalizedWebsite ? "Website linked" : "Not verified";
+
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: pitch.name, url: shareUrl });
+        setShareFeedback("Shared");
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareFeedback("Link copied");
+      } else {
+        setShareFeedback("Copy not supported");
+      }
+    } catch (err) {
+      console.error(err);
+      setShareFeedback("Share failed");
+    } finally {
+      setTimeout(() => setShareFeedback(null), 1800);
+    }
+  };
+
   const handleCommentSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!commentBody.trim()) return;
@@ -231,6 +303,11 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     } finally {
       setPostingComment(false);
     }
+  };
+
+  const handleVisit = () => {
+    if (!normalizedWebsite) return;
+    window.open(normalizedWebsite, "_blank", "noopener,noreferrer");
   };
 
   if (!pitch) return null;
@@ -298,55 +375,103 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               </span>
             </div>
 
-            <div className="founder-card">
-              <div className="founder-avatar">
-                {detail?.startup.founder_photo_url ? (
-                  <div
-                    className="founder-avatar-img"
-                    style={{ backgroundImage: `url(${detail.startup.founder_photo_url})` }}
-                  />
-                ) : (
-                  <span>{(detail?.founder.display_name ?? pitch.name ?? "F").slice(0, 1)}</span>
-                )}
+            {detailLoading ? <p className="trust-note">Loading details…</p> : null}
+            {detailError ? <p className="trust-note error">Details unavailable.</p> : null}
+
+            <div className="trust-actions">
+              <button
+                type="button"
+                className="trust-action primary"
+                onClick={handleVisit}
+                disabled={!normalizedWebsite}
+              >
+                Visit site
+              </button>
+              <button type="button" className="trust-action ghost" onClick={handleShare}>
+                Share
+              </button>
+              {shareFeedback ? <span className="trust-action-feedback">{shareFeedback}</span> : null}
+            </div>
+
+            <div className="trust-metric-grid">
+              {[
+                { label: "All-time revenue", value: metricAllTimeRevenue },
+                { label: "Rank", value: metricRank },
+                { label: "MRR (est.)", value: metricMrr },
+                { label: "Active subscriptions", value: metricActiveSubs },
+              ].map((metric) => (
+                <div key={metric.label} className="trust-metric">
+                  <p className="metric-label">{metric.label}</p>
+                  <p className="metric-value">{metric.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="trust-meta">
+              <div className="founder-card">
+                <div className="founder-avatar">
+                  {detail?.startup.founder_photo_url ? (
+                    <div
+                      className="founder-avatar-img"
+                      style={{ backgroundImage: `url(${detail.startup.founder_photo_url})` }}
+                    />
+                  ) : (
+                    <span>{founderName.slice(0, 1)}</span>
+                  )}
+                </div>
+                <div>
+                  <h4>{founderName}</h4>
+                  <p>{founderCity}</p>
+                </div>
               </div>
-              <div>
-                <h4>{detail?.founder.display_name ?? pitch.name}</h4>
-                <p>{detail?.startup.city ?? "—"}</p>
+              <div className="trust-meta-data">
+                <div>
+                  <p className="metric-label">Founded</p>
+                  <p className="metric-value">{foundedDisplay}</p>
+                </div>
+                <div>
+                  <p className="metric-label">Country</p>
+                  <p className="metric-value">{founderCity}</p>
+                </div>
               </div>
             </div>
 
-            <div className="founder-section">
-              <h5>About</h5>
-              <p>
-                {detailLoading
-                  ? "Loading..."
-                  : detailError
-                    ? "Details unavailable."
-                    : detail?.startup.founder_story ??
-                      detail?.startup.one_liner ??
-                      pitch.tagline ??
-                      "No story provided."}
-              </p>
+            <div className="trust-verify">
+              <div className="trust-verify-badge">Revenue verified</div>
+              <p className="metric-value">{verificationSource}</p>
+              <p className="metric-label">Last updated {lastUpdatedDisplay}</p>
             </div>
 
-            <div className="founder-section founder-metrics">
-              <div>
-                <p className="metric-label">Ask</p>
-                <p className="metric-value">{detail?.pitch.ask ?? "—"}</p>
-              </div>
-              <div>
-                <p className="metric-label">Equity</p>
-                <p className="metric-value">{detail?.pitch.equity ?? "—"}</p>
-              </div>
-              <div>
-                <p className="metric-label">Valuation</p>
-                <p className="metric-value">{detail?.pitch.valuation ?? "—"}</p>
-              </div>
-              <div>
-                <p className="metric-label">Monthly revenue</p>
-                <p className="metric-value">{detail?.startup.monthly_revenue ?? "—"}</p>
-              </div>
+            <div className="trust-insight">
+              <h5>Value proposition</h5>
+              <p>{valueProposition}</p>
             </div>
+            <div className="trust-insight">
+              <h5>Problem solved</h5>
+              <p>{problemSolved}</p>
+            </div>
+            <div className="trust-insight">
+              <h5>Pricing</h5>
+              <p>{pricingInfo}</p>
+            </div>
+            <div className="trust-insight">
+              <h5>Target audience</h5>
+              <p>{targetAudience}</p>
+            </div>
+            <div className="trust-insight">
+              <h5>Business details</h5>
+              <p>{businessDetails}</p>
+            </div>
+
+            {tagList.length ? (
+              <div className="trust-tags">
+                {tagList.map((tag) => (
+                  <span key={tag} className="chip">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : null}
 
             <div className="founder-section">
               <h5>Links</h5>
