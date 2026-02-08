@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import ContactModal from "./ContactModal";
 import type { PitchShow } from "./PitchShowCard";
 
@@ -178,6 +179,13 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               <p>{pitch.tagline}</p>
             </div>
             <div className="expand-actions">
+              <Link
+                href={`/founder/${pitch.id}`}
+                className="expand-view-profile"
+                aria-label={`View profile for ${pitch.name}`}
+              >
+                View profile
+              </Link>
               <button
                 type="button"
                 className="expand-contact"
@@ -186,10 +194,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               >
                 Contact founder
               </button>
-              <div className="expand-hints" aria-hidden="true">
-                <span>Scroll / ← →</span>
-                <span>ESC to close</span>
-              </div>
             </div>
           </div>
         </div>
