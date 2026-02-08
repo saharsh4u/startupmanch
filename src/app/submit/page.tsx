@@ -28,6 +28,7 @@ export default function SubmitPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
   const [authError, setAuthError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
@@ -109,16 +110,21 @@ export default function SubmitPage() {
   };
 
   const handleGoogle = async () => {
+    if (!googleEnabled) {
+      setAuthError("Google sign-in is temporarily unavailable.");
+      return;
+    }
     try {
       setGoogleLoading(true);
       setAuthError(null);
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      await supabaseBrowser.auth.signInWithOAuth({
+      const { error } = await supabaseBrowser.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: origin ? `${origin}/submit` : undefined,
         },
       });
+      if (error) throw error;
     } catch (error: any) {
       setAuthError(error.message ?? "Google sign-in failed.");
       setGoogleLoading(false);
@@ -305,9 +311,15 @@ export default function SubmitPage() {
                 <button type="button" className="ghost" disabled={authBusy} onClick={() => handleSignIn("signup")}>
                   Create account
                 </button>
-                <button type="button" className="google-button" disabled={authBusy} onClick={handleGoogle}>
-                  Continue with Google
-                </button>
+                {googleEnabled ? (
+                  <button type="button" className="google-button" disabled={authBusy} onClick={handleGoogle}>
+                    Continue with Google
+                  </button>
+                ) : (
+                  <button type="button" className="google-button" disabled>
+                    Google unavailable
+                  </button>
+                )}
               </div>
               {authError ? <p className="submit-error">{authError}</p> : null}
             </div>

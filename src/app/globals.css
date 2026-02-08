@@ -437,8 +437,9 @@ a {
 .submit-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 18px;
   flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .submit-actions button {
@@ -448,6 +449,8 @@ a {
   background: var(--accent);
   color: #ffffff;
   font-weight: 600;
+  flex: 1 1 180px;
+  text-align: center;
 }
 
 .submit-actions button.ghost {
