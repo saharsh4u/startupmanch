@@ -1,7 +1,7 @@
 :root {
-  --bg: #050505;
-  --panel: #0d0d0d;
-  --panel-soft: #161616;
+  --bg: #040404;
+  --panel: #0b0b0b;
+  --panel-soft: #141414;
   --stroke: rgba(255, 255, 255, 0.08);
   --text: #f7f7f7;
   --muted: rgba(255, 255, 255, 0.65);
@@ -25,7 +25,7 @@ body {
 
 body {
   font-family: var(--font-body), "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, #121212 0%, #050505 75%);
+  background: radial-gradient(circle at top, #0f0f0f 0%, #040404 78%);
   color: var(--text);
   position: relative;
 }
@@ -36,8 +36,8 @@ body::before {
   inset: -20% -10% auto -10%;
   height: 70vh;
   background:
-    radial-gradient(circle at 20% 20%, rgba(255, 159, 63, 0.12), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(120, 92, 255, 0.12), transparent 60%);
+    radial-gradient(circle at 20% 20%, rgba(255, 159, 63, 0.08), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(120, 92, 255, 0.08), transparent 60%);
   pointer-events: none;
   z-index: -1;
 }
@@ -95,6 +95,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  position: sticky;
+  top: 24px;
+  align-self: start;
 }
 
 .ad-slot {
@@ -605,10 +608,16 @@ a {
 }
 
 .pitch-top-grid {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
-  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.pitch-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
 }
 
 .pitch-rows {
@@ -640,9 +649,10 @@ a {
 }
 
 .pitch-show-card.feature {
-  height: clamp(320px, 45vh, 420px);
-  width: auto;
-  max-width: 240px;
+  width: 100%;
+  height: auto;
+  min-height: 260px;
+  max-height: 360px;
   aspect-ratio: 9 / 16;
 }
 
@@ -659,7 +669,7 @@ a {
 }
 
 .pitch-show-card.row {
-  width: 260px;
+  width: 280px;
   aspect-ratio: 9 / 16;
   flex: 0 0 auto;
   scroll-snap-align: start;
@@ -1160,6 +1170,7 @@ a {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
+    position: static;
   }
 
   .ad-slot {
@@ -1195,6 +1206,10 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .pitch-top-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-row {
     grid-template-columns: 1fr;
   }
@@ -1216,6 +1231,10 @@ a {
   }
 
   .pitch-mosaic {
+    grid-template-columns: 1fr;
+  }
+
+  .pitch-top-grid {
     grid-template-columns: 1fr;
   }
 

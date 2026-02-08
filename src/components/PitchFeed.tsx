@@ -15,13 +15,13 @@ type ApiPitch = {
 
 export default function PitchFeed() {
   const [items, setItems] = useState<PitchShow[]>([]);
-  const [weekPick, setWeekPick] = useState<PitchShow | null>(null);
+  const [weekPicks, setWeekPicks] = useState<PitchShow[]>([]);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     const load = async () => {
       try {
         const [weekRes, feedRes] = await Promise.all([
-          fetch("/api/pitches?mode=week&limit=1&min_votes=10", { cache: "no-store" }),
+          fetch("/api/pitches?mode=week&limit=4&min_votes=10", { cache: "no-store" }),
           fetch("/api/pitches?mode=feed&tab=trending&limit=20", { cache: "no-store" }),
         ]);
 
@@ -41,14 +41,15 @@ export default function PitchFeed() {
           video: item.video_url ?? null,
         });
 
-        const week = weekData[0] ? mapPitch(weekData[0], 0) : null;
+        const weekList = weekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
         const mapped = feedData.map((item, index) => mapPitch(item, index));
-        const filtered = week ? mapped.filter((item) => item.id !== week.id) : mapped;
+        const weekIds = new Set(weekList.map((item) => item.id));
+        const filtered = mapped.filter((item) => !weekIds.has(item.id));
 
-        setWeekPick(week);
+        setWeekPicks(weekList);
         setItems(filtered);
       } catch {
-        setWeekPick(null);
+        setWeekPicks([]);
         setItems([]);
       } finally {
         setLoaded(true);
@@ -70,11 +71,25 @@ export default function PitchFeed() {
   );
 
   const baseFeed = items.length ? items : fallback;
-  const primary = weekPick ?? baseFeed[0] ?? fallback[0];
-  const secondaryPool = baseFeed.filter((item) => item.id !== primary?.id);
-  const secondary = secondaryPool[0] ?? fallback.find((item) => item.id !== primary?.id) ?? null;
+  const topPitches: PitchShow[] = [];
+  const seen = new Set<string>();
 
-  const topIds = new Set([primary?.id, secondary?.id].filter(Boolean));
+  const pushUnique = (list: PitchShow[]) => {
+    list.forEach((item) => {
+      if (topPitches.length >= 4) return;
+      if (seen.has(item.id)) return;
+      seen.add(item.id);
+      topPitches.push(item);
+    });
+  };
+
+  pushUnique(weekPicks);
+  pushUnique(baseFeed);
+  if (topPitches.length < 4) {
+    pushUnique(fallback);
+  }
+
+  const topIds = new Set(topPitches.map((item) => item.id));
   const rowPool = baseFeed.filter((item) => !topIds.has(item.id));
   const fallbackPool = fallback.filter((item) => !topIds.has(item.id));
   const sourcePool = rowPool.length ? rowPool : fallbackPool;
@@ -94,9 +109,11 @@ export default function PitchFeed() {
       </div>
       <div className={`pitch-mosaic${loaded ? " is-loaded" : ""}`}>
         <div className="pitch-top-grid">
-          {primary ? <PitchShowCard pitch={primary} size="feature" /> : null}
-          {secondary ? <PitchShowCard pitch={secondary} size="feature" /> : null}
+          {topPitches.map((pitch) => (
+            <PitchShowCard key={pitch.id} pitch={pitch} size="feature" />
+          ))}
         </div>
+        <div className="pitch-divider" />
         <div className="pitch-rows">
           <div className="pitch-row">
             {rowOne.map((pitch) => (
