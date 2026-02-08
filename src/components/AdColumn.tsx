@@ -18,7 +18,6 @@ export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "lef
   const columnClass = `ad-column${side ? ` ad-${side}` : ""}`;
   return (
     <aside className={columnClass}>
-      {side === "left" && <div className="ad-pointer" aria-hidden />}
       {slots.map((slot, index) => (
         <div
           key={`${slot.front.name}-${slot.back.name}`}
