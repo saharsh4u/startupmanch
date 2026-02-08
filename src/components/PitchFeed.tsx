@@ -77,6 +77,12 @@ export default function PitchFeed() {
     secondaryPool[1] ??
     fallback.find((item) => item.id !== primary?.id && item.id !== secondary?.id) ??
     null;
+  const quaternary =
+    secondaryPool[2] ??
+    fallback.find(
+      (item) => item.id !== primary?.id && item.id !== secondary?.id && item.id !== tertiary?.id
+    ) ??
+    null;
 
   return (
     <section className="pitch-section">
@@ -84,9 +90,10 @@ export default function PitchFeed() {
         <h3>Hot video pitches</h3>
       </div>
       <div className={`pitch-mosaic${loaded ? " is-loaded" : ""}`}>
-        {primary ? <PitchShowCard pitch={primary} size="wide" /> : null}
-        {secondary ? <PitchShowCard pitch={secondary} size="mini" /> : null}
+        {primary ? <PitchShowCard pitch={primary} size="feature" /> : null}
+        {secondary ? <PitchShowCard pitch={secondary} size="feature" /> : null}
         {tertiary ? <PitchShowCard pitch={tertiary} size="mini" /> : null}
+        {quaternary ? <PitchShowCard pitch={quaternary} size="mini" /> : null}
       </div>
     </section>
   );

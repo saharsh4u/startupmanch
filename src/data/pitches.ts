@@ -46,5 +46,16 @@ export const pitches: Pitch[] = [
     equity: "4%",
     valuation: "₹30 Cr",
     poster: "/pitches/pitch-03.svg"
+  },
+  {
+    id: "agri-wiz",
+    name: "AgriWiz",
+    tagline: "Nano-drip tech that triples yields",
+    category: "AgriTech",
+    city: "Nashik",
+    ask: "₹65L",
+    equity: "3%",
+    valuation: "₹21.6 Cr",
+    poster: "/pitches/pitch-04.svg"
   }
 ];
