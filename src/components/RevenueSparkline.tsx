@@ -40,8 +40,8 @@ export default function RevenueSparkline({ series, currency }: Props) {
         <polyline points={points.join(" ")} fill="none" stroke="url(#spark-grad)" strokeWidth="2.5" />
         <defs>
           <linearGradient id="spark-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#49e6c8" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#ff884d" stopOpacity="0.9" />
+            <stop offset="0%" stopColor="var(--spark-start)" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="var(--spark-end)" stopOpacity="0.9" />
           </linearGradient>
         </defs>
       </svg>

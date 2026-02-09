@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import ContactModal from "./ContactModal";
-import type { Dispatch, SetStateAction } from "react";
 
 export type PitchShow = {
   id: string;
@@ -57,7 +56,10 @@ export default function PitchShowCard({ pitch, size, variant = "regular", onExpa
           className={`pitch-show-media ${variant === "hot" ? "on-dark" : "on-light"}`}
           style={{
             backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
-            backgroundColor: variant === "hot" ? "#9a0002" : "#f9f2ea",
+            backgroundColor:
+              variant === "hot"
+                ? "var(--pitch-hot-fallback)"
+                : "var(--pitch-regular-fallback)",
           }}
         >
           {!pitch.poster ? <span className="pitch-placeholder">Poster pending</span> : null}
