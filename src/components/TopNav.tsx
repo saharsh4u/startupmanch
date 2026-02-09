@@ -11,7 +11,6 @@ type TopNavProps = {
 
 const navAnchors = [
   { id: "top-rated-block", label: "Top rated" },
-  { id: "categories-block", label: "Categories" },
   { id: "leaderboard-block", label: "Leaderboard" },
 ] as const;
 
