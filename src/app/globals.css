@@ -1361,6 +1361,24 @@ button:disabled {
   letter-spacing: 0.05em;
 }
 
+.hot-band {
+  padding: 16px;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 136, 77, 0.12), transparent 45%),
+    radial-gradient(circle at 70% 10%, rgba(73, 230, 200, 0.1), transparent 40%),
+    rgba(12, 12, 12, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  margin-bottom: 18px;
+}
+
+.more-band {
+  background: rgba(10, 10, 10, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  border-radius: 18px;
+  margin-top: 12px;
+}
+
 .pitch-rows {
   display: flex;
   flex-direction: column;
