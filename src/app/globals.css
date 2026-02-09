@@ -3456,3 +3456,62 @@ body {
     min-width: min(72vw, 232px);
   }
 }
+
+/* Centered Hero Cleanup (final override) */
+.hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero-brand {
+  width: 100%;
+  justify-content: center;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.hero h1 {
+  max-width: min(100%, 23ch);
+  margin-inline: auto;
+}
+
+.hero-subline {
+  max-width: 36ch;
+  margin-inline: auto;
+}
+
+.hero-actions {
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-search {
+  width: min(100%, 560px);
+  max-width: 560px;
+  flex: 1 1 560px;
+}
+
+.hero-btn {
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .hero-actions {
+    align-items: center;
+  }
+
+  .hero-search,
+  .hero-btn {
+    width: min(100%, 560px);
+    max-width: 100%;
+  }
+
+  .hero-search {
+    flex-basis: auto;
+  }
+}
