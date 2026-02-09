@@ -4285,3 +4285,153 @@ body {
     scroll-snap-type: x mandatory;
   }
 }
+
+/* Live rankings + modal (additive only) */
+.rankings-state {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.rankings-row {
+  grid-template-columns: 52px minmax(180px, 1.35fr) minmax(120px, 1fr) 84px 94px 88px 84px 96px;
+}
+
+.rankings-row .metric-cell,
+.rankings-row .metric-upvotes,
+.rankings-row .metric-downvotes,
+.rankings-row .metric-comments,
+.rankings-row .metric-score {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rankings-row .metric-score {
+  font-weight: 700;
+}
+
+.rankings-row.header .spark {
+  height: auto;
+  opacity: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.rankings-table--modal .rankings-row {
+  grid-template-columns: 56px minmax(220px, 1.45fr) minmax(140px, 1fr) 90px 102px 96px 90px 110px;
+}
+
+.rankings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(3, 3, 3, 0.86);
+  backdrop-filter: blur(2px);
+}
+
+.rankings-modal-panel {
+  width: min(1280px, 100%);
+  height: min(94vh, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.rankings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.rankings-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.rankings-modal-header span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rankings-modal-close {
+  border: 1px solid var(--stroke);
+  background: var(--panel-soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+}
+
+.rankings-modal-body {
+  padding: 14px 16px 18px;
+  overflow: auto;
+}
+
+.rankings-modal-body .rankings-table {
+  min-width: 980px;
+}
+
+@media (max-width: 1120px) {
+  .rankings-row {
+    grid-template-columns: 52px minmax(168px, 1.4fr) 84px 94px 88px 84px;
+  }
+
+  .rankings-row .industry-cell,
+  .rankings-row .spark {
+    display: none;
+  }
+
+  .rankings-table--modal .rankings-row {
+    grid-template-columns: 52px minmax(220px, 1.5fr) minmax(130px, 1fr) 84px 94px 88px 84px;
+  }
+}
+
+@media (max-width: 768px) {
+  .rankings-modal {
+    padding: 0;
+  }
+
+  .rankings-modal-panel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .rankings-modal-body {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .rankings-row {
+    grid-template-columns: 34px minmax(0, 1fr) 72px 74px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .rankings-row .industry-cell,
+  .rankings-row .metric-downvotes,
+  .rankings-row .metric-comments,
+  .rankings-row .spark {
+    display: none;
+  }
+
+  .rankings-modal-body .rankings-table {
+    min-width: 100%;
+  }
+}

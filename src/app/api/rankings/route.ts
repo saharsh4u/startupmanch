@@ -1,75 +1,111 @@
 import { NextResponse } from "next/server";
-import { db, type RankingRow } from "@/lib/db";
-import { brands } from "@/data/brands";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
-const VALID_WINDOWS = new Set(["1h", "24h", "7d", "30d"]);
+export const runtime = "nodejs";
 
-const jitterScore = (base: number) => {
-  const swing = base * (0.02 + Math.random() * 0.08);
-  return Math.round(base + (Math.random() > 0.5 ? 1 : -1) * swing);
+const VALID_WINDOWS = new Set(["24h", "7d", "30d", "all"]);
+const DEFAULT_WINDOW = "7d";
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
+
+type RankingRpcRow = {
+  rank: number | null;
+  startup_id: string;
+  startup_name: string;
+  category: string | null;
+  upvotes: number | null;
+  downvotes: number | null;
+  comments: number | null;
+  score: number | string | null;
+  total_count: number | null;
 };
 
-const fallbackResponse = (window: string) => {
-  const now = new Date().toISOString();
-  const simulated = brands
-    .map((brand) => ({
-      company: brand.name,
-      sector: brand.sector,
-      revenue: brand.revenue,
-      cts_score: jitterScore(brand.baseCts),
-      delta: null,
-      updated_at: now
-    }))
-    .sort((a, b) => b.cts_score - a.cts_score)
-    .slice(0, 20)
-    .map((entry, index) => ({
-      rank: index + 1,
-      ...entry
-    }));
+type RankingApiRow = {
+  rank: number;
+  startup_id: string;
+  startup_name: string;
+  category: string | null;
+  upvotes: number;
+  downvotes: number;
+  comments: number;
+  score: number;
+  total_count: number;
+  company: string;
+  sector: string | null;
+  cts_score: number;
+  revenue: null;
+  delta: null;
+  updated_at: null;
+};
 
-  return NextResponse.json({
-    window,
-    simulated: true,
-    data: simulated
-  });
+const asNumber = (value: unknown) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseLimit = (value: string | null) => {
+  const raw = Number(value ?? `${DEFAULT_LIMIT}`);
+  if (!Number.isFinite(raw)) return DEFAULT_LIMIT;
+  return Math.min(Math.max(Math.floor(raw), 1), MAX_LIMIT);
+};
+
+const parseOffset = (value: string | null) => {
+  const raw = Number(value ?? "0");
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(Math.floor(raw), 0);
 };
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const window = searchParams.get("window") ?? "24h";
 
-  if (!VALID_WINDOWS.has(window)) {
-    return NextResponse.json(
-      { error: "Invalid window. Use 1h, 24h, 7d, or 30d." },
-      { status: 400 }
-    );
+  const requestedWindow = (searchParams.get("window") ?? DEFAULT_WINDOW).trim().toLowerCase();
+  const window = VALID_WINDOWS.has(requestedWindow) ? requestedWindow : DEFAULT_WINDOW;
+  const limit = parseLimit(searchParams.get("limit"));
+  const offset = parseOffset(searchParams.get("offset"));
+
+  const { data, error } = await supabaseAdmin.rpc("fetch_startup_rankings", {
+    p_window: window,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (!process.env.DATABASE_URL) {
-    return fallbackResponse(window);
-  }
+  const rows = (data ?? []) as RankingRpcRow[];
+  const mapped: RankingApiRow[] = rows.map((row) => {
+    const score = asNumber(row.score);
+    const totalCount = asNumber(row.total_count);
+    const startupName = row.startup_name ?? "Startup";
 
-  try {
-    const result = await db.query<RankingRow>(
-      `SELECT r.rank, c.name as company, c.sector, c.revenue, r.cts_score, r.delta, r.updated_at
-       FROM rankings r
-       JOIN companies c ON c.id = r.company_id
-       WHERE r.window = $1
-       ORDER BY r.rank ASC
-       LIMIT 20`,
-      [window]
-    );
+    return {
+      rank: asNumber(row.rank),
+      startup_id: row.startup_id,
+      startup_name: startupName,
+      category: row.category,
+      upvotes: asNumber(row.upvotes),
+      downvotes: asNumber(row.downvotes),
+      comments: asNumber(row.comments),
+      score,
+      total_count: totalCount,
+      company: startupName,
+      sector: row.category,
+      cts_score: score,
+      revenue: null,
+      delta: null,
+      updated_at: null,
+    };
+  });
 
-    if (!result.rows.length) {
-      return fallbackResponse(window);
-    }
+  const total = mapped[0]?.total_count ?? 0;
 
-    return NextResponse.json({
-      window,
-      simulated: false,
-      data: result.rows
-    });
-  } catch (error) {
-    return fallbackResponse(window);
-  }
+  return NextResponse.json({
+    window,
+    simulated: false,
+    limit,
+    offset,
+    total,
+    data: mapped,
+  });
 }
