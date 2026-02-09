@@ -1,16 +1,16 @@
 :root {
-  --bg: #e3d3c4;          /* deeper cream */
-  --panel: #e9dbc8;       /* softer cream */
-  --panel-soft: #eee1d1;
-  --stroke: rgba(154, 0, 2, 0.14);
-  --text: #1a0d0d;        /* dark for light bg */
-  --text-light: #efe6de;  /* light for dark bg */
-  --muted: rgba(26, 13, 13, 0.7);
-  --muted-light: rgba(239, 230, 222, 0.75);
+  --bg: #0f0f12;          /* near-black charcoal */
+  --panel: #17171b;       /* stepped dark surface */
+  --panel-soft: #202026;
+  --stroke: rgba(255, 255, 255, 0.12);
+  --text: #f2f2f4;        /* white-ish for dark bg */
+  --text-light: #ffffff;  /* pure white on deepest panels */
+  --muted: rgba(242, 242, 244, 0.72);
+  --muted-light: rgba(255, 255, 255, 0.75);
   --accent: #9a0002;      /* cherry */
   --accent-2: #9a0002;
-  --placeholder-light: rgba(26, 13, 13, 0.35);
-  --placeholder-dark: rgba(239, 230, 222, 0.55);
+  --placeholder-light: rgba(242, 242, 244, 0.45);
+  --placeholder-dark: rgba(255, 255, 255, 0.6);
   --shadow: 0 18px 36px rgba(34, 34, 34, 0.18);
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -38,9 +38,9 @@ body {
 
 body {
   font-family: "JAi", var(--font-body), "Segoe UI", sans-serif;
-  background: radial-gradient(circle at 25% 10%, rgba(154, 0, 2, 0.18), transparent 30%),
-    radial-gradient(circle at 70% 8%, rgba(227, 211, 196, 0.65), transparent 42%),
-    var(--bg);
+  background: radial-gradient(circle at 18% 8%, rgba(154, 0, 2, 0.22), transparent 34%),
+    radial-gradient(circle at 78% 6%, rgba(255, 255, 255, 0.06), transparent 38%),
+    linear-gradient(180deg, #0d0d10, #0a0a0d);
   color: var(--text);
   position: relative;
   overflow-x: hidden;
@@ -59,8 +59,8 @@ body::before {
   inset: -20% -10% auto -10%;
   height: 70vh;
   background:
-    radial-gradient(circle at 20% 20%, rgba(154, 0, 2, 0.16), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(227, 211, 196, 0.28), transparent 60%);
+    radial-gradient(circle at 22% 18%, rgba(154, 0, 2, 0.2), transparent 56%),
+    radial-gradient(circle at 82% 8%, rgba(255, 255, 255, 0.08), transparent 62%);
   pointer-events: none;
   z-index: -1;
 }
@@ -162,7 +162,7 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--ad-accent, #ffffff) 30%, rgba(255, 255, 255, 0.16));
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
   backface-visibility: hidden;
   overflow: hidden;
@@ -174,9 +174,9 @@ a {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--ad-accent) 45%, transparent), transparent 60%),
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--ad-accent) 60%, transparent), transparent 60%),
     linear-gradient(140deg, rgba(255, 255, 255, 0.08), transparent 70%);
-  opacity: 0.45;
+  opacity: 0.55;
   pointer-events: none;
 }
 
@@ -196,7 +196,7 @@ a {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--ad-accent, #ffffff) 34%, rgba(255, 255, 255, 0.12));
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -206,12 +206,12 @@ a {
 .ad-face h4 {
   font-size: 0.92rem;
   margin-bottom: 4px;
-  color: var(--ad-accent, #ff9f3f);
+  color: #ffffff;
 }
 
 .ad-face p {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .hero {
@@ -219,7 +219,7 @@ a {
   padding: 12px 20px 0;
   position: relative;
   animation: fadeUp 0.6s ease both;
-  background: linear-gradient(180deg, rgba(255, 136, 77, 0.05), transparent 48%);
+  background: linear-gradient(180deg, rgba(154, 0, 2, 0.14), transparent 55%);
   border-radius: 28px;
 }
 
@@ -228,7 +228,7 @@ a {
   position: absolute;
   inset: -40px 15% auto 15%;
   height: 190px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 72%);
+  background: radial-gradient(circle, rgba(154, 0, 2, 0.18), transparent 72%);
   z-index: -1;
 }
 
@@ -237,7 +237,7 @@ a {
   align-items: center;
   gap: 10px;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.76);
   margin-bottom: 14px;
 }
 
@@ -327,7 +327,7 @@ a {
 }
 
 .submit-hero p {
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(255, 255, 255, 0.74);
 }
 
 .back-home {
@@ -363,7 +363,7 @@ a {
 
 .submit-card-header span {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .submit-grid {
@@ -419,7 +419,7 @@ a {
 
 .form-field label {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .form-hint {
@@ -447,7 +447,7 @@ a {
   align-items: center;
   gap: 10px;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .submit-actions {
@@ -471,15 +471,15 @@ a {
 
 .submit-actions button.ghost {
   background: transparent;
-  color: rgba(235, 235, 235, 0.9);
+  color: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .google-button {
-  background: #ffffff;
-  color: #111;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+  background: #111115;
+  color: var(--text-light);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
 }
 
 .google-button:disabled,
@@ -490,7 +490,7 @@ button:disabled {
 
 .submit-note {
   font-size: 0.85rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(255, 255, 255, 0.74);
 }
 
 .submit-error {
@@ -515,7 +515,7 @@ button:disabled {
 }
 
 .admin-hero p {
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(255, 255, 255, 0.74);
 }
 
 .admin-card {
@@ -539,7 +539,7 @@ button:disabled {
 
 .admin-card-header span {
   font-size: 0.8rem;
-  color: rgba(235, 235, 235, 0.6);
+  color: rgba(255, 255, 255, 0.64);
 }
 
 .admin-list {
@@ -564,13 +564,13 @@ button:disabled {
 
 .admin-info p {
   font-size: 0.82rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(255, 255, 255, 0.74);
   margin-bottom: 4px;
 }
 
 .admin-email {
   font-size: 0.78rem;
-  color: rgba(235, 235, 235, 0.55);
+  color: rgba(255, 255, 255, 0.56);
 }
 
 .admin-tags {
@@ -607,7 +607,7 @@ button:disabled {
   min-height: 120px;
   display: grid;
   place-items: center;
-  color: rgba(235, 235, 235, 0.5);
+  color: rgba(255, 255, 255, 0.52);
   font-size: 0.8rem;
 }
 
@@ -622,19 +622,19 @@ button:disabled {
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   padding: 10px 16px;
-  background: #ff9f3f;
+  background: var(--accent);
   color: #ffffff;
   font-weight: 600;
 }
 
 .admin-actions button.ghost {
   background: transparent;
-  color: rgba(235, 235, 235, 0.9);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .admin-empty {
   font-size: 0.85rem;
-  color: rgba(235, 235, 235, 0.6);
+  color: rgba(255, 255, 255, 0.64);
 }
 
 .hero-tabs {
@@ -642,7 +642,7 @@ button:disabled {
   justify-content: center;
   gap: 16px;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.72);
   margin-top: 14px;
 }
 
@@ -662,13 +662,13 @@ button:disabled {
 
 .pitch-section {
   background:
-    radial-gradient(circle at 20% 10%, rgba(154, 0, 2, 0.08), transparent 55%),
-    radial-gradient(circle at 80% 0%, rgba(239, 230, 222, 0.45), transparent 60%),
-    linear-gradient(180deg, rgba(239, 230, 222, 0.92), rgba(245, 237, 230, 0.98));
+    radial-gradient(circle at 20% 10%, rgba(154, 0, 2, 0.14), transparent 55%),
+    radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
+    linear-gradient(180deg, rgba(18, 18, 22, 0.96), rgba(12, 12, 16, 0.98));
   border-radius: 26px;
   padding: 22px 22px 32px;
-  border: 1px solid rgba(154, 0, 2, 0.12);
-  box-shadow: 0 22px 40px rgba(34, 34, 34, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -687,26 +687,26 @@ button:disabled {
   margin-bottom: 0;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .pitch-kicker {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.72);
   margin: 0 0 4px;
 }
 
 .pitch-subtext {
   margin: 2px 0 0;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.76);
   font-size: 0.9rem;
 }
 
 .pitch-link {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.62);
   background: transparent;
   border: none;
   padding: 0;
@@ -717,22 +717,6 @@ button:disabled {
   flex-direction: column;
   gap: 14px;
   padding: 4px 6px 18px;
-}
-
-.hot-band {
-  padding: 16px;
-  background: radial-gradient(circle at 20% 20%, rgba(255, 136, 77, 0.12), transparent 45%),
-    radial-gradient(circle at 70% 10%, rgba(73, 230, 200, 0.1), transparent 40%),
-    rgba(12, 12, 12, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-}
-
-.more-band {
-  background: rgba(10, 10, 10, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  padding: 12px;
-  border-radius: 18px;
 }
 
 .pitch-mosaic.is-loaded {
@@ -750,27 +734,27 @@ button:disabled {
 }
 
 .pitch-show-card.is-hot {
-  border: 1px solid rgba(255, 136, 77, 0.6);
-  box-shadow: 0 22px 44px rgba(255, 136, 77, 0.2), 0 10px 28px rgba(0, 0, 0, 0.6);
-  background: linear-gradient(145deg, rgba(154, 0, 2, 0.18), rgba(239, 230, 222, 0.12));
+  border: 1px solid rgba(154, 0, 2, 0.62);
+  box-shadow: 0 22px 44px rgba(154, 0, 2, 0.26), 0 10px 28px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(145deg, rgba(154, 0, 2, 0.25), rgba(255, 255, 255, 0.08));
 }
 
 .pitch-show-card.is-hot:hover {
   transform: translateY(-8px) rotate(-0.5deg) scale(1.01);
-  border-color: rgba(255, 136, 77, 0.8);
-  box-shadow: 0 28px 54px rgba(255, 136, 77, 0.26), 0 14px 36px rgba(0, 0, 0, 0.55);
+  border-color: rgba(154, 0, 2, 0.85);
+  box-shadow: 0 28px 54px rgba(154, 0, 2, 0.34), 0 14px 36px rgba(0, 0, 0, 0.55);
 }
 
 .pitch-show-card.is-regular {
   border: 1px solid rgba(154, 0, 2, 0.2);
   box-shadow: 0 10px 22px rgba(34, 34, 34, 0.28);
-  background: #efe6de;
+  background: #17171b;
 }
 
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(90deg, rgba(239, 230, 222, 0.8) 25%, rgba(154, 0, 2, 0.1) 37%, rgba(239, 230, 222, 0.85) 63%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 25%, rgba(154, 0, 2, 0.2) 37%, rgba(255, 255, 255, 0.1) 63%);
   background-size: 400% 100%;
   animation: shimmer-cherry 1.2s ease-in-out infinite;
 }
@@ -838,7 +822,7 @@ button:disabled {
   width: 100%;
   border-radius: 12px;
   border: 1px solid rgba(154, 0, 2, 0.24);
-  background: #f9f2ea;
+  background: #151519;
   color: var(--text);
   padding: 10px 12px;
   font: inherit;
@@ -850,8 +834,8 @@ button:disabled {
 }
 
 .contact-form button[type="submit"] {
-  background: #ff9f3f;
-  color: #0b0b0b;
+  background: var(--accent);
+  color: var(--text-light);
   font-weight: 700;
   cursor: pointer;
   border: none;
@@ -860,7 +844,7 @@ button:disabled {
 
 .contact-form button[type="submit"]:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(255, 159, 63, 0.25);
+  box-shadow: 0 12px 26px rgba(154, 0, 2, 0.38);
 }
 
 .contact-error {
@@ -889,8 +873,8 @@ button:disabled {
   width: min(1100px, 96vw);
   height: 88vh;
   max-height: 88vh;
-  background: radial-gradient(circle at 10% 10%, rgba(255, 136, 77, 0.06), transparent 45%),
-    radial-gradient(circle at 90% 12%, rgba(73, 230, 200, 0.05), transparent 40%),
+  background: radial-gradient(circle at 10% 10%, rgba(154, 0, 2, 0.16), transparent 45%),
+    radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.05), transparent 40%),
     #0a0a0a;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 24px;
@@ -945,10 +929,10 @@ button:disabled {
 }
 
 .trust-action.primary {
-  background: linear-gradient(120deg, #ff9f3f, #ff713f);
-  color: #0b0b0b;
-  border-color: rgba(255, 159, 63, 0.35);
-  box-shadow: 0 12px 24px rgba(255, 111, 55, 0.35);
+  background: linear-gradient(120deg, #9a0002, #7d0002);
+  color: var(--text-light);
+  border-color: rgba(154, 0, 2, 0.62);
+  box-shadow: 0 12px 24px rgba(154, 0, 2, 0.34);
 }
 
 .trust-action.ghost {
@@ -956,10 +940,10 @@ button:disabled {
 }
 
 .trust-action.secondary {
-  background: linear-gradient(120deg, #49e6c8, #2ac6d3);
-  color: #031512;
-  border-color: rgba(73, 230, 200, 0.35);
-  box-shadow: 0 12px 24px rgba(73, 230, 200, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-light);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: none;
 }
 
 .trust-action:hover,
@@ -981,7 +965,7 @@ button:disabled {
 
 .trust-note {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.9rem;
 }
 
@@ -1081,7 +1065,7 @@ button:disabled {
 
 .sparkline-empty {
   padding: 6px 0;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .trust-tags {
@@ -1226,7 +1210,7 @@ button:disabled {
 
 .metric-label {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.72);
   margin: 0;
 }
 
@@ -1288,7 +1272,7 @@ button:disabled {
 
 .comment-meta {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .comment-input {
@@ -1310,12 +1294,12 @@ button:disabled {
 .comment-input button {
   align-self: flex-end;
   border: none;
-  background: linear-gradient(120deg, #ff9f3f, #ff6b3f);
-  color: #0b0b0b;
+  background: linear-gradient(120deg, #9a0002, #7d0002);
+  color: var(--text-light);
   font-weight: 700;
   padding: 10px 16px;
   border-radius: 12px;
-  box-shadow: 0 12px 26px rgba(255, 111, 55, 0.35);
+  box-shadow: 0 12px 26px rgba(154, 0, 2, 0.34);
   cursor: pointer;
 }
 
@@ -1400,22 +1384,22 @@ button:disabled {
 
 .hot-band {
   padding: 16px;
-  background: radial-gradient(circle at 20% 20%, rgba(154, 0, 2, 0.28), transparent 45%),
-    radial-gradient(circle at 70% 10%, rgba(239, 230, 222, 0.32), transparent 40%),
-    #9a0002;
-  border: 1px solid rgba(239, 230, 222, 0.25);
+  background: radial-gradient(circle at 20% 20%, rgba(154, 0, 2, 0.25), transparent 45%),
+    radial-gradient(circle at 70% 10%, rgba(255, 255, 255, 0.07), transparent 40%),
+    linear-gradient(180deg, rgba(18, 18, 22, 0.98), rgba(12, 12, 16, 0.98));
+  border: 1px solid rgba(154, 0, 2, 0.36);
   border-radius: 22px;
   margin-bottom: 28px;
-  box-shadow: 0 20px 38px rgba(34, 34, 34, 0.35);
+  box-shadow: 0 20px 38px rgba(0, 0, 0, 0.45);
 }
 
 .more-band {
   background: var(--panel);
-  border: 1px solid rgba(154, 0, 2, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 14px;
   border-radius: 18px;
-  margin-top: 22px;
-  box-shadow: 0 14px 28px rgba(34, 34, 34, 0.22);
+  margin-top: 18px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
 }
 
 .pitch-rows {
@@ -1549,9 +1533,9 @@ button:disabled {
 }
 
 .pitch-show-hot {
-  background: rgba(255, 136, 77, 0.18);
-  color: #ffc9a3;
-  border: 1px solid rgba(255, 136, 77, 0.4);
+  background: rgba(154, 0, 2, 0.2);
+  color: #ffd4d5;
+  border: 1px solid rgba(154, 0, 2, 0.52);
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.72rem;
@@ -1578,7 +1562,7 @@ button:disabled {
 
 .pitch-show-card.feature .pitch-show-text p {
   font-size: 0.88rem;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .pitch-show-card.row .pitch-show-text p {
@@ -1597,7 +1581,7 @@ button:disabled {
 
 .pitch-show-footer {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.76);
   background: rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   padding: 6px 10px;
@@ -1701,13 +1685,13 @@ button:disabled {
 
 .arena-text p {
   font-size: 0.82rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(255, 255, 255, 0.74);
 }
 
 .arena-meta,
 .arena-mini-meta {
   font-size: 0.75rem;
-  color: rgba(235, 235, 235, 0.6);
+  color: rgba(255, 255, 255, 0.64);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1717,7 +1701,7 @@ button:disabled {
 }
 
 .arena-mini-card.is-active {
-  border-color: rgba(255, 159, 63, 0.55);
+  border-color: rgba(154, 0, 2, 0.62);
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55);
 }
 
@@ -1782,7 +1766,7 @@ button:disabled {
 
 .pitch-story-text p {
   font-size: 0.85rem;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(255, 255, 255, 0.74);
 }
 
 .pitch-story-actions {
@@ -1856,7 +1840,7 @@ button:disabled {
 
 .pitch-drawer-header p {
   font-size: 0.85rem;
-  color: rgba(235, 235, 235, 0.6);
+  color: rgba(255, 255, 255, 0.64);
 }
 
 .drawer-close {
@@ -1877,16 +1861,16 @@ button:disabled {
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: transparent;
-  color: rgba(235, 235, 235, 0.7);
+  color: rgba(255, 255, 255, 0.74);
   padding: 6px 14px;
   font-size: 0.8rem;
   text-transform: capitalize;
 }
 
 .pitch-drawer-tabs button.active {
-  background: rgba(255, 159, 63, 0.18);
-  border-color: rgba(255, 159, 63, 0.5);
-  color: #ffd7ad;
+  background: rgba(154, 0, 2, 0.2);
+  border-color: rgba(154, 0, 2, 0.55);
+  color: #ffd9da;
 }
 
 .pitch-drawer-body {
@@ -1920,7 +1904,7 @@ button:disabled {
 
 .featured-link {
   font-size: 0.8rem;
-  color: rgba(235, 235, 235, 0.6);
+  color: rgba(255, 255, 255, 0.64);
 }
 
 .featured-grid {
@@ -1982,7 +1966,7 @@ button:disabled {
 
 .listing-meta {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .listing-meta.muted {
