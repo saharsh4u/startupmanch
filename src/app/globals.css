@@ -3095,3 +3095,364 @@ button:disabled {
     gap: 8px;
   }
 }
+
+/* Black Global + Responsive Hardening */
+:root {
+  --bg: #030303;
+  --panel: #0a0a0a;
+  --panel-soft: #111111;
+  --surface: #0b0b0b;
+  --surface-soft: #121212;
+  --stroke: #242424;
+  --stroke-strong: #343434;
+  --text: #f4f4f4;
+  --text-light: #ffffff;
+  --muted: #a3a3a3;
+  --muted-light: #b5b5b5;
+  --accent: #ffffff;
+  --accent-2: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #090909;
+  --placeholder-light: #8f8f8f;
+  --placeholder-dark: #bebebe;
+  --shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.34);
+  --focus-ring: rgba(255, 255, 255, 0.28);
+  --spark-start: #00baa7;
+  --spark-end: #ac4bff;
+  --pitch-hot-fallback: #121212;
+  --pitch-regular-fallback: #0f0f0f;
+  --overlay-media-fallback: #080808;
+}
+
+body {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.05), transparent 30%),
+    radial-gradient(circle at 88% 0%, rgba(255, 255, 255, 0.04), transparent 26%),
+    var(--bg);
+  color: var(--text);
+}
+
+.hero,
+.pitch-section,
+.featured,
+.submit-card,
+.admin-card,
+.expand-shell,
+.pitch-drawer-panel,
+.contact-modal {
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow-soft);
+}
+
+.hero-search,
+.hot-band,
+.more-band,
+.listing-card,
+.admin-row,
+.chip,
+.rev-chip.muted,
+.trust-metric,
+.trust-verify,
+.trust-insight,
+.sparkline-card,
+.comment-item,
+.expand-counter,
+.submit-actions button.ghost,
+.admin-actions button.ghost,
+.trust-action.ghost,
+.drawer-close,
+.admin-tags span {
+  background: var(--panel-soft);
+  border-color: var(--stroke);
+  color: var(--text);
+}
+
+.hero-btn,
+.submit-actions button,
+.admin-actions button,
+.comment-input button,
+.trust-action.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.google-button,
+.expand-close,
+.expand-nav,
+.listing-icon,
+.listing-tag,
+.founder-avatar,
+.admin-media video,
+.admin-media img,
+.admin-placeholder {
+  background: #121212;
+  color: var(--text);
+  border-color: var(--stroke);
+}
+
+.pitch-divider.labeled span {
+  background: var(--surface);
+  color: var(--muted);
+  border-color: var(--stroke);
+}
+
+.pitch-row::before {
+  background: linear-gradient(90deg, rgba(10, 10, 10, 0.95), transparent);
+}
+
+.pitch-row::after {
+  background: linear-gradient(270deg, rgba(10, 10, 10, 0.95), transparent);
+}
+
+.pitch-row::-webkit-scrollbar-thumb {
+  background: #404040;
+}
+
+.pitch-row::-webkit-scrollbar-track {
+  background: #181818;
+}
+
+.pitch-show-card,
+.pitch-show-card.is-hot,
+.pitch-show-card.is-regular {
+  background: var(--surface);
+  border-color: var(--stroke);
+}
+
+.pitch-show-card:hover,
+.pitch-show-card:focus-visible,
+.pitch-show-card.is-hot:hover {
+  border-color: var(--stroke-strong);
+}
+
+.contact-form input,
+.contact-form textarea,
+.form-field input,
+.form-field select,
+.form-field textarea,
+.comment-input textarea {
+  background: #101010;
+  color: var(--text);
+  border-color: var(--stroke);
+}
+
+.form-field input:focus-visible,
+.form-field select:focus-visible,
+.form-field textarea:focus-visible,
+.contact-form input:focus-visible,
+.contact-form textarea:focus-visible,
+.comment-input textarea:focus-visible {
+  border-color: #575757;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.submit-error,
+.contact-error,
+.comment-error,
+.trust-note.error {
+  color: #ff7f7f;
+}
+
+.contact-success,
+.trust-action-feedback {
+  color: #6effbc;
+}
+
+.trust-verify-badge {
+  background: rgba(0, 186, 167, 0.15);
+  border-color: rgba(0, 186, 167, 0.4);
+  color: #7df8ea;
+}
+
+.metric-value,
+.expand-info,
+.contact-modal,
+.featured-link,
+.back-home,
+.google-button,
+.admin-actions button.ghost,
+.submit-actions button.ghost {
+  color: var(--text);
+}
+
+.metric-label,
+.admin-info p,
+.admin-email,
+.admin-empty,
+.submit-hero p,
+.admin-hero p,
+.form-hint,
+.submit-note,
+.pitch-subtext,
+.pitch-link,
+.featured-link,
+.listing-meta,
+.comment-meta,
+.trust-note,
+.expand-counter {
+  color: var(--muted);
+}
+
+.expand-video {
+  background: #090909;
+  border-right-color: var(--stroke);
+}
+
+.expand-info {
+  background: var(--surface);
+  border-left-color: var(--stroke);
+}
+
+.expand-nav:hover,
+.expand-nav:focus-visible,
+.expand-close:hover,
+.expand-close:focus-visible {
+  background: #181818;
+}
+
+/* Keep ad placeholders colorful */
+.ad-face {
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--ad-accent) 34%, #0f0f0f), #090909 58%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+  border-color: color-mix(in srgb, var(--ad-accent) 56%, #353535);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.48);
+}
+
+.ad-face::after {
+  background:
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--ad-accent) 62%, transparent), transparent 62%),
+    radial-gradient(circle at 85% 78%, color-mix(in srgb, var(--ad-accent) 40%, transparent), transparent 66%);
+  opacity: 0.7;
+}
+
+.ad-face h4 {
+  color: #ffffff;
+}
+
+.ad-face p {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.ad-icon {
+  background: color-mix(in srgb, var(--ad-accent) 55%, #ffffff 45%);
+  border: 1px solid color-mix(in srgb, var(--ad-accent) 70%, #ffffff 30%);
+  color: #0b0b0b;
+}
+
+.ad-face.advertise {
+  background: linear-gradient(140deg, color-mix(in srgb, var(--ad-accent) 20%, #111), #090909);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--ad-accent) 65%, #3a3a3a);
+}
+
+@media (max-width: 1180px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .center-panel {
+    gap: 14px;
+  }
+
+  .ad-column {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 10px;
+    padding-bottom: 4px;
+  }
+
+  .ad-slot {
+    flex: 0 0 240px;
+    height: 94px;
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 860px) {
+  .pitch-top-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .featured-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 14px 10px 26px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-search,
+  .hero-btn {
+    width: 100%;
+  }
+
+  .pitch-top-grid,
+  .featured-grid,
+  .submit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .submit-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .submit-actions button,
+  .admin-actions button {
+    width: 100%;
+  }
+
+  .expand-shell {
+    width: 97vw;
+    height: 92vh;
+    max-height: 92vh;
+  }
+
+  .expand-layout {
+    flex-direction: column;
+  }
+
+  .expand-video,
+  .expand-info {
+    width: 100%;
+    flex: unset;
+  }
+
+  .expand-nav {
+    width: 40px;
+    height: 58px;
+    bottom: 10px;
+    top: auto;
+    transform: none;
+  }
+
+  .expand-nav:hover,
+  .expand-nav:focus-visible {
+    transform: scale(1.02);
+  }
+
+  .pitch-show-card.row {
+    min-width: min(72vw, 232px);
+  }
+}
