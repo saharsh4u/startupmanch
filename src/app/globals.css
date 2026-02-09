@@ -1,7 +1,7 @@
 :root {
-  --bg: #efe6de;          /* cream */
-  --panel: #f6ede4;       /* softer cream */
-  --panel-soft: #f9f2ea;
+  --bg: #e3d3c4;          /* deeper cream */
+  --panel: #e9dbc8;       /* softer cream */
+  --panel-soft: #eee1d1;
   --stroke: rgba(154, 0, 2, 0.14);
   --text: #1a0d0d;        /* dark for light bg */
   --text-light: #efe6de;  /* light for dark bg */
@@ -38,8 +38,8 @@ body {
 
 body {
   font-family: "JAi", var(--font-body), "Segoe UI", sans-serif;
-  background: radial-gradient(circle at 25% 10%, rgba(154, 0, 2, 0.12), transparent 32%),
-    radial-gradient(circle at 70% 8%, rgba(239, 230, 222, 0.8), transparent 40%),
+  background: radial-gradient(circle at 25% 10%, rgba(154, 0, 2, 0.18), transparent 30%),
+    radial-gradient(circle at 70% 8%, rgba(227, 211, 196, 0.65), transparent 42%),
     var(--bg);
   color: var(--text);
   position: relative;
@@ -59,8 +59,8 @@ body::before {
   inset: -20% -10% auto -10%;
   height: 70vh;
   background:
-    radial-gradient(circle at 20% 20%, rgba(154, 0, 2, 0.12), transparent 55%),
-    radial-gradient(circle at 80% 10%, rgba(239, 230, 222, 0.18), transparent 60%);
+    radial-gradient(circle at 20% 20%, rgba(154, 0, 2, 0.16), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(227, 211, 196, 0.28), transparent 60%);
   pointer-events: none;
   z-index: -1;
 }
