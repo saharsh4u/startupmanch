@@ -1,48 +1,76 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { getAdPriceId, getStripe, resolveSiteUrl } from "@/lib/stripe/server";
+import {
+  createCashfreeOrder,
+  getAdPlanConfig,
+  hasCashfreeCredentials,
+  resolveSiteUrl,
+} from "@/lib/cashfree/server";
 
 export const runtime = "nodejs";
 
 const isConfigError = (message: string) =>
-  message.includes("STRIPE_") || message.includes("NEXT_PUBLIC_SITE_URL");
+  message.includes("CASHFREE_") || message.includes("NEXT_PUBLIC_SITE_URL");
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^[0-9]{10,15}$/;
+
+const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCase();
+const normalizePhone = (value: unknown) => String(value ?? "").replace(/\D+/g, "");
+
+const buildOrderId = () => `ad_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 export async function POST(request: Request) {
   try {
-    const stripe = getStripe();
-    const priceId = getAdPriceId();
-    const siteUrl = resolveSiteUrl(request);
-    const account = await stripe.accounts.retrieve();
-
-    if (!account.charges_enabled) {
+    if (!hasCashfreeCredentials()) {
       return NextResponse.json(
         {
           error:
-            "Live charges are currently disabled on Stripe. Complete the pending task in Stripe Dashboard (View task) and try again.",
+            "Cashfree checkout is unavailable. Add CASHFREE_APP_ID and CASHFREE_SECRET_KEY in deployment settings.",
         },
         { status: 503 }
       );
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
-      customer_creation: "always",
-      success_url: `${siteUrl}/advertise/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/?adCheckout=cancelled`,
-      metadata: {
-        checkout_flow: "ad_campaign",
-        price_id: priceId,
+    const payload = (await request.json().catch(() => ({}))) as {
+      email?: string;
+      phone?: string;
+    };
+    const billingEmail = normalizeEmail(payload.email);
+    const billingPhone = normalizePhone(payload.phone);
+
+    if (!EMAIL_PATTERN.test(billingEmail)) {
+      return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
+    }
+    if (!PHONE_PATTERN.test(billingPhone)) {
+      return NextResponse.json({ error: "Valid phone number is required." }, { status: 400 });
+    }
+
+    const plan = getAdPlanConfig();
+    const siteUrl = resolveSiteUrl(request);
+    const orderId = buildOrderId();
+    const customerId = `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+    const order = await createCashfreeOrder({
+      orderId,
+      customerDetails: {
+        customer_id: customerId,
+        customer_email: billingEmail,
+        customer_phone: billingPhone,
       },
-      allow_promotion_codes: true,
-      billing_address_collection: "auto",
+      orderMeta: {
+        return_url: `${siteUrl}/advertise/success?session_id={order_id}`,
+        notify_url: `${siteUrl}/api/ads/webhook`,
+      },
     });
 
     const { error } = await supabaseAdmin.from("ad_campaigns").upsert(
       {
-        stripe_checkout_session_id: session.id,
-        stripe_price_id: priceId,
-        billing_email: session.customer_details?.email ?? null,
+        stripe_checkout_session_id: order.order_id,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: order.cf_order_id ?? null,
+        stripe_price_id: plan.planCode,
+        billing_email: billingEmail,
         status: "checkout_pending",
       },
       { onConflict: "stripe_checkout_session_id" }
@@ -52,11 +80,12 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    if (!session.url) {
-      throw new Error("Stripe did not return checkout URL");
+    const redirectUrl = order.payment_link?.trim();
+    if (!redirectUrl) {
+      throw new Error("Cashfree did not return a payment link.");
     }
 
-    return NextResponse.json({ url: session.url, sessionId: session.id });
+    return NextResponse.json({ url: redirectUrl, sessionId: order.order_id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to start checkout.";
     if (isConfigError(message)) {

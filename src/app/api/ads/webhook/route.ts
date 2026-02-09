@@ -1,147 +1,115 @@
-import type Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { getAdPriceId, getStripe, getWebhookSecret } from "@/lib/stripe/server";
+import { getAdPlanConfig, getCashfreeOrder, hasCashfreeCredentials } from "@/lib/cashfree/server";
 
 export const runtime = "nodejs";
 
-const asStringId = (value: unknown) => {
-  if (!value) return null;
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value && "id" in value && typeof (value as { id?: unknown }).id === "string") {
-    return (value as { id: string }).id;
-  }
-  return null;
+type CashfreeWebhookPayload = {
+  type?: string;
+  data?: {
+    order?: {
+      order_id?: string;
+    };
+  };
+  order?: {
+    order_id?: string;
+  };
 };
 
-const toIso = (epochSeconds: number | null | undefined) => {
-  if (!epochSeconds || !Number.isFinite(epochSeconds)) return null;
-  return new Date(epochSeconds * 1000).toISOString();
+const isPaidOrder = (status: string | null | undefined) => status?.toUpperCase() === "PAID";
+const isFailedOrder = (status: string | null | undefined) =>
+  status?.toUpperCase() === "FAILED" || status?.toUpperCase() === "CANCELLED";
+
+const extractOrderId = (payload: CashfreeWebhookPayload) => {
+  const fromData = payload.data?.order?.order_id;
+  if (typeof fromData === "string" && fromData.trim().length) return fromData.trim();
+
+  const fromOrder = payload.order?.order_id;
+  if (typeof fromOrder === "string" && fromOrder.trim().length) return fromOrder.trim();
+
+  return "";
 };
 
-const deriveCampaignStatusFromSubscription = (status: string, detailsSubmittedAt: string | null) => {
-  if (status === "canceled" || status === "unpaid" || status === "incomplete_expired") {
-    return "canceled";
+const addBillingPeriod = (interval: string) => {
+  const now = new Date();
+  if (interval === "year" || interval === "yearly") {
+    now.setFullYear(now.getFullYear() + 1);
+    return now.toISOString();
   }
-  if (status === "past_due") {
-    return "payment_failed";
+  if (interval === "week" || interval === "weekly") {
+    now.setDate(now.getDate() + 7);
+    return now.toISOString();
   }
-  if (status === "active" || status === "trialing") {
-    return detailsSubmittedAt ? "active" : "awaiting_details";
+  if (interval === "day" || interval === "daily") {
+    now.setDate(now.getDate() + 1);
+    return now.toISOString();
   }
-  return null;
+  now.setMonth(now.getMonth() + 1);
+  return now.toISOString();
 };
 
 export async function POST(request: Request) {
   try {
-    const signature = request.headers.get("stripe-signature");
-    if (!signature) {
-      return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
+    if (!hasCashfreeCredentials()) {
+      return NextResponse.json({ received: true, ignored: "cashfree_not_configured" });
     }
 
-    const stripe = getStripe();
-    const webhookSecret = getWebhookSecret();
-    const payload = await request.text();
-
-    let event: Stripe.Event;
-    try {
-      event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid webhook signature";
-      return NextResponse.json({ error: message }, { status: 400 });
+    const raw = await request.text();
+    if (!raw.trim().length) {
+      return NextResponse.json({ received: true, ignored: "empty_payload" });
     }
 
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const priceId = session.metadata?.price_id ?? getAdPriceId();
+    const payload = JSON.parse(raw) as CashfreeWebhookPayload;
+    const orderId = extractOrderId(payload);
 
-      const { error } = await supabaseAdmin.from("ad_campaigns").upsert(
-        {
-          stripe_checkout_session_id: session.id,
-          stripe_customer_id: asStringId(session.customer),
-          stripe_subscription_id: asStringId(session.subscription),
-          stripe_price_id: priceId,
-          billing_email: session.customer_details?.email ?? null,
-          status: "awaiting_details",
-        },
-        { onConflict: "stripe_checkout_session_id" }
-      );
+    if (!orderId) {
+      return NextResponse.json({ received: true, ignored: "missing_order_id" });
+    }
 
-      if (error) {
-        throw new Error(error.message);
+    const order = await getCashfreeOrder(orderId);
+    const plan = getAdPlanConfig();
+    const customerId = order.customer_details?.customer_id?.trim() || null;
+    const customerEmail = order.customer_details?.customer_email?.trim().toLowerCase() || null;
+    const cfOrderId = order.cf_order_id?.trim() || null;
+
+    const { data: campaign, error: campaignError } = await supabaseAdmin
+      .from("ad_campaigns")
+      .select("id, details_submitted_at")
+      .eq("stripe_checkout_session_id", orderId)
+      .maybeSingle();
+
+    if (campaignError) {
+      throw new Error(campaignError.message);
+    }
+
+    if (isPaidOrder(order.order_status)) {
+      const nextStatus = campaign?.details_submitted_at ? "active" : "awaiting_details";
+      const updates = {
+        stripe_customer_id: customerId,
+        stripe_subscription_id: cfOrderId,
+        stripe_price_id: plan.planCode,
+        billing_email: customerEmail,
+        status: nextStatus,
+        current_period_end: addBillingPeriod(plan.interval),
+      };
+
+      if (campaign) {
+        const { error } = await supabaseAdmin.from("ad_campaigns").update(updates).eq("id", campaign.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabaseAdmin.from("ad_campaigns").insert({
+          stripe_checkout_session_id: orderId,
+          ...updates,
+        });
+        if (error) throw new Error(error.message);
       }
-    }
-
-    if (event.type === "customer.subscription.updated") {
-      const subscription = event.data.object as Stripe.Subscription;
-      const subscriptionId = asStringId(subscription.id);
-
-      if (subscriptionId) {
-        const { data: campaign, error: campaignError } = await supabaseAdmin
-          .from("ad_campaigns")
-          .select("id, details_submitted_at")
-          .eq("stripe_subscription_id", subscriptionId)
-          .maybeSingle();
-
-        if (campaignError) {
-          throw new Error(campaignError.message);
-        }
-
-        if (campaign) {
-          const nextStatus = deriveCampaignStatusFromSubscription(
-            subscription.status,
-            campaign.details_submitted_at
-          );
-
-          const { error: updateError } = await supabaseAdmin
-            .from("ad_campaigns")
-            .update({
-              current_period_end: toIso(subscription.current_period_end),
-              cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
-              status: nextStatus ?? undefined,
-            })
-            .eq("id", campaign.id);
-
-          if (updateError) {
-            throw new Error(updateError.message);
-          }
-        }
-      }
-    }
-
-    if (event.type === "invoice.payment_failed") {
-      const invoice = event.data.object as Stripe.Invoice;
-      const subscriptionId = asStringId(invoice.subscription);
-
-      if (subscriptionId) {
+    } else if (isFailedOrder(order.order_status)) {
+      if (campaign) {
         const { error } = await supabaseAdmin
           .from("ad_campaigns")
           .update({ status: "payment_failed" })
-          .eq("stripe_subscription_id", subscriptionId);
-
-        if (error) {
-          throw new Error(error.message);
-        }
-      }
-    }
-
-    if (event.type === "customer.subscription.deleted") {
-      const subscription = event.data.object as Stripe.Subscription;
-      const subscriptionId = asStringId(subscription.id);
-
-      if (subscriptionId) {
-        const { error } = await supabaseAdmin
-          .from("ad_campaigns")
-          .update({
-            status: "canceled",
-            cancel_at_period_end: true,
-            current_period_end: toIso(subscription.current_period_end),
-          })
-          .eq("stripe_subscription_id", subscriptionId);
-
-        if (error) {
-          throw new Error(error.message);
-        }
+          .eq("id", campaign.id);
+        if (error) throw new Error(error.message);
       }
     }
 

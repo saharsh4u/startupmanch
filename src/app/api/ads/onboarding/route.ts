@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { getAdPriceId, getStripe } from "@/lib/stripe/server";
+import { getAdPlanConfig, getCashfreeOrder, hasCashfreeCredentials } from "@/lib/cashfree/server";
 import { sanitizeAccent, sanitizeBadge, sanitizeName, sanitizeTagline } from "@/lib/ads";
 
 export const runtime = "nodejs";
@@ -52,13 +52,22 @@ const campaignSelect = `
   cancel_at_period_end
 `;
 
-const asStringId = (value: unknown) => {
-  if (!value) return null;
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value && "id" in value && typeof (value as { id?: unknown }).id === "string") {
-    return (value as { id: string }).id;
+const addBillingPeriod = (interval: string) => {
+  const now = new Date();
+  if (interval === "year" || interval === "yearly") {
+    now.setFullYear(now.getFullYear() + 1);
+    return now.toISOString();
   }
-  return null;
+  if (interval === "week" || interval === "weekly") {
+    now.setDate(now.getDate() + 7);
+    return now.toISOString();
+  }
+  if (interval === "day" || interval === "daily") {
+    now.setDate(now.getDate() + 1);
+    return now.toISOString();
+  }
+  now.setMonth(now.getMonth() + 1);
+  return now.toISOString();
 };
 
 const normalizeWebsite = (value: string) => {
@@ -71,21 +80,23 @@ const normalizeWebsite = (value: string) => {
   return parsed.toString();
 };
 
+const isPaidOrder = (status: string | null | undefined) => status?.toUpperCase() === "PAID";
+
 const ensureCheckoutCampaign = async (sessionId: string) => {
-  const stripe = getStripe();
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-  if (session.status !== "complete") {
-    throw new Error("Checkout session is not completed.");
+  if (!hasCashfreeCredentials()) {
+    throw new Error("CASHFREE_APP_ID and CASHFREE_SECRET_KEY are required");
   }
 
-  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
-    throw new Error("Checkout payment is not confirmed.");
+  const order = await getCashfreeOrder(sessionId);
+  if (!isPaidOrder(order.order_status)) {
+    throw new Error("Payment is not confirmed yet.");
   }
 
-  const customerId = asStringId(session.customer);
-  const subscriptionId = asStringId(session.subscription);
-  const priceId = session.metadata?.price_id ?? getAdPriceId();
+  const plan = getAdPlanConfig();
+  const customerId = order.customer_details?.customer_id?.trim() || null;
+  const customerEmail = order.customer_details?.customer_email?.trim().toLowerCase() || null;
+  const cfOrderId = order.cf_order_id?.trim() || null;
+  const periodEnd = addBillingPeriod(plan.interval);
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("ad_campaigns")
@@ -103,10 +114,11 @@ const ensureCheckoutCampaign = async (sessionId: string) => {
       .insert({
         stripe_checkout_session_id: sessionId,
         stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-        stripe_price_id: priceId,
-        billing_email: session.customer_details?.email ?? null,
+        stripe_subscription_id: cfOrderId,
+        stripe_price_id: plan.planCode,
+        billing_email: customerEmail,
         status: "awaiting_details",
+        current_period_end: periodEnd,
       })
       .select(campaignSelect)
       .single();
@@ -118,33 +130,33 @@ const ensureCheckoutCampaign = async (sessionId: string) => {
     return created as CampaignRow;
   }
 
-  if (existing.status === "checkout_pending" || !existing.stripe_subscription_id) {
-    const { data: patched, error: patchError } = await supabaseAdmin
-      .from("ad_campaigns")
-      .update({
-        stripe_customer_id: existing.stripe_customer_id ?? customerId,
-        stripe_subscription_id: existing.stripe_subscription_id ?? subscriptionId,
-        billing_email: existing.billing_email ?? session.customer_details?.email ?? null,
-        status: "awaiting_details",
-      })
-      .eq("id", existing.id)
-      .select(campaignSelect)
-      .single();
+  const nextStatus = existing.details_submitted_at ? "active" : "awaiting_details";
+  const { data: patched, error: patchError } = await supabaseAdmin
+    .from("ad_campaigns")
+    .update({
+      stripe_customer_id: existing.stripe_customer_id ?? customerId,
+      stripe_subscription_id: existing.stripe_subscription_id ?? cfOrderId,
+      billing_email: existing.billing_email ?? customerEmail,
+      stripe_price_id: existing.stripe_price_id || plan.planCode,
+      current_period_end: existing.current_period_end ?? periodEnd,
+      status: nextStatus,
+    })
+    .eq("id", existing.id)
+    .select(campaignSelect)
+    .single();
 
-    if (patchError || !patched) {
-      throw new Error(patchError?.message ?? "Unable to prepare ad campaign record.");
-    }
-
-    return patched as CampaignRow;
+  if (patchError || !patched) {
+    throw new Error(patchError?.message ?? "Unable to prepare ad campaign record.");
   }
 
-  return existing as CampaignRow;
+  return patched as CampaignRow;
 };
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const sessionId = (searchParams.get("session_id") ?? "").trim();
+    const sessionId =
+      (searchParams.get("session_id") ?? searchParams.get("order_id") ?? "").trim();
     if (!sessionId) {
       return NextResponse.json({ error: "session_id is required" }, { status: 400 });
     }
@@ -154,11 +166,9 @@ export async function GET(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load campaign details.";
     const status =
-      message.includes("not completed") || message.includes("not confirmed")
+      message.includes("not confirmed") || message.includes("session_id") || message.includes("required")
         ? 400
-        : message.includes("session_id")
-          ? 400
-          : 500;
+        : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
@@ -212,9 +222,7 @@ export async function POST(request: Request) {
         throw new Error(uploadError.message);
       }
 
-      const { data: publicUrlData } = supabaseAdmin.storage
-        .from("pitch-posters")
-        .getPublicUrl(objectPath);
+      const { data: publicUrlData } = supabaseAdmin.storage.from("pitch-posters").getPublicUrl(objectPath);
 
       logoPath = objectPath;
       logoUrl = publicUrlData.publicUrl;

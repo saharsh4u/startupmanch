@@ -15,7 +15,9 @@ function firstValue(value: string | string[] | undefined): string {
 
 export default async function AdvertiseSuccessPage({ searchParams }: AdvertiseSuccessPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const sessionId = firstValue(resolvedSearchParams.session_id).trim();
+  const sessionId = (
+    firstValue(resolvedSearchParams.session_id) || firstValue(resolvedSearchParams.order_id)
+  ).trim();
 
   return <AdOnboardingClient sessionId={sessionId} />;
 }

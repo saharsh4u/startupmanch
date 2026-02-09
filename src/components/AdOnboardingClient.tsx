@@ -145,7 +145,7 @@ export default function AdOnboardingClient({ sessionId }: AdOnboardingClientProp
     <main className="page advertise-success-page">
       <section className="ad-onboarding-card">
         <header className="ad-onboarding-header">
-          <p className="ad-onboarding-kicker">Stripe payment successful</p>
+          <p className="ad-onboarding-kicker">Payment successful</p>
           <h1>Finish your ad details</h1>
           <p>Your ad goes live as soon as you submit this form.</p>
         </header>

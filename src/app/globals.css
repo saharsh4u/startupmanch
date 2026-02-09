@@ -4582,6 +4582,31 @@ body {
   padding: 14px 16px 18px;
 }
 
+.ad-purchase-inputs {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ad-purchase-inputs label {
+  display: grid;
+  gap: 6px;
+}
+
+.ad-purchase-inputs label > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.ad-purchase-inputs input {
+  background: #101010;
+  border: 1px solid var(--stroke);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 10px;
+  min-width: 0;
+}
+
 .ad-plan-pill {
   display: inline-flex;
   align-items: center;
@@ -4745,6 +4770,10 @@ body {
 }
 
 @media (max-width: 640px) {
+  .ad-purchase-inputs {
+    grid-template-columns: 1fr;
+  }
+
   .ad-onboarding-grid {
     grid-template-columns: 1fr;
   }
