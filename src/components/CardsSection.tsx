@@ -14,22 +14,22 @@ export default function CardsSection({ title, items }: CardsSectionProps) {
       </div>
       <div className="mini-card-grid">
         {items.map((card) => (
-          <article className="mini-card" key={card.name}>
+          <div className="mini-card" key={card.name}>
             <div className="mini-card-top">
-              <div className="mini-card-main">
-                <div className="mini-logo">
-                  {card.name
-                    .split(" ")
-                    .slice(0, 2)
-                    .map((word) => word[0])
-                    .join("")}
-                </div>
-                <div>
-                  <h4>{card.name}</h4>
-                  <p className="mini-line">{card.category}</p>
-                </div>
-              </div>
               <span className="mini-tag">{card.tag ?? "FOR SALE"}</span>
+            </div>
+            <div className="mini-card-main">
+              <div className="mini-logo">
+                {card.name
+                  .split(" ")
+                  .slice(0, 2)
+                  .map((word) => word[0])
+                  .join("")}
+              </div>
+              <div>
+                <h4>{card.name}</h4>
+                <p className="mini-line">{card.category}</p>
+              </div>
             </div>
             <div className="mini-metric-row">
               <div>
@@ -45,7 +45,10 @@ export default function CardsSection({ title, items }: CardsSectionProps) {
                 <strong>{card.multiple}</strong>
               </div>
             </div>
-          </article>
+            <button type="button" className="claim-btn">
+              Claim profile
+            </button>
+          </div>
         ))}
       </div>
     </section>
