@@ -4088,10 +4088,11 @@ body {
     z-index: auto;
     padding: 0;
     background: transparent;
-    overflow-x: auto;
+    overflow: hidden;
     overscroll-behavior-x: contain;
-    scroll-snap-type: x mandatory;
+    scroll-snap-type: none;
     scrollbar-width: none;
+    touch-action: pan-y;
   }
 
   .page-home .ad-column::-webkit-scrollbar {
@@ -4105,14 +4106,39 @@ body {
   }
 
   .page-home .ad-track {
+    display: flex;
+    flex-direction: row;
     width: max-content;
-    animation: none;
-    transform: none;
+    animation: adRailMarquee 28s linear infinite;
     gap: 10px;
+    will-change: transform;
   }
 
   .page-home .ad-slot.is-clone {
+    display: block;
+  }
+
+  .page-home .ad-left .ad-track {
+    animation-duration: 28s;
+  }
+
+  .page-home .ad-right .ad-track {
+    animation-duration: 34s;
+    animation-delay: -6s;
+  }
+
+  .page-home .ad-flip {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .page-home .ad-face.back {
     display: none;
+  }
+
+  .page-home .ad-column:active .ad-track,
+  .page-home .ad-column:focus-within .ad-track {
+    animation-play-state: paused;
   }
 
   .page-home .site-nav {
@@ -4121,6 +4147,32 @@ body {
 
   .page-home .anchor-block {
     scroll-margin-top: calc(env(safe-area-inset-top) + 96px);
+  }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .page-home .ad-track {
+    animation: none !important;
+    transform: none;
+  }
+
+  .page-home .ad-column {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+  }
+
+  .page-home .ad-slot.is-clone {
+    display: none;
+  }
+
+  .page-home .ad-flip {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .page-home .ad-face.back {
+    display: none;
   }
 }
 
