@@ -4073,3 +4073,53 @@ body {
     gap: 6px;
   }
 }
+
+/* Mobile layout readability hotfix (additive only) */
+@media (max-width: 768px) {
+  .page.page-home {
+    padding-top: 14px;
+    padding-bottom: calc(26px + env(safe-area-inset-bottom));
+  }
+
+  .page-home .ad-column {
+    position: static;
+    left: auto;
+    right: auto;
+    z-index: auto;
+    padding: 0;
+    background: transparent;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .page-home .ad-column::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page-home .ad-left,
+  .page-home .ad-right {
+    top: auto;
+    bottom: auto;
+  }
+
+  .page-home .ad-track {
+    width: max-content;
+    animation: none;
+    transform: none;
+    gap: 10px;
+  }
+
+  .page-home .ad-slot.is-clone {
+    display: none;
+  }
+
+  .page-home .site-nav {
+    top: 0;
+  }
+
+  .page-home .anchor-block {
+    scroll-margin-top: calc(env(safe-area-inset-top) + 96px);
+  }
+}
