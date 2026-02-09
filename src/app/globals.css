@@ -4491,3 +4491,261 @@ body {
     padding: 3px 8px;
   }
 }
+
+/* Ad commerce modal + clickable rail cards (additive only) */
+.ad-face-link,
+.ad-face-button,
+.ad-face-static {
+  width: 100%;
+  text-align: left;
+}
+
+.ad-face-link,
+.ad-face-button {
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ad-face-button {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  font: inherit;
+  background: none;
+}
+
+.ad-face-link:hover,
+.ad-face-button:hover {
+  filter: brightness(1.04);
+}
+
+.ad-face-link:focus-visible,
+.ad-face-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ad-accent) 75%, #ffffff 25%);
+  outline-offset: 2px;
+}
+
+.ad-purchase-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(5, 5, 5, 0.84);
+  backdrop-filter: blur(4px);
+}
+
+.ad-purchase-panel {
+  width: min(560px, 100%);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.ad-purchase-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.ad-purchase-header h3 {
+  margin: 4px 0 0;
+  font-size: 1rem;
+}
+
+.ad-purchase-kicker {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ad-purchase-close {
+  border: 1px solid var(--stroke);
+  background: var(--panel-soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  height: fit-content;
+}
+
+.ad-purchase-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 18px;
+}
+
+.ad-plan-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  width: fit-content;
+  padding: 6px 12px;
+  background: var(--panel-soft);
+}
+
+.ad-plan-pill strong {
+  font-size: 0.92rem;
+}
+
+.ad-plan-pill span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.ad-purchase-cta {
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.ad-purchase-cta[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ad-purchase-error {
+  color: #ff8f8f;
+  font-size: 0.82rem;
+}
+
+.ad-purchase-footnote {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* Ad campaign onboarding page (additive only) */
+.advertise-success-page {
+  display: flex;
+  justify-content: center;
+}
+
+.ad-onboarding-card {
+  width: min(720px, 100%);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.ad-onboarding-header h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(1.2rem, 2.8vw, 1.7rem);
+}
+
+.ad-onboarding-kicker {
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ad-onboarding-state,
+.ad-onboarding-footnote {
+  color: var(--muted);
+}
+
+.ad-onboarding-form {
+  display: grid;
+  gap: 12px;
+}
+
+.ad-onboarding-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.ad-onboarding-form label > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.ad-onboarding-form input {
+  background: #101010;
+  border: 1px solid var(--stroke);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 10px;
+}
+
+.ad-onboarding-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ad-logo-preview {
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--panel-soft);
+  width: fit-content;
+}
+
+.ad-logo-preview img {
+  display: block;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.ad-onboarding-submit {
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.ad-onboarding-submit[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ad-onboarding-error {
+  color: #ff8f8f;
+  font-size: 0.82rem;
+}
+
+.ad-onboarding-success {
+  color: #7df8ea;
+  font-size: 0.82rem;
+}
+
+.ad-onboarding-actions a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 768px) {
+  .ad-purchase-modal {
+    padding: 10px;
+  }
+
+  .ad-onboarding-card {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .ad-onboarding-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,8 +1,15 @@
+export type AdKind = "placeholder" | "campaign" | "advertise";
+
 export type AdItem = {
   name: string;
   tagline: string;
   accent: string;
   badge?: string;
+  kind?: AdKind;
+  href?: string | null;
+  campaignId?: string | null;
+  isAdvertise?: boolean;
+  logoUrl?: string | null;
 };
 
 export type AdSlot = {
@@ -159,13 +166,17 @@ export const rightAdSlots: AdSlot[] = [
       name: "Advertise",
       tagline: "3/20 spots left",
       accent: "#f7f7f7",
-      badge: "AD"
+      badge: "AD",
+      kind: "advertise",
+      isAdvertise: true
     },
     back: {
       name: "Advertise",
       tagline: "3/20 spots left",
       accent: "#f7f7f7",
-      badge: "AD"
+      badge: "AD",
+      kind: "advertise",
+      isAdvertise: true
     }
   },
   {
