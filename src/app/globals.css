@@ -9,6 +9,8 @@
   --muted-light: rgba(239, 230, 222, 0.75);
   --accent: #9a0002;      /* cherry */
   --accent-2: #9a0002;
+  --placeholder-light: rgba(26, 13, 13, 0.35);
+  --placeholder-dark: rgba(239, 230, 222, 0.55);
   --shadow: 0 18px 36px rgba(34, 34, 34, 0.18);
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -80,6 +82,18 @@ p {
 button,
 input {
   font: inherit;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--placeholder-light);
+}
+
+.on-dark input::placeholder,
+.on-dark textarea::placeholder,
+.pitch-show-card.is-hot input::placeholder,
+.pitch-show-card.is-hot textarea::placeholder {
+  color: var(--placeholder-dark);
 }
 
 button {
@@ -738,7 +752,7 @@ button:disabled {
 .pitch-show-card.is-hot {
   border: 1px solid rgba(255, 136, 77, 0.6);
   box-shadow: 0 22px 44px rgba(255, 136, 77, 0.2), 0 10px 28px rgba(0, 0, 0, 0.6);
-  background: linear-gradient(145deg, rgba(255, 136, 77, 0.12), rgba(73, 230, 200, 0.06));
+  background: linear-gradient(145deg, rgba(154, 0, 2, 0.18), rgba(239, 230, 222, 0.12));
 }
 
 .pitch-show-card.is-hot:hover {
@@ -751,6 +765,23 @@ button:disabled {
   border: 1px solid rgba(154, 0, 2, 0.2);
   box-shadow: 0 10px 22px rgba(34, 34, 34, 0.28);
   background: #efe6de;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(239, 230, 222, 0.8) 25%, rgba(154, 0, 2, 0.1) 37%, rgba(239, 230, 222, 0.85) 63%);
+  background-size: 400% 100%;
+  animation: shimmer-cherry 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer-cherry {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .contact-modal::backdrop {
@@ -806,9 +837,9 @@ button:disabled {
 .contact-form button[type="submit"] {
   width: 100%;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: #1a1a1a;
-  color: #fdf8ec;
+  border: 1px solid rgba(154, 0, 2, 0.24);
+  background: #f9f2ea;
+  color: var(--text);
   padding: 10px 12px;
   font: inherit;
 }

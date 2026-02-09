@@ -53,7 +53,15 @@ export default function PitchShowCard({ pitch, size, variant = "regular", onExpa
           preload="metadata"
         />
       ) : (
-        <div className="pitch-show-media" style={{ backgroundImage: `url(${pitch.poster})` }} />
+        <div
+          className={`pitch-show-media ${variant === "hot" ? "on-dark" : "on-light"}`}
+          style={{
+            backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
+            backgroundColor: variant === "hot" ? "#9a0002" : "#f9f2ea",
+          }}
+        >
+          {!pitch.poster ? <span className="pitch-placeholder">Poster pending</span> : null}
+        </div>
       )}
       <div className={`pitch-show-overlay ${variant === "hot" ? "on-dark" : "on-light"}`}>
         <div className="pitch-show-topline">
