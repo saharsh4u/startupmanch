@@ -41,14 +41,26 @@ export async function GET(request: Request) {
   const resolvedTab = safeTab === "category" && !categoryFilter ? "trending" : safeTab;
   const safeMode = validModes.has(modeParam) ? modeParam : "feed";
 
-  const { data, error } = await supabaseAdmin.rpc("fetch_pitch_feed", {
+  const rpcArgs: {
+    mode: string;
+    tab: string;
+    max_items: number;
+    offset_items: number;
+    min_votes: number;
+    category_filter?: string;
+  } = {
     mode: safeMode,
     tab: resolvedTab,
-    category_filter: categoryFilter,
     max_items: limit,
     offset_items: offset,
     min_votes: minVotes,
-  });
+  };
+
+  if (resolvedTab === "category" && categoryFilter) {
+    rpcArgs.category_filter = categoryFilter;
+  }
+
+  const { data, error } = await supabaseAdmin.rpc("fetch_pitch_feed", rpcArgs);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
