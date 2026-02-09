@@ -118,8 +118,8 @@ export default function AdminPage() {
   };
 
   return (
-    <main className="page app-shell admin-page">
-      <div className="content-container admin-shell">
+    <main className="page admin-page">
+      <div className="admin-shell">
         <header className="admin-hero">
           <div className="hero-brand">
             <span className="brand-star">✦</span>

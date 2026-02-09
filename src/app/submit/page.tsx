@@ -265,8 +265,8 @@ export default function SubmitPage() {
   };
 
   return (
-    <main className="page app-shell submit-page">
-      <div className="content-container submit-shell">
+    <main className="page submit-page">
+      <div className="submit-shell">
         <header className="submit-hero">
           <Link href="/" className="hero-brand">
             <span className="brand-star">✦</span>
