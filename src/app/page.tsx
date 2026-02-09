@@ -1,31 +1,31 @@
 import AdColumn from "@/components/AdColumn";
-import FeaturedListings from "@/components/FeaturedListings";
+import CardsSection from "@/components/CardsSection";
 import HomeHero from "@/components/HomeHero";
-import PitchFeed from "@/components/PitchFeed";
 import { leftAdSlots, rightAdSlots } from "@/data/ads";
-import { getSeedCompanies } from "@/lib/seed-companies";
+import { bestDeals, recentlyListed } from "@/data/marketplace";
 
 export default function Home() {
-  const companies = getSeedCompanies();
-  const stages = ["Pre-Seed", "Seed", "Series A", "Growth"];
-  const featured = companies.slice(0, 10).map((company, index) => ({
-    name: company.name,
-    category: company.sector ?? "General",
-    stage: stages[index % stages.length],
-    tag: "Featured",
-  }));
+  const adSlots = [...leftAdSlots, ...rightAdSlots];
+  const recentCards = recentlyListed.slice(0, 10);
+  const weeklyDeals = bestDeals.slice(0, 10);
 
   return (
-    <main className="page">
-      <div className="layout-grid">
-        <AdColumn slots={leftAdSlots} side="left" />
-        <div className="center-panel">
-          <HomeHero />
-          <PitchFeed />
-          <FeaturedListings items={featured} />
-        </div>
-        <AdColumn slots={rightAdSlots} side="right" />
+    <>
+      <div className="ad-slot ad-top">
+        <AdColumn slots={adSlots} orientation="horizontal" />
       </div>
-    </main>
+
+      <main className="page app-shell home-page-shell">
+        <div className="content-container home-main-content">
+          <HomeHero />
+          <CardsSection title="Recently listed for sale" items={recentCards} />
+          <CardsSection title="Best deals this week" items={weeklyDeals} />
+        </div>
+      </main>
+
+      <div className="ad-slot ad-bottom" aria-hidden>
+        <AdColumn slots={adSlots} orientation="horizontal" />
+      </div>
+    </>
   );
 }

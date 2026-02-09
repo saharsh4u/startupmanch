@@ -2,23 +2,28 @@ export default function HomeHero() {
   return (
     <section className="hero">
       <div className="hero-brand">
-        <span className="brand-star">✦</span>
+        <span className="brand-star">★</span>
         <span>StartupManch</span>
       </div>
-      <h1>Find Next Startup Through Real Pitches</h1>
-      <p className="hero-subline">Watch. Judge. Back.</p>
+      <h1>The database of verified startup revenues</h1>
       <div className="hero-actions">
-        <div className="hero-search">
+        <label className="hero-search" aria-label="Search startups">
           <span className="search-icon">⌕</span>
           <input
             type="text"
-            placeholder="Search pitches, founders, categories..."
-            aria-label="Search pitches"
+            placeholder="Search startups, founders, categories..."
+            aria-label="Search startups"
           />
-        </div>
+        </label>
         <a href="https://www.startupmanch.com/submit" className="hero-btn">
-          + Post pitch
+          + Add startup
         </a>
+      </div>
+      <div className="hero-tabs">
+        <span>New</span>
+        <span>Stats</span>
+        <span>Acquisition</span>
+        <span>$1 vs $1,000,000</span>
       </div>
     </section>
   );
