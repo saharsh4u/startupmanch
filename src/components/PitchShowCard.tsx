@@ -55,7 +55,7 @@ export default function PitchShowCard({ pitch, size, variant = "regular", onExpa
       ) : (
         <div className="pitch-show-media" style={{ backgroundImage: `url(${pitch.poster})` }} />
       )}
-      <div className="pitch-show-overlay">
+      <div className={`pitch-show-overlay ${variant === "hot" ? "on-dark" : "on-light"}`}>
         <div className="pitch-show-topline">
           <span className="pitch-show-badge">60s pitch</span>
         </div>
