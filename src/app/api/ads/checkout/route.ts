@@ -12,6 +12,17 @@ export async function POST(request: Request) {
     const stripe = getStripe();
     const priceId = getAdPriceId();
     const siteUrl = resolveSiteUrl(request);
+    const account = await stripe.accounts.retrieve();
+
+    if (!account.charges_enabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Live charges are currently disabled on Stripe. Complete the pending task in Stripe Dashboard (View task) and try again.",
+        },
+        { status: 503 }
+      );
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

@@ -14,10 +14,21 @@ export async function GET() {
   try {
     const stripe = getStripe();
     const priceId = getAdPriceId();
+    let availabilityMessage: string | null = null;
 
     const price = await stripe.prices.retrieve(priceId, {
       expand: ["product"],
     });
+
+    try {
+      const account = await stripe.accounts.retrieve();
+      if (!account.charges_enabled) {
+        availabilityMessage =
+          "Live charges are currently disabled on Stripe. Complete the pending task in Stripe Dashboard (View task) and try again.";
+      }
+    } catch {
+      // If account status cannot be read, keep checkout available and let checkout endpoint validate.
+    }
 
     const amount = price.unit_amount ?? 0;
     const currency = price.currency ?? "usd";
@@ -31,13 +42,14 @@ export async function GET() {
         : "StartupManch Ad Slot";
 
     return NextResponse.json({
-      available: true,
+      available: !availabilityMessage,
       priceId,
       amount,
       currency,
       interval,
       displayAmount: formatAmount(amount, currency),
       productName,
+      message: availabilityMessage,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ad checkout unavailable";
