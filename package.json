@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
-    "next": "^14.2.35",
+    "next": "^14.2.0",
     "pg": "^8.11.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
@@ -20,7 +20,16 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.35",
+    "eslint-config-next": "^14.2.0",
     "typescript": "^5.3.3"
+  },
+  "optionalDependencies": {
+    "@next/swc-darwin-arm64": "14.2.35",
+    "@next/swc-darwin-x64": "14.2.35",
+    "@next/swc-linux-arm64-gnu": "14.2.35",
+    "@next/swc-linux-arm64-musl": "14.2.35",
+    "@next/swc-linux-x64-gnu": "14.2.35",
+    "@next/swc-linux-x64-musl": "14.2.35",
+    "@next/swc-win32-x64-msvc": "14.2.35"
   }
 }
