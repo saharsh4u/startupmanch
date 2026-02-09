@@ -4182,3 +4182,106 @@ body {
     scroll-behavior: smooth;
   }
 }
+
+/* Mobile hero reflow + overflow containment (final additive override) */
+@media (max-width: 768px) {
+  .page.page-home,
+  .page-home .layout-grid,
+  .page-home .center-panel,
+  .page-home .anchor-block {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .page-home .layout-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-home .layout-grid > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page-home .hero {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .page-home .hero-brand,
+  .page-home .hero h1,
+  .page-home .hero-subline,
+  .page-home .hero-actions {
+    max-width: 100%;
+  }
+
+  .page-home .hero h1,
+  .page-home .hero-subline {
+    overflow-wrap: anywhere;
+  }
+
+  .page-home .hero-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .page-home .hero-search,
+  .page-home .hero-btn {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .page-home .hero-search {
+    flex-basis: auto;
+  }
+
+  .page-home .hero-search input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-home .hero-btn {
+    text-align: center;
+  }
+
+  .page-home .ad-column {
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .page-home .ad-track {
+    will-change: transform;
+  }
+}
+
+@supports (overflow: clip) {
+  @media (max-width: 768px) {
+    .page.page-home,
+    .page-home .layout-grid,
+    .page-home .center-panel,
+    .page-home .anchor-block {
+      overflow-x: clip;
+    }
+
+    .page-home .ad-column {
+      overflow-x: clip;
+    }
+  }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .page-home .ad-column {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+  }
+}
