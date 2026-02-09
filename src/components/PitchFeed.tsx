@@ -135,24 +135,39 @@ export default function PitchFeed() {
   return (
     <section className="pitch-section">
       <div className="pitch-header">
-        <h3>Hot video pitches</h3>
+        <div>
+          <p className="pitch-kicker">Hot Pitches</p>
+          <h3>Today’s top 4</h3>
+          <p className="pitch-subtext">Featured by votes and freshness.</p>
+        </div>
       </div>
-      <div className={`pitch-mosaic${loaded ? " is-loaded" : ""}`}>
-        <div className="pitch-top-grid">
-          {topPitches.map((pitch) => (
-            <PitchShowCard key={pitch.id} pitch={pitch} size="feature" onExpand={handleExpand} />
+      <div className={`pitch-mosaic hot-band${loaded ? " is-loaded" : ""}`}>
+        <div className="pitch-top-grid hot-grid">
+          {topPitches.map((pitch, idx) => (
+            <PitchShowCard
+              key={pitch.id}
+              pitch={pitch}
+              size="feature"
+              variant="hot"
+              onExpand={handleExpand}
+            />
           ))}
         </div>
-        <div className="pitch-divider" />
+      </div>
+      <div className="pitch-divider labeled">
+        <span>More pitches</span>
+        <p className="pitch-subtext">Fresh from the community.</p>
+      </div>
+      <div className={`pitch-mosaic more-band${loaded ? " is-loaded" : ""}`}>
         <div className="pitch-rows">
           <div className="pitch-row">
             {rowOne.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={handleExpand} />
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" variant="regular" onExpand={handleExpand} />
             ))}
           </div>
           <div className="pitch-row">
             {rowTwo.map((pitch) => (
-              <PitchShowCard key={pitch.id} pitch={pitch} size="row" onExpand={handleExpand} />
+              <PitchShowCard key={pitch.id} pitch={pitch} size="row" variant="regular" onExpand={handleExpand} />
             ))}
           </div>
         </div>

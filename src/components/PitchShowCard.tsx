@@ -15,10 +15,11 @@ export type PitchShow = {
 type PitchShowCardProps = {
   pitch: PitchShow;
   size: "feature" | "row" | "wide" | "mini";
+  variant?: "hot" | "regular";
   onExpand?: (pitch: PitchShow) => void;
 };
 
-export default function PitchShowCard({ pitch, size, onExpand }: PitchShowCardProps) {
+export default function PitchShowCard({ pitch, size, variant = "regular", onExpand }: PitchShowCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
 
@@ -31,7 +32,7 @@ export default function PitchShowCard({ pitch, size, onExpand }: PitchShowCardPr
 
   return (
     <article
-      className={`pitch-show-card ${size}`}
+      className={`pitch-show-card ${size} ${variant === "hot" ? "is-hot" : "is-regular"}`}
       tabIndex={0}
       aria-label={label}
       onClick={() => {
@@ -55,11 +56,15 @@ export default function PitchShowCard({ pitch, size, onExpand }: PitchShowCardPr
         <div className="pitch-show-media" style={{ backgroundImage: `url(${pitch.poster})` }} />
       )}
       <div className="pitch-show-overlay">
-        <span className="pitch-show-badge">60s pitch</span>
+        <div className="pitch-show-topline">
+          <span className="pitch-show-badge">60s pitch</span>
+          {variant === "hot" ? <span className="pitch-show-hot">🔥 HOT</span> : null}
+        </div>
         <div className="pitch-show-text">
           <h4>{pitch.name}</h4>
           <p>{pitch.tagline}</p>
         </div>
+        {variant === "hot" ? <div className="pitch-show-playghost">▶</div> : <div className="pitch-show-footer">Pitch Preview</div>}
       </div>
       <ContactModal ref={dialogRef} pitch={pitch} />
     </article>

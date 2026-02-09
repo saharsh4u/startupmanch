@@ -660,6 +660,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
+  gap: 12px;
 }
 
 .pitch-header h3 {
@@ -668,6 +669,20 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: rgba(255, 255, 255, 0.75);
+}
+
+.pitch-kicker {
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 4px;
+}
+
+.pitch-subtext {
+  margin: 2px 0 0;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.9rem;
 }
 
 .pitch-link {
@@ -685,6 +700,22 @@ button:disabled {
   padding: 4px 6px 18px;
 }
 
+.hot-band {
+  padding: 16px;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 136, 77, 0.12), transparent 45%),
+    radial-gradient(circle at 70% 10%, rgba(73, 230, 200, 0.1), transparent 40%),
+    rgba(12, 12, 12, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+}
+
+.more-band {
+  background: rgba(10, 10, 10, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  border-radius: 18px;
+}
+
 .pitch-mosaic.is-loaded {
   animation: fadeUp 0.6s ease both;
 }
@@ -697,6 +728,23 @@ button:disabled {
   background: #111111;
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.6);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease, outline 0.2s ease;
+}
+
+.pitch-show-card.is-hot {
+  border: 1px solid rgba(255, 136, 77, 0.6);
+  box-shadow: 0 22px 44px rgba(255, 136, 77, 0.2), 0 10px 28px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(145deg, rgba(255, 136, 77, 0.12), rgba(73, 230, 200, 0.06));
+}
+
+.pitch-show-card.is-hot:hover {
+  transform: translateY(-8px) rotate(-0.5deg) scale(1.01);
+  border-color: rgba(255, 136, 77, 0.8);
+  box-shadow: 0 28px 54px rgba(255, 136, 77, 0.26), 0 14px 36px rgba(0, 0, 0, 0.55);
+}
+
+.pitch-show-card.is-regular {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
 }
 
 .contact-modal::backdrop {
@@ -1299,7 +1347,18 @@ button:disabled {
 .pitch-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
-  margin: 4px 0;
+  margin: 8px 0;
+  position: relative;
+}
+
+.pitch-divider.labeled span {
+  position: absolute;
+  top: -11px;
+  left: 12px;
+  background: #0d0d0d;
+  padding: 0 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .pitch-rows {
@@ -1411,6 +1470,13 @@ button:disabled {
     linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 50%);
 }
 
+.pitch-show-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .pitch-show-badge {
   position: absolute;
   top: 12px;
@@ -1423,6 +1489,17 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.12);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+.pitch-show-hot {
+  background: rgba(255, 136, 77, 0.18);
+  color: #ffc9a3;
+  border: 1px solid rgba(255, 136, 77, 0.4);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  margin-left: auto;
 }
 
 .pitch-show-text {
@@ -1450,6 +1527,24 @@ button:disabled {
 .pitch-show-card.row .pitch-show-text p {
   font-size: 0.78rem;
   color: rgba(255, 255, 255, 0.72);
+}
+
+.pitch-show-playghost {
+  align-self: flex-end;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.pitch-show-footer {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 6px 10px;
+  width: fit-content;
 }
 
 
@@ -1929,6 +2024,15 @@ button:disabled {
 @media (max-width: 900px) {
   .featured-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hot-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(220px, 1fr);
+    overflow-x: auto;
+    padding-bottom: 8px;
+    gap: 12px;
   }
 }
 
