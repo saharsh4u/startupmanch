@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import SiteFooter from "@/components/SiteFooter";
+import TopNav from "@/components/TopNav";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type QueueItem = {
@@ -120,6 +122,7 @@ export default function AdminPage() {
   return (
     <main className="page admin-page">
       <div className="admin-shell">
+        <TopNav context="inner" />
         <header className="admin-hero">
           <div className="hero-brand">
             <span className="brand-star">✦</span>
@@ -232,6 +235,7 @@ export default function AdminPage() {
             </div>
           )}
         </section>
+        <SiteFooter />
       </div>
     </main>
   );

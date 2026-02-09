@@ -1,20 +1,31 @@
-export default function TopNav() {
+import Link from "next/link";
+
+type TopNavProps = {
+  context?: "home" | "inner";
+};
+
+export default function TopNav({ context = "home" }: TopNavProps) {
+  const prefix = context === "home" ? "" : "/";
+
   return (
-    <nav className="top-nav">
-      <div className="brand">
-        <span className="brand-star">✦</span>
-        <span>StartupManch</span>
-      </div>
-      <div className="nav-actions">
-        <button type="button" className="nav-btn ghost">
-          Sign In
-        </button>
-        <button type="button" className="nav-btn primary">
-          Add Startup
-        </button>
-        <button type="button" className="nav-btn icon" aria-label="Profile">
-          ⦿
-        </button>
+    <nav className="site-nav" aria-label="Primary">
+      <div className="site-nav-row">
+        <Link href="/" className="site-nav-logo">
+          <span className="brand-star">✦</span>
+          <span>StartupManch</span>
+        </Link>
+        <div className="site-nav-links">
+          <Link href={`${prefix}#top-rated-block`}>Top rated</Link>
+          <Link href={`${prefix}#categories-block`}>Categories</Link>
+          <Link href={`${prefix}#leaderboard-block`}>Leaderboard</Link>
+        </div>
+        <div className="site-nav-search">
+          <span>⌕</span>
+          <input type="text" placeholder="Search startups..." aria-label="Search startups" />
+        </div>
+        <Link href="/submit" className="site-nav-cta">
+          Post pitch
+        </Link>
       </div>
     </nav>
   );

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SiteFooter from "@/components/SiteFooter";
+import TopNav from "@/components/TopNav";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type AuthStatus = "idle" | "loading" | "authed" | "error";
@@ -267,6 +269,7 @@ export default function SubmitPage() {
   return (
     <main className="page submit-page">
       <div className="submit-shell">
+        <TopNav context="inner" />
         <header className="submit-hero">
           <Link href="/" className="hero-brand">
             <span className="brand-star">✦</span>
@@ -546,6 +549,7 @@ export default function SubmitPage() {
             {submitMessage ? <p className="submit-note">{submitMessage}</p> : null}
           </div>
         </section>
+        <SiteFooter />
       </div>
     </main>
   );

@@ -43,9 +43,9 @@ export default function RankingsTable() {
               </div>
             </div>
             <span className="industry-cell">{row.industry}</span>
-            <span className="metric-cell">{row.revenue}</span>
-            <span className="metric-cell">{row.multiple}</span>
-            <span className="metric-cell">{row.growth}</span>
+            <span className="metric-cell metric-revenue">{row.revenue}</span>
+            <span className="metric-cell metric-multiple">{row.multiple}</span>
+            <span className="metric-cell metric-growth">{row.growth}</span>
             <svg className="spark" viewBox="0 0 110 40" preserveAspectRatio="none">
               <path d={sparklinePath(row.rank)} />
             </svg>
