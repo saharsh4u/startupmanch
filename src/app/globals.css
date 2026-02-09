@@ -4123,3 +4123,10 @@ body {
     scroll-margin-top: calc(env(safe-area-inset-top) + 96px);
   }
 }
+
+/* Mobile smooth anchor navigation (additive only) */
+@media (max-width: 768px) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

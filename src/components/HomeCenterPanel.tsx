@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CategoriesSection, { fallbackCategories } from "@/components/CategoriesSection";
 import FeaturedListings from "@/components/FeaturedListings";
 import HomeHero from "@/components/HomeHero";
@@ -8,6 +8,7 @@ import PitchFeed from "@/components/PitchFeed";
 import RankingsTable from "@/components/RankingsTable";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
+import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
 
 type FeaturedItem = {
   name: string;
@@ -29,6 +30,16 @@ const normalizeCategory = (value: string) => value.trim();
 export default function HomeCenterPanel({ featured }: HomeCenterPanelProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [liveCategories, setLiveCategories] = useState<string[]>(fallbackCategories);
+  const scrollToCurrentHash = useCallback(() => {
+    if (!isMobileViewport()) return;
+    const hash = window.location.hash;
+    if (!hash) return;
+
+    scrollToAnchorId(hash, {
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      updateHash: false,
+    });
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -74,6 +85,20 @@ export default function HomeCenterPanel({ featured }: HomeCenterPanelProps) {
       setSelectedCategory(null);
     }
   }, [hasSelectedCategory]);
+
+  useEffect(() => {
+    const runInitialHashScroll = () => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          scrollToCurrentHash();
+        });
+      });
+    };
+
+    runInitialHashScroll();
+    window.addEventListener("hashchange", scrollToCurrentHash);
+    return () => window.removeEventListener("hashchange", scrollToCurrentHash);
+  }, [scrollToCurrentHash]);
 
   return (
     <div className="center-panel">

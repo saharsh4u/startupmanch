@@ -1,12 +1,32 @@
+"use client";
+
 import Link from "next/link";
+import type { MouseEvent } from "react";
+import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
 
 type TopNavProps = {
   context?: "home" | "inner";
   showPostPitch?: boolean;
 };
 
+const navAnchors = [
+  { id: "top-rated-block", label: "Top rated" },
+  { id: "categories-block", label: "Categories" },
+  { id: "leaderboard-block", label: "Leaderboard" },
+] as const;
+
 export default function TopNav({ context = "home", showPostPitch = true }: TopNavProps) {
   const prefix = context === "home" ? "" : "/";
+  const handleHomeAnchorClick = (event: MouseEvent<HTMLAnchorElement>, anchorId: string) => {
+    if (context !== "home") return;
+    if (!isMobileViewport()) return;
+
+    const behavior = prefersReducedMotion() ? "auto" : "smooth";
+    const didScroll = scrollToAnchorId(anchorId, { behavior, updateHash: true });
+    if (didScroll) {
+      event.preventDefault();
+    }
+  };
 
   return (
     <nav className="site-nav" aria-label="Primary">
@@ -16,9 +36,19 @@ export default function TopNav({ context = "home", showPostPitch = true }: TopNa
           <span>StartupManch</span>
         </Link>
         <div className="site-nav-links">
-          <Link href={`${prefix}#top-rated-block`}>Top rated</Link>
-          <Link href={`${prefix}#categories-block`}>Categories</Link>
-          <Link href={`${prefix}#leaderboard-block`}>Leaderboard</Link>
+          {navAnchors.map((item) => (
+            <Link
+              key={item.id}
+              href={`${prefix}#${item.id}`}
+              onClick={
+                context === "home"
+                  ? (event) => handleHomeAnchorClick(event, item.id)
+                  : undefined
+              }
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
         <div className="site-nav-search">
           <span>⌕</span>
