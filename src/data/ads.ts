@@ -80,6 +80,20 @@ export const leftAdSlots: AdSlot[] = [
       accent: "#ff6b8a",
       badge: "AI"
     }
+  },
+  {
+    front: {
+      name: "Rank Radar",
+      tagline: "Track SEO jumps and losses before they hit revenue",
+      accent: "#ffc15a",
+      badge: "SEO"
+    },
+    back: {
+      name: "ReplyJet",
+      tagline: "Inbox copilot for founder-led outbound teams",
+      accent: "#57d6b5",
+      badge: "MAIL"
+    }
   }
 ];
 
@@ -152,6 +166,20 @@ export const rightAdSlots: AdSlot[] = [
       tagline: "3/20 spots left",
       accent: "#f7f7f7",
       badge: "AD"
+    }
+  },
+  {
+    front: {
+      name: "Claw Patrol",
+      tagline: "Recover failed checkouts with smart followups",
+      accent: "#ff7e72",
+      badge: "CRO"
+    },
+    back: {
+      name: "Brand.dev",
+      tagline: "API to personalize your product with logos, colors...",
+      accent: "#b892ff",
+      badge: "BRAND"
     }
   }
 ];

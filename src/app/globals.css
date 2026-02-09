@@ -3515,3 +3515,132 @@ body {
     flex-basis: auto;
   }
 }
+
+/* Sticky mobile ad rails + marquee track overrides */
+.ad-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.ad-slot.is-clone {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .ad-track {
+    flex-direction: row;
+    width: max-content;
+  }
+}
+
+@keyframes adRailMarquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-50% - 5px));
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding-top: calc(96px + env(safe-area-inset-top));
+    padding-bottom: calc(98px + env(safe-area-inset-bottom));
+  }
+
+  .ad-column {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 42;
+    padding: 8px 10px;
+    overflow: hidden;
+    overscroll-behavior-x: contain;
+  }
+
+  .ad-left {
+    top: env(safe-area-inset-top);
+    background: linear-gradient(180deg, rgba(3, 3, 3, 0.96), rgba(3, 3, 3, 0.84) 74%, rgba(3, 3, 3, 0));
+  }
+
+  .ad-right {
+    bottom: env(safe-area-inset-bottom);
+    background: linear-gradient(0deg, rgba(3, 3, 3, 0.96), rgba(3, 3, 3, 0.84) 74%, rgba(3, 3, 3, 0));
+  }
+
+  .ad-track {
+    flex-direction: row;
+    gap: 10px;
+    width: max-content;
+    animation: adRailMarquee 28s linear infinite;
+    will-change: transform;
+  }
+
+  .ad-right .ad-track {
+    animation-duration: 34s;
+    animation-delay: -6s;
+  }
+
+  .ad-slot,
+  .ad-slot.is-clone {
+    display: block;
+    flex: 0 0 214px;
+    width: 214px;
+    height: 76px;
+    scroll-snap-align: start;
+  }
+
+  .ad-flip {
+    animation-duration: 16s;
+  }
+
+  .ad-face {
+    padding: 10px 11px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+
+  .ad-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 9px;
+    font-size: 0.54rem;
+  }
+
+  .ad-face h4 {
+    font-size: 0.88rem;
+    margin-bottom: 2px;
+  }
+
+  .ad-face p {
+    font-size: 0.68rem;
+    line-height: 1.24;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .ad-track {
+    animation: none;
+    transform: none;
+  }
+
+  .ad-column {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ad-column::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ad-flip {
+    animation: none;
+  }
+}

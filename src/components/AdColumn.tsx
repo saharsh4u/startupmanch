@@ -16,20 +16,26 @@ const AdFace = ({ item, isBack }: { item: AdItem; isBack?: boolean }) => (
 
 export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "left" | "right" }) {
   const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}`;
+  const renderSlot = (slot: AdSlot, index: number, isClone = false) => (
+    <div
+      key={`${isClone ? "clone" : "slot"}-${index}-${slot.front.name}-${slot.back.name}`}
+      className={`ad-slot${isClone ? " is-clone" : ""}`}
+      style={{ "--delay": `${index * 1.6}s` } as CSSProperties}
+      aria-hidden={isClone ? true : undefined}
+    >
+      <div className="ad-flip">
+        <AdFace item={slot.front} />
+        <AdFace item={slot.back} isBack />
+      </div>
+    </div>
+  );
+
   return (
     <aside className={columnClass}>
-      {slots.map((slot, index) => (
-        <div
-          key={`${slot.front.name}-${slot.back.name}`}
-          className="ad-slot"
-          style={{ "--delay": `${index * 1.6}s` } as CSSProperties}
-        >
-          <div className="ad-flip">
-            <AdFace item={slot.front} />
-            <AdFace item={slot.back} isBack />
-          </div>
-        </div>
-      ))}
+      <div className="ad-track">
+        {slots.map((slot, index) => renderSlot(slot, index))}
+        {slots.map((slot, index) => renderSlot(slot, index, true))}
+      </div>
     </aside>
   );
 }
