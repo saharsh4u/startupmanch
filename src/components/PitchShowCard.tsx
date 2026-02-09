@@ -9,6 +9,12 @@ export type PitchShow = {
   tagline: string;
   poster: string;
   video?: string | null;
+  category?: string | null;
+  upvotes?: number;
+  downvotes?: number;
+  comments?: number;
+  score?: number;
+  monthlyRevenue?: string | null;
 };
 
 type PitchShowCardProps = {
@@ -28,6 +34,11 @@ export default function PitchShowCard({ pitch, size, variant = "regular", onExpa
   }, [pitch.video]);
 
   const label = `Pitch: ${pitch.name}, 60s`;
+  const score = Number.isFinite(Number(pitch.score)) ? Number(pitch.score) : 0;
+  const upvotes = Number.isFinite(Number(pitch.upvotes)) ? Number(pitch.upvotes) : 0;
+  const comments = Number.isFinite(Number(pitch.comments)) ? Number(pitch.comments) : 0;
+  const hasRevenue = Boolean((pitch.monthlyRevenue ?? "").trim().length);
+  const scoreLabel = Number.isInteger(score) ? `${score}` : score.toFixed(1);
 
   return (
     <article
@@ -72,6 +83,18 @@ export default function PitchShowCard({ pitch, size, variant = "regular", onExpa
         <div className="pitch-show-text">
           <h4>{pitch.name}</h4>
           <p>{pitch.tagline}</p>
+        </div>
+        <div className="pitch-show-meta">
+          <div className="pitch-show-metrics">
+            <span className="pitch-metric-chip">Score: {scoreLabel}</span>
+            <span className="pitch-metric-chip">Upvotes: {upvotes}</span>
+            <span className="pitch-metric-chip">Comments: {comments}</span>
+          </div>
+          {hasRevenue ? (
+            <div className="pitch-revenue-chip is-self-reported">
+              Self reported: {pitch.monthlyRevenue}
+            </div>
+          ) : null}
         </div>
         {variant === "hot" ? <div className="pitch-show-playghost">▶</div> : <div className="pitch-show-footer">Pitch Preview</div>}
       </div>

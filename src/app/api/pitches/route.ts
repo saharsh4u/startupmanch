@@ -14,13 +14,19 @@ type PitchFeedItem = {
   category: string | null;
   city: string | null;
   one_liner: string | null;
+  monthly_revenue?: string | null;
   video_path: string | null;
   poster_path: string | null;
   created_at: string;
   in_count: number;
   out_count: number;
   comment_count: number;
-  score: number;
+  score: number | string | null;
+};
+
+const asNumber = (value: unknown) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
 export async function GET(request: Request) {
@@ -88,6 +94,11 @@ export async function GET(request: Request) {
 
       return {
         ...item,
+        monthly_revenue: item.monthly_revenue ?? null,
+        in_count: asNumber(item.in_count),
+        out_count: asNumber(item.out_count),
+        comment_count: asNumber(item.comment_count),
+        score: asNumber(item.score),
         video_url,
         poster_url,
       };

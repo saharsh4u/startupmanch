@@ -10,7 +10,12 @@ type ApiPitch = {
   startup_name: string;
   one_liner: string | null;
   category: string | null;
+  monthly_revenue?: string | null;
   poster_url: string | null;
+  in_count?: number;
+  out_count?: number;
+  comment_count?: number;
+  score?: number;
   video_url?: string | null;
 };
 
@@ -23,6 +28,10 @@ type PitchFeedProps = {
 };
 
 const normalizeCategory = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
+const asNumber = (value: unknown) => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 const matchesCategory = (item: FeedPitch, selectedCategory: string | null | undefined) => {
   if (!selectedCategory) return true;
@@ -61,6 +70,11 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
           poster: item.poster_url ?? `/pitches/pitch-0${(index % 3) + 1}.svg`,
           video: item.video_url ?? null,
           category: item.category ?? null,
+          upvotes: asNumber(item.in_count),
+          downvotes: asNumber(item.out_count),
+          comments: asNumber(item.comment_count),
+          score: asNumber(item.score),
+          monthlyRevenue: (item.monthly_revenue ?? "").trim() || null,
         });
 
         const weekList = weekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
@@ -90,6 +104,11 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         poster: pitch.poster,
         video: null,
         category: pitch.category ?? null,
+        upvotes: 0,
+        downvotes: 0,
+        comments: 0,
+        score: 0,
+        monthlyRevenue: null,
       })),
     []
   );

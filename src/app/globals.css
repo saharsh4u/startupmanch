@@ -4435,3 +4435,59 @@ body {
     min-width: 100%;
   }
 }
+
+/* Pitch preview card metrics + self-reported revenue (additive only) */
+.pitch-show-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pitch-show-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pitch-metric-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(10, 10, 10, 0.46);
+}
+
+.pitch-revenue-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.64rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  background: rgba(8, 8, 8, 0.44);
+  width: fit-content;
+}
+
+.pitch-revenue-chip.is-self-reported {
+  color: inherit;
+}
+
+@media (max-width: 640px) {
+  .pitch-metric-chip {
+    font-size: 0.58rem;
+    padding: 2px 7px;
+  }
+
+  .pitch-revenue-chip {
+    font-size: 0.6rem;
+    padding: 3px 8px;
+  }
+}
