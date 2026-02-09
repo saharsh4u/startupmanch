@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PitchVideoCard, { type PitchCardData } from "@/components/PitchVideoCard";
 
 const tabs = ["trending", "fresh", "food", "fashion"] as const;
@@ -35,38 +35,41 @@ export default function PitchDrawer({ open, onClose }: PitchDrawerProps) {
     };
   }, [open]);
 
-  const fetchPage = async (nextOffset: number, replace = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/pitches?mode=feed&tab=${tab}&limit=${PAGE_SIZE}&offset=${nextOffset}`,
-        { cache: "no-store" }
-      );
-      if (!res.ok) throw new Error("Unable to load pitches.");
-      const payload = await res.json();
-      const data = (payload?.data ?? []) as ApiPitch[];
-      const mapped = data.map((item, index) => ({
-        id: item.pitch_id ?? `pitch-${nextOffset + index}`,
-        name: item.startup_name ?? "Startup",
-        tagline: item.one_liner ?? item.category ?? "New pitch",
-        poster: item.poster_url ?? `/pitches/pitch-0${((nextOffset + index) % 3) + 1}.svg`,
-      }));
+  const fetchPage = useCallback(
+    async (nextOffset: number, replace = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/pitches?mode=feed&tab=${tab}&limit=${PAGE_SIZE}&offset=${nextOffset}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error("Unable to load pitches.");
+        const payload = await res.json();
+        const data = (payload?.data ?? []) as ApiPitch[];
+        const mapped = data.map((item, index) => ({
+          id: item.pitch_id ?? `pitch-${nextOffset + index}`,
+          name: item.startup_name ?? "Startup",
+          tagline: item.one_liner ?? item.category ?? "New pitch",
+          poster: item.poster_url ?? `/pitches/pitch-0${((nextOffset + index) % 3) + 1}.svg`,
+        }));
 
-      if (replace) {
-        setItems(mapped);
-      } else {
-        setItems((prev) => [...prev, ...mapped]);
+        if (replace) {
+          setItems(mapped);
+        } else {
+          setItems((prev) => [...prev, ...mapped]);
+        }
+
+        setHasMore(mapped.length === PAGE_SIZE);
+        setOffset(nextOffset + mapped.length);
+      } catch (err: any) {
+        setError(err.message ?? "Unable to load pitches.");
+      } finally {
+        setLoading(false);
       }
-
-      setHasMore(mapped.length === PAGE_SIZE);
-      setOffset(nextOffset + mapped.length);
-    } catch (err: any) {
-      setError(err.message ?? "Unable to load pitches.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [tab]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +77,7 @@ export default function PitchDrawer({ open, onClose }: PitchDrawerProps) {
     setOffset(0);
     setHasMore(true);
     fetchPage(0, true);
-  }, [open, tab]);
+  }, [open, fetchPage]);
 
   if (!open) return null;
 

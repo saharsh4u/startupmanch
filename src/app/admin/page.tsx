@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
@@ -208,7 +209,14 @@ export default function AdminPage() {
                       <div className="admin-placeholder">No video</div>
                     )}
                     {item.poster_url ? (
-                      <img src={item.poster_url} alt={`${item.startup_name} poster`} />
+                      <Image
+                        src={item.poster_url}
+                        alt={`${item.startup_name} poster`}
+                        width={640}
+                        height={360}
+                        unoptimized
+                        style={{ width: "100%", height: "auto" }}
+                      />
                     ) : (
                       <div className="admin-placeholder">No poster</div>
                     )}

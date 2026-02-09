@@ -260,6 +260,7 @@ create trigger on_auth_user_created
 create or replace function public.fetch_pitch_feed(
   mode text default 'feed',
   tab text default 'trending',
+  category_filter text default null,
   max_items int default 20,
   offset_items int default 0,
   min_votes int default 10
@@ -342,6 +343,11 @@ as $$
         or tab = 'fresh'
         or (tab = 'food' and (s.category ilike '%food%' or s.category ilike '%beverage%'))
         or (tab = 'fashion' and (s.category ilike '%fashion%' or s.category ilike '%apparel%'))
+        or (
+          tab = 'category'
+          and coalesce(nullif(trim(category_filter), ''), '') <> ''
+          and s.category ilike '%' || trim(category_filter) || '%'
+        )
       ))
     )
   order by

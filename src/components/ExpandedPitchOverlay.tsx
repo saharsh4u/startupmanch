@@ -122,11 +122,11 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     const dialog = dialogRef.current;
     if (!dialog) return;
     const prev = document.activeElement as HTMLElement | null;
+    const mountedVideo = videoRef.current;
     dialog.focus();
     return () => {
       prev?.focus();
-      const vid = videoRef.current;
-      if (vid) vid.pause();
+      if (mountedVideo) mountedVideo.pause();
     };
   }, []);
 

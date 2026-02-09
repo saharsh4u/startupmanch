@@ -2,9 +2,10 @@ import Link from "next/link";
 
 type TopNavProps = {
   context?: "home" | "inner";
+  showPostPitch?: boolean;
 };
 
-export default function TopNav({ context = "home" }: TopNavProps) {
+export default function TopNav({ context = "home", showPostPitch = true }: TopNavProps) {
   const prefix = context === "home" ? "" : "/";
 
   return (
@@ -23,9 +24,11 @@ export default function TopNav({ context = "home" }: TopNavProps) {
           <span>⌕</span>
           <input type="text" placeholder="Search startups..." aria-label="Search startups" />
         </div>
-        <Link href="/submit" className="site-nav-cta">
-          Post pitch
-        </Link>
+        {showPostPitch ? (
+          <Link href="/submit" className="site-nav-cta">
+            Post pitch
+          </Link>
+        ) : null}
       </div>
     </nav>
   );
