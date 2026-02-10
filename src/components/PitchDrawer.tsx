@@ -51,7 +51,7 @@ export default function PitchDrawer({ open, onClose }: PitchDrawerProps) {
           id: item.pitch_id ?? `pitch-${nextOffset + index}`,
           name: item.startup_name ?? "Startup",
           tagline: item.one_liner ?? item.category ?? "New pitch",
-          poster: item.poster_url ?? `/pitches/pitch-0${((nextOffset + index) % 3) + 1}.svg`,
+          poster: item.poster_url ?? `/pitches/pitch-0${((nextOffset + index) % 3) + 1}.svg?v=2`,
         }));
 
         if (replace) {

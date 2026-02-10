@@ -21,7 +21,7 @@ export const pitches: Pitch[] = [
     ask: "₹50L",
     equity: "2%",
     valuation: "₹25 Cr",
-    poster: "/pitches/pitch-01.svg",
+    poster: "/pitches/pitch-01.svg?v=2",
     isD2C: true
   },
   {
@@ -33,7 +33,7 @@ export const pitches: Pitch[] = [
     ask: "₹80L",
     equity: "3%",
     valuation: "₹26.7 Cr",
-    poster: "/pitches/pitch-02.svg",
+    poster: "/pitches/pitch-02.svg?v=2",
     isD2C: true
   },
   {
@@ -45,7 +45,7 @@ export const pitches: Pitch[] = [
     ask: "₹1.2 Cr",
     equity: "4%",
     valuation: "₹30 Cr",
-    poster: "/pitches/pitch-03.svg"
+    poster: "/pitches/pitch-03.svg?v=2"
   },
   {
     id: "agri-wiz",
@@ -56,6 +56,6 @@ export const pitches: Pitch[] = [
     ask: "₹65L",
     equity: "3%",
     valuation: "₹21.6 Cr",
-    poster: "/pitches/pitch-04.svg"
+    poster: "/pitches/pitch-04.svg?v=2"
   }
 ];

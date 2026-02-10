@@ -67,7 +67,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
           id: item.pitch_id ?? `pitch-${index}`,
           name: item.startup_name ?? "Startup",
           tagline: item.one_liner ?? item.category ?? "New pitch",
-          poster: item.poster_url ?? `/pitches/pitch-0${(index % 3) + 1}.svg`,
+          poster: item.poster_url ?? `/pitches/pitch-0${(index % 3) + 1}.svg?v=2`,
           video: item.video_url ?? null,
           category: item.category ?? null,
           upvotes: asNumber(item.in_count),
