@@ -14,7 +14,21 @@ type QueueRowRaw = {
   valuation: string | null;
   video_path: string | null;
   poster_path: string | null;
+  video_processing_status?: string | null;
+  video_error?: string | null;
   startups: any;
+};
+
+const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("video_processing_status") ||
+    normalized.includes("video_mux_asset_id") ||
+    normalized.includes("video_mux_playback_id") ||
+    normalized.includes("video_transcode_requested_at") ||
+    normalized.includes("video_ready_at") ||
+    normalized.includes("video_error")
+  );
 };
 
 export async function GET(request: Request) {
@@ -23,32 +37,72 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("pitches")
-    .select(
-      `
+  const selectWithVideoProcessing = `
+    id,
+    startup_id,
+    type,
+    duration_sec,
+    ask,
+    equity,
+    valuation,
+    video_path,
+    poster_path,
+    video_processing_status,
+    video_error,
+    startups!inner (
       id,
-      startup_id,
-      type,
-      duration_sec,
-      ask,
-      equity,
-      valuation,
-      video_path,
-      poster_path,
-      startups!inner (
-        id,
-        name,
-        category,
-        city,
-        status,
-        profiles!startups_founder_id_fkey ( email )
-      )
-    `
+      name,
+      category,
+      city,
+      status,
+      profiles!startups_founder_id_fkey ( email )
     )
-    .eq("status", "pending")
-    .eq("startups.status", "pending")
-    .order("created_at", { ascending: true });
+  `;
+
+  const selectLegacy = `
+    id,
+    startup_id,
+    type,
+    duration_sec,
+    ask,
+    equity,
+    valuation,
+    video_path,
+    poster_path,
+    startups!inner (
+      id,
+      name,
+      category,
+      city,
+      status,
+      profiles!startups_founder_id_fkey ( email )
+    )
+  `;
+
+  let data: any = null;
+  let error: any = null;
+
+  {
+    const res = await supabaseAdmin
+      .from("pitches")
+      .select(selectWithVideoProcessing)
+      .eq("status", "pending")
+      .eq("startups.status", "pending")
+      .order("created_at", { ascending: true });
+    data = res.data;
+    error = res.error;
+  }
+
+  if (error && isMissingVideoProcessingColumnError(error.message)) {
+    const fallback = await supabaseAdmin
+      .from("pitches")
+      .select(selectLegacy)
+      .eq("status", "pending")
+      .eq("startups.status", "pending")
+      .order("created_at", { ascending: true });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -93,6 +147,8 @@ export async function GET(request: Request) {
         valuation: row.valuation,
         video_path: row.video_path,
         poster_path: row.poster_path,
+        video_processing_status: row.video_processing_status ?? null,
+        video_error: row.video_error ?? null,
         video_url,
         poster_url,
       };

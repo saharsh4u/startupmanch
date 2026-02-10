@@ -29,6 +29,7 @@ type Outcome = {
 
 type QueueOptions = {
   force: boolean;
+  approvedBy?: string;
 };
 
 const ACTIVE_QUEUE_STATES = new Set<VideoProcessingStatus>(["queued", "processing"]);
@@ -216,16 +217,23 @@ const queuePitchTranscode = async (pitch: PitchVideoRow, options: QueueOptions) 
   const mappedStatus = mapMuxStatus(muxAsset.status);
   const now = new Date().toISOString();
 
+  const updatePayload: Record<string, any> = {
+    video_mux_asset_id: muxAsset.assetId,
+    video_mux_playback_id: muxAsset.playbackId,
+    video_processing_status: mappedStatus,
+    video_transcode_requested_at: now,
+    video_ready_at: mappedStatus === "ready" ? now : null,
+    video_error: null,
+  };
+
+  if (options.approvedBy) {
+    // Persist who initiated the approval even if Mux processing takes time.
+    updatePayload.approved_by = options.approvedBy;
+  }
+
   const { error } = await supabaseAdmin
     .from("pitches")
-    .update({
-      video_mux_asset_id: muxAsset.assetId,
-      video_mux_playback_id: muxAsset.playbackId,
-      video_processing_status: mappedStatus,
-      video_transcode_requested_at: now,
-      video_ready_at: mappedStatus === "ready" ? now : null,
-      video_error: null,
-    })
+    .update(updatePayload)
     .eq("id", pitch.id);
 
   if (error) {
@@ -281,6 +289,11 @@ export const approvePitchWithTranscodeGate = async (input: {
     }
 
     if (ACTIVE_QUEUE_STATES.has(processingStatus)) {
+      // Best-effort: ensure we persist who initiated approval for in-flight transcodes.
+      await supabaseAdmin
+        .from("pitches")
+        .update({ approved_by: input.approvedBy })
+        .eq("id", pitch.id);
       return { httpStatus: 202, body: { status: "queued_for_transcode", pitchId: pitch.id } };
     }
 
@@ -289,7 +302,7 @@ export const approvePitchWithTranscodeGate = async (input: {
       return { httpStatus: 200, body: { status: "approved", pitchId: pitch.id } };
     }
 
-    const queueResult = await queuePitchTranscode(pitch, { force: false });
+    const queueResult = await queuePitchTranscode(pitch, { force: false, approvedBy: input.approvedBy });
     if (queueResult.ready) {
       await markPitchApproved(pitch.id, pitch.startup_id, input.approvedBy);
       return { httpStatus: 200, body: { status: "approved", pitchId: pitch.id } };

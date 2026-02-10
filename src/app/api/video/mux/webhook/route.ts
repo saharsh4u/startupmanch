@@ -27,6 +27,18 @@ type PitchLookup = {
   startup_id: string;
 };
 
+const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("video_processing_status") ||
+    normalized.includes("video_mux_asset_id") ||
+    normalized.includes("video_mux_playback_id") ||
+    normalized.includes("video_transcode_requested_at") ||
+    normalized.includes("video_ready_at") ||
+    normalized.includes("video_error")
+  );
+};
+
 const pickPlaybackId = (items: MuxPlaybackId[] | null | undefined) => {
   if (!Array.isArray(items) || items.length === 0) return null;
   const publicPlayback = items.find((item) => item?.policy === "public" && item?.id);
@@ -110,7 +122,6 @@ export async function POST(request: Request) {
             video_mux_asset_id: assetId,
             video_processing_status: "failed",
             video_error: "Mux ready event missing playback id",
-            status: "pending",
           })
           .eq("id", pitch.id);
 
@@ -122,7 +133,7 @@ export async function POST(request: Request) {
       }
 
       const now = new Date().toISOString();
-      const { error: pitchError } = await supabaseAdmin
+      const { error: muxUpdateError } = await supabaseAdmin
         .from("pitches")
         .update({
           video_mux_asset_id: assetId,
@@ -130,19 +141,30 @@ export async function POST(request: Request) {
           video_processing_status: "ready",
           video_ready_at: now,
           video_error: null,
-          status: "approved",
-          approved_at: now,
         })
         .eq("id", pitch.id);
 
-      if (pitchError) {
-        throw new Error(pitchError.message);
+      if (muxUpdateError) {
+        throw new Error(muxUpdateError.message);
       }
 
+      // Only auto-approve if the pitch is still pending (avoid clobbering rejected/approved).
+      const { error: approvePitchError } = await supabaseAdmin
+        .from("pitches")
+        .update({ status: "approved", approved_at: now })
+        .eq("id", pitch.id)
+        .eq("status", "pending");
+
+      if (approvePitchError) {
+        throw new Error(approvePitchError.message);
+      }
+
+      // Only update startups that are still pending (avoid clobbering rejected/approved).
       const { error: startupError } = await supabaseAdmin
         .from("startups")
         .update({ status: "approved" })
-        .eq("id", pitch.startup_id);
+        .eq("id", pitch.startup_id)
+        .eq("status", "pending");
 
       if (startupError) {
         throw new Error(startupError.message);
@@ -158,7 +180,6 @@ export async function POST(request: Request) {
           video_mux_asset_id: assetId,
           video_processing_status: "failed",
           video_error: resolveErrorMessage(payload),
-          status: "pending",
         })
         .eq("id", pitch.id);
 
@@ -188,6 +209,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, status: "ignored_event" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Mux webhook failed";
+    if (isMissingVideoProcessingColumnError(message)) {
+      return NextResponse.json({ received: true, ignored: "missing_video_processing_columns" });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

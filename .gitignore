@@ -5,6 +5,9 @@ node_modules/
 .next/
 out/
 
+# Supabase CLI
+supabase/.temp/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
