@@ -103,11 +103,16 @@ export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "lef
   const [modalOpen, setModalOpen] = useState(false);
   const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}`;
 
-  const renderSlot = (slot: AdSlot, index: number, isClone = false) => (
+  const renderSlot = (slot: AdSlot, index: number, isClone = false) => {
+    const pairIndex = Math.floor(index / 2);
+    const sideOffset = side === "right" ? 1.1 : 0;
+    const delaySeconds = pairIndex * 2.6 + sideOffset;
+
+    return (
     <div
       key={`${isClone ? "clone" : "slot"}-${side ?? "rail"}-${index}-${slot.front.name}-${slot.back.name}`}
       className={`ad-slot${isClone ? " is-clone" : ""}`}
-      style={{ "--delay": `${index * 1.6}s` } as CSSProperties}
+      style={{ "--delay": `${delaySeconds}s` } as CSSProperties}
       aria-hidden={isClone ? true : undefined}
     >
       <div className="ad-flip">
@@ -126,7 +131,8 @@ export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "lef
         />
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <>

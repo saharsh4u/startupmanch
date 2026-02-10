@@ -2492,6 +2492,7 @@ button:disabled {
 
 .ad-flip {
   animation: adFlip 14s infinite ease-in-out;
+  animation-delay: var(--delay, 0s);
 }
 
 .ad-face {
