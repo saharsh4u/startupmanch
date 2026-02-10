@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type AuthStatus = "idle" | "loading" | "authed" | "error";
 
@@ -49,6 +49,7 @@ type FieldErrors = Partial<Record<FieldKey, string>>;
 
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const MAX_POSTER_BYTES = 8 * 1024 * 1024;
+const AUTH_UNAVAILABLE_MESSAGE = "Sign-in is temporarily unavailable. Please try again shortly.";
 const DURATION_DEFAULTS: Record<PitchPayload["type"], number> = {
   elevator: 60,
   demo: 240,
@@ -155,20 +156,35 @@ export default function SubmitPage() {
 
   useEffect(() => {
     const init = async () => {
+      if (!hasBrowserSupabaseEnv) {
+        setAuthStatus("error");
+        setAuthError(AUTH_UNAVAILABLE_MESSAGE);
+        return;
+      }
       setAuthStatus("loading");
-      const { data } = await supabaseBrowser.auth.getSession();
-      const session = data.session;
-      if (session) {
-        setSessionEmail(session.user.email ?? null);
-        setAuthStatus("authed");
-      } else {
-        setAuthStatus("idle");
+      try {
+        const { data } = await supabaseBrowser.auth.getSession();
+        const session = data.session;
+        if (session) {
+          setSessionEmail(session.user.email ?? null);
+          setAuthStatus("authed");
+        } else {
+          setAuthStatus("idle");
+        }
+      } catch (error: any) {
+        setAuthStatus("error");
+        setAuthError(error.message ?? AUTH_UNAVAILABLE_MESSAGE);
       }
     };
     init();
   }, []);
 
   const handleSignIn = async (mode: "signin" | "signup") => {
+    if (!hasBrowserSupabaseEnv) {
+      setAuthStatus("error");
+      setAuthError(AUTH_UNAVAILABLE_MESSAGE);
+      return;
+    }
     setAuthError(null);
     setAuthStatus("loading");
     try {
@@ -189,12 +205,18 @@ export default function SubmitPage() {
   };
 
   const handleSignOut = async () => {
+    if (!hasBrowserSupabaseEnv) return;
     await supabaseBrowser.auth.signOut();
     setSessionEmail(null);
     setAuthStatus("idle");
   };
 
   const handleGoogle = async () => {
+    if (!hasBrowserSupabaseEnv) {
+      setAuthStatus("error");
+      setAuthError(AUTH_UNAVAILABLE_MESSAGE);
+      return;
+    }
     if (!googleEnabled) {
       setAuthError("Google sign-in is temporarily unavailable.");
       return;
@@ -354,7 +376,9 @@ export default function SubmitPage() {
     setRevStatus(revKey ? "ready" : "idle");
 
     try {
-
+      if (!hasBrowserSupabaseEnv) {
+        throw new Error(AUTH_UNAVAILABLE_MESSAGE);
+      }
       const { data: sessionData } = await supabaseBrowser.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) {
@@ -439,7 +463,12 @@ export default function SubmitPage() {
         throw new Error("Upload URL missing.");
       }
 
-      await uploadToSignedUrl(videoUpload, videoFile);
+      const selectedVideoFile = videoFile;
+      if (!selectedVideoFile) {
+        throw new Error("Pitch video is required.");
+      }
+
+      await uploadToSignedUrl(videoUpload, selectedVideoFile);
 
       if (posterUpload && posterFile) {
         await uploadToSignedUrl(posterUpload, posterFile);

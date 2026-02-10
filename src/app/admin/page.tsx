@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type QueueItem = {
   startup_id: string;
@@ -23,6 +23,7 @@ type QueueItem = {
 };
 
 type AuthStatus = "idle" | "loading" | "authed" | "error";
+const AUTH_UNAVAILABLE_MESSAGE = "Admin sign-in is temporarily unavailable. Please try again shortly.";
 
 export default function AdminPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
@@ -49,25 +50,36 @@ export default function AdminPage() {
 
   useEffect(() => {
     const init = async () => {
-      setAuthStatus("loading");
-      const { data } = await supabaseBrowser.auth.getSession();
-      const session = data.session;
-      if (!session?.access_token) {
-        setAuthStatus("idle");
+      if (!hasBrowserSupabaseEnv) {
+        setAuthStatus("error");
+        setAuthError(AUTH_UNAVAILABLE_MESSAGE);
         return;
       }
-      setSessionToken(session.access_token);
-      setAuthStatus("authed");
+      setAuthStatus("loading");
       try {
+        const { data } = await supabaseBrowser.auth.getSession();
+        const session = data.session;
+        if (!session?.access_token) {
+          setAuthStatus("idle");
+          return;
+        }
+        setSessionToken(session.access_token);
+        setAuthStatus("authed");
         await loadQueue(session.access_token);
       } catch (error: any) {
-        setQueueError(error.message ?? "Unable to load queue.");
+        setAuthStatus("error");
+        setAuthError(error.message ?? AUTH_UNAVAILABLE_MESSAGE);
       }
     };
     init();
   }, []);
 
   const handleSignIn = async () => {
+    if (!hasBrowserSupabaseEnv) {
+      setAuthStatus("error");
+      setAuthError(AUTH_UNAVAILABLE_MESSAGE);
+      return;
+    }
     setAuthError(null);
     setAuthStatus("loading");
     const { error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
@@ -90,6 +102,7 @@ export default function AdminPage() {
   };
 
   const handleSignOut = async () => {
+    if (!hasBrowserSupabaseEnv) return;
     await supabaseBrowser.auth.signOut();
     setSessionToken(null);
     setQueue([]);
