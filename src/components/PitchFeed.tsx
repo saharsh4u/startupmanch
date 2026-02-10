@@ -44,7 +44,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [activePitchId, setActivePitchId] = useState<string | null>(null);
+  const [overlayPitches, setOverlayPitches] = useState<FeedPitch[]>([]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -194,53 +194,31 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     });
   }, [topPitches]);
 
-  useEffect(() => {
-    if (expandedIndex === null) return;
-    if (!expandedList.length) {
-      setExpandedIndex(null);
-      setActivePitchId(null);
-      return;
-    }
-
-    if (!activePitchId) return;
-
-    const nextIndex = expandedList.findIndex((item) => item.id === activePitchId);
-    if (nextIndex === -1) {
-      setExpandedIndex(null);
-      setActivePitchId(null);
-      return;
-    }
-
-    if (nextIndex !== expandedIndex) {
-      setExpandedIndex(nextIndex);
-    }
-  }, [expandedIndex, expandedList, activePitchId]);
-
   const handleExpand = (pitch: PitchShow) => {
-    const idx = expandedList.findIndex((item) => item.id === pitch.id);
+    const snapshot = [...expandedList];
+    const idx = snapshot.findIndex((item) => item.id === pitch.id);
     if (idx < 0) return;
-    setActivePitchId(pitch.id);
+    setOverlayPitches(snapshot);
     setExpandedIndex(idx);
   };
 
   const closeExpand = () => {
     setExpandedIndex(null);
-    setActivePitchId(null);
+    setOverlayPitches([]);
   };
 
   const setOverlayIndex = (next: number) => {
-    if (!expandedList.length) {
+    if (!overlayPitches.length) {
       closeExpand();
       return;
     }
 
-    const bounded = Math.max(0, Math.min(next, expandedList.length - 1));
+    const bounded = Math.max(0, Math.min(next, overlayPitches.length - 1));
     setExpandedIndex(bounded);
-    setActivePitchId(expandedList[bounded]?.id ?? null);
   };
 
   const overlayOpen =
-    expandedIndex !== null && expandedIndex >= 0 && expandedIndex < expandedList.length;
+    expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
 
   return (
     <section className="pitch-section">
@@ -310,7 +288,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
       {overlayOpen && (
         <ExpandedPitchOverlay
-          pitches={expandedList}
+          pitches={overlayPitches}
           index={expandedIndex}
           setIndex={setOverlayIndex}
           onClose={closeExpand}
