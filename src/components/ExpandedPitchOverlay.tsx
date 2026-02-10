@@ -73,6 +73,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const wheelLock = useRef(false);
   const [isMobile, setIsMobile] = useState(false);
   const pitch = pitches[index];
+  const pitchId = pitch?.id ?? "";
 
   const [detail, setDetail] = useState<PitchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -137,29 +138,44 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.pause();
-      video.currentTime = 0;
-      video.play().catch(() => undefined);
-    }
-  }, [pitch]);
+  const videoSrc = pitch?.video ?? detail?.pitch.video_url ?? null;
+  const poster = pitch?.poster ?? detail?.pitch.poster_url ?? undefined;
 
   useEffect(() => {
-    if (!pitch) return;
+    const video = videoRef.current;
+    if (!video || !videoSrc) return;
+    video.pause();
+    video.currentTime = 0;
+    video.play().catch(() => undefined);
+  }, [pitch?.id, videoSrc]);
+
+  useEffect(() => {
+    if (!pitchId) return;
+    setDetail(null);
+    setDetailError(null);
+    setRevenue(null);
+
+    const detailAbort = new AbortController();
+    const revenueAbort = new AbortController();
+    let active = true;
     const loadDetail = async () => {
       setDetailLoading(true);
-      setDetailError(null);
       try {
-        const res = await fetch(`/api/pitches/${pitch.id}/detail`, { cache: "no-store" });
+        const res = await fetch(`/api/pitches/${pitchId}/detail`, {
+          cache: "no-store",
+          signal: detailAbort.signal,
+        });
         if (!res.ok) throw new Error("Unable to load pitch details");
         const payload = (await res.json()) as PitchDetail;
+        if (!active) return;
         setDetail(payload);
       } catch (err) {
+        if (!active) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setDetailError((err as Error).message);
         setDetail(null);
       } finally {
+        if (!active) return;
         setDetailLoading(false);
       }
     };
@@ -167,18 +183,30 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     const loadRevenue = async () => {
       setRevenueLoading(true);
       try {
-        const res = await fetch(`/api/pitches/${pitch.id}/revenue`, { cache: "no-store" });
+        const res = await fetch(`/api/pitches/${pitchId}/revenue`, {
+          cache: "no-store",
+          signal: revenueAbort.signal,
+        });
         if (!res.ok) throw new Error("Unable to load revenue");
         const payload = (await res.json()) as RevenueData;
+        if (!active) return;
         setRevenue(payload);
-      } catch {
+      } catch (err) {
+        if (!active) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setRevenue(null);
       } finally {
+        if (!active) return;
         setRevenueLoading(false);
       }
     };
     loadRevenue();
-  }, [pitch]);
+    return () => {
+      active = false;
+      detailAbort.abort();
+      revenueAbort.abort();
+    };
+  }, [pitchId]);
 
   const handleWheel = (e: WheelEvent) => {
     e.stopPropagation();
@@ -205,9 +233,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       wheelLock.current = false;
     }, 420);
   };
-
-  const videoSrc = detail?.pitch.video_url ?? pitch?.video ?? null;
-  const poster = detail?.pitch.poster_url ?? pitch?.poster ?? undefined;
 
   const website = detail?.startup.website ?? null;
   const normalizedWebsite = useMemo(() => {
@@ -236,9 +261,11 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const metricMrr = revenue?.metrics.mrr ?? detail?.startup.monthly_revenue ?? "—";
   const metricActiveSubs = revenue?.metrics.active_subscriptions ?? "—";
   const verificationSource =
-    revenue?.provider && revenue?.status === "active"
-      ? `Verified via ${revenue.provider === "stripe" ? "Stripe" : "Razorpay"}`
-      : "Not verified";
+    detail?.startup.monthly_revenue
+      ? "Self reported by founder"
+      : revenue?.provider && revenue?.status === "active"
+        ? `Connected via ${revenue.provider === "stripe" ? "Stripe" : "Razorpay"}`
+        : "No revenue source connected";
   const metricAllTime = revenue?.metrics.all_time_revenue ?? null;
 
   const handleShare = async () => {
@@ -411,7 +438,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
             </div>
 
             <div className="trust-verify">
-              <div className="trust-verify-badge">Revenue verified</div>
+              <div className="trust-verify-badge">Revenue source</div>
               <p className="metric-value">{verificationSource}</p>
               <p className="metric-label">Last updated {lastUpdatedDisplay}</p>
             </div>
