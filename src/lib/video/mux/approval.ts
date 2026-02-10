@@ -33,6 +33,18 @@ type QueueOptions = {
 
 const ACTIVE_QUEUE_STATES = new Set<VideoProcessingStatus>(["queued", "processing"]);
 const RETRYABLE_STATES = new Set<VideoProcessingStatus>(["failed", "legacy"]);
+let hasVideoProcessingColumns: boolean | null = null;
+
+const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("video_processing_status") ||
+    normalized.includes("video_mux_asset_id") ||
+    normalized.includes("video_mux_playback_id") ||
+    normalized.includes("video_transcode_requested_at") ||
+    normalized.includes("video_ready_at")
+  );
+};
 
 const normalizeProcessingStatus = (value: string | null | undefined): VideoProcessingStatus => {
   if (value === "queued") return "queued";
@@ -52,6 +64,29 @@ const mapMuxStatus = (value: string | null | undefined): VideoProcessingStatus =
 };
 
 const readPitchVideoRow = async (pitchId: string): Promise<PitchVideoRow | null> => {
+  if (hasVideoProcessingColumns === false) {
+    const { data, error } = await supabaseAdmin
+      .from("pitches")
+      .select("id,startup_id,status,video_path")
+      .eq("id", pitchId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data) return null;
+    return {
+      id: (data as any).id,
+      startup_id: (data as any).startup_id,
+      status: (data as any).status,
+      video_path: (data as any).video_path,
+      video_processing_status: "legacy",
+      video_mux_asset_id: null,
+      video_mux_playback_id: null,
+    };
+  }
+
   const { data, error } = await supabaseAdmin
     .from("pitches")
     .select(
@@ -61,8 +96,32 @@ const readPitchVideoRow = async (pitchId: string): Promise<PitchVideoRow | null>
     .maybeSingle();
 
   if (error) {
+    if (isMissingVideoProcessingColumnError(error.message)) {
+      hasVideoProcessingColumns = false;
+      const { data: fallback, error: fallbackError } = await supabaseAdmin
+        .from("pitches")
+        .select("id,startup_id,status,video_path")
+        .eq("id", pitchId)
+        .maybeSingle();
+
+      if (fallbackError) {
+        throw new Error(fallbackError.message);
+      }
+      if (!fallback) return null;
+      return {
+        id: (fallback as any).id,
+        startup_id: (fallback as any).startup_id,
+        status: (fallback as any).status,
+        video_path: (fallback as any).video_path,
+        video_processing_status: "legacy",
+        video_mux_asset_id: null,
+        video_mux_playback_id: null,
+      };
+    }
     throw new Error(error.message);
   }
+
+  hasVideoProcessingColumns = true;
 
   return (data as PitchVideoRow | null) ?? null;
 };
@@ -81,20 +140,46 @@ const signPitchVideoSource = async (videoPath: string) => {
 
 const markPitchApproved = async (pitchId: string, startupId: string, approvedBy: string) => {
   const now = new Date().toISOString();
-  const { error: pitchError } = await supabaseAdmin
-    .from("pitches")
-    .update({
-      status: "approved",
-      approved_at: now,
-      approved_by: approvedBy,
-      video_processing_status: "ready",
-      video_ready_at: now,
-      video_error: null,
-    })
-    .eq("id", pitchId);
+  const preferredUpdate = hasVideoProcessingColumns !== false;
+  let pitchError: Error | null = null;
+
+  if (preferredUpdate) {
+    const { error } = await supabaseAdmin
+      .from("pitches")
+      .update({
+        status: "approved",
+        approved_at: now,
+        approved_by: approvedBy,
+        video_processing_status: "ready",
+        video_ready_at: now,
+        video_error: null,
+      })
+      .eq("id", pitchId);
+    if (error) {
+      if (isMissingVideoProcessingColumnError(error.message)) {
+        hasVideoProcessingColumns = false;
+      } else {
+        pitchError = new Error(error.message);
+      }
+    }
+  }
+
+  if (!preferredUpdate || hasVideoProcessingColumns === false) {
+    const { error } = await supabaseAdmin
+      .from("pitches")
+      .update({
+        status: "approved",
+        approved_at: now,
+        approved_by: approvedBy,
+      })
+      .eq("id", pitchId);
+    if (error) {
+      pitchError = new Error(error.message);
+    }
+  }
 
   if (pitchError) {
-    throw new Error(pitchError.message);
+    throw pitchError;
   }
 
   const { error: startupError } = await supabaseAdmin
@@ -108,6 +193,10 @@ const markPitchApproved = async (pitchId: string, startupId: string, approvedBy:
 };
 
 const queuePitchTranscode = async (pitch: PitchVideoRow, options: QueueOptions) => {
+  if (hasVideoProcessingColumns === false) {
+    return { status: "legacy" as const, queued: false as const, ready: false as const };
+  }
+
   const processingStatus = normalizeProcessingStatus(pitch.video_processing_status);
 
   if (!pitch.video_path) {
@@ -140,6 +229,10 @@ const queuePitchTranscode = async (pitch: PitchVideoRow, options: QueueOptions) 
     .eq("id", pitch.id);
 
   if (error) {
+    if (isMissingVideoProcessingColumnError(error.message)) {
+      hasVideoProcessingColumns = false;
+      return { status: "legacy" as const, queued: false as const, ready: false as const };
+    }
     throw new Error(error.message);
   }
 
@@ -191,6 +284,11 @@ export const approvePitchWithTranscodeGate = async (input: {
       return { httpStatus: 202, body: { status: "queued_for_transcode", pitchId: pitch.id } };
     }
 
+    if (hasVideoProcessingColumns === false) {
+      await markPitchApproved(pitch.id, pitch.startup_id, input.approvedBy);
+      return { httpStatus: 200, body: { status: "approved", pitchId: pitch.id } };
+    }
+
     const queueResult = await queuePitchTranscode(pitch, { force: false });
     if (queueResult.ready) {
       await markPitchApproved(pitch.id, pitch.startup_id, input.approvedBy);
@@ -218,6 +316,13 @@ export const retryPitchTranscode = async (input: { pitchId: string }): Promise<O
 
     if (!pitch.video_path) {
       return { httpStatus: 400, body: { error: "Pitch video is required before retry" } };
+    }
+
+    if (hasVideoProcessingColumns === false) {
+      return {
+        httpStatus: 409,
+        body: { error: "Video processing columns are missing. Apply migration 009 first." },
+      };
     }
 
     const processingStatus = normalizeProcessingStatus(pitch.video_processing_status);

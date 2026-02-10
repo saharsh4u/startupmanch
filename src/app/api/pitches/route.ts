@@ -31,6 +31,14 @@ type PitchVideoStateRow = {
   video_mux_playback_id: string | null;
 };
 
+const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("video_processing_status") ||
+    normalized.includes("video_mux_playback_id")
+  );
+};
+
 const asNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -90,11 +98,13 @@ export async function GET(request: Request) {
       .in("id", pitchIds);
 
     if (videoStateError) {
-      return NextResponse.json({ error: videoStateError.message }, { status: 500 });
-    }
-
-    for (const row of (videoStateRows ?? []) as PitchVideoStateRow[]) {
-      videoStateByPitchId.set(row.id, row);
+      if (!isMissingVideoProcessingColumnError(videoStateError.message)) {
+        return NextResponse.json({ error: videoStateError.message }, { status: 500 });
+      }
+    } else {
+      for (const row of (videoStateRows ?? []) as PitchVideoStateRow[]) {
+        videoStateByPitchId.set(row.id, row);
+      }
     }
   }
 

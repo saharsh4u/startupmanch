@@ -4,6 +4,14 @@ import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
 
 export const runtime = "nodejs";
 
+const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("video_processing_status") ||
+    normalized.includes("video_mux_playback_id")
+  );
+};
+
 type DetailResponse = {
   pitch: {
     id: string;
@@ -48,7 +56,6 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     .select(
       `
         id, ask, equity, valuation, video_path, poster_path, created_at,
-        video_processing_status, video_mux_playback_id,
         startup:startup_id (
           id, name, category, city, one_liner, website, founder_story, monthly_revenue,
           social_links, founder_photo_url, founder_id
@@ -70,8 +77,26 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   let video_url: string | null = null;
   let poster_url: string | null = null;
 
-  const muxPlaybackUrl = buildMuxPlaybackUrl((pitchRow as any).video_mux_playback_id);
-  if ((pitchRow as any).video_processing_status === "ready" && muxPlaybackUrl) {
+  let videoProcessingStatus: string | null = null;
+  let videoMuxPlaybackId: string | null = null;
+
+  const { data: videoStateRow, error: videoStateError } = await supabaseAdmin
+    .from("pitches")
+    .select("video_processing_status,video_mux_playback_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (videoStateError && !isMissingVideoProcessingColumnError(videoStateError.message)) {
+    return NextResponse.json({ error: videoStateError.message }, { status: 500 });
+  }
+
+  if (videoStateRow) {
+    videoProcessingStatus = (videoStateRow as any).video_processing_status ?? null;
+    videoMuxPlaybackId = (videoStateRow as any).video_mux_playback_id ?? null;
+  }
+
+  const muxPlaybackUrl = buildMuxPlaybackUrl(videoMuxPlaybackId);
+  if (videoProcessingStatus === "ready" && muxPlaybackUrl) {
     video_url = muxPlaybackUrl;
   } else if (pitchRow.video_path) {
     const { data } = await supabaseAdmin.storage
