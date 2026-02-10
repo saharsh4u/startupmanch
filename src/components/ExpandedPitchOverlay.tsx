@@ -71,6 +71,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const wheelBuffer = useRef(0);
   const wheelCooldown = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wheelLock = useRef(false);
+  const fallbackAttemptedRef = useRef(false);
   const [isMobile, setIsMobile] = useState(false);
   const pitch = pitches[index];
   const pitchId = pitch?.id ?? "";
@@ -80,6 +81,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [detailError, setDetailError] = useState<string | null>(null);
   const [revenue, setRevenue] = useState<RevenueData | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [activeVideoSrc, setActiveVideoSrc] = useState<string | null>(null);
   const [videoUnavailable, setVideoUnavailable] = useState(false);
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
@@ -139,12 +141,20 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const videoSrc = detail?.pitch.video_url ?? pitch?.video ?? null;
+  const feedVideoSrc = pitch?.video ?? null;
+  const detailVideoSrc = detail?.pitch.video_url ?? null;
+
+  const videoSrc = activeVideoSrc ?? feedVideoSrc ?? detailVideoSrc ?? null;
   const poster = detail?.pitch.poster_url ?? pitch?.poster ?? undefined;
 
   useEffect(() => {
     setVideoUnavailable(false);
   }, [pitchId, videoSrc]);
+
+  useEffect(() => {
+    fallbackAttemptedRef.current = false;
+    setActiveVideoSrc(feedVideoSrc ?? null);
+  }, [pitchId, feedVideoSrc]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -212,6 +222,33 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       revenueAbort.abort();
     };
   }, [pitchId]);
+
+  useEffect(() => {
+    if (activeVideoSrc) return;
+    if (!detailVideoSrc) return;
+    setActiveVideoSrc(detailVideoSrc);
+  }, [activeVideoSrc, detailVideoSrc]);
+
+  const handleVideoError = () => {
+    const candidate = detailVideoSrc;
+    if (!fallbackAttemptedRef.current && candidate && videoSrc && candidate !== videoSrc) {
+      fallbackAttemptedRef.current = true;
+      setVideoUnavailable(false);
+      setActiveVideoSrc(candidate);
+      return;
+    }
+    setVideoUnavailable(true);
+  };
+
+  useEffect(() => {
+    if (!videoUnavailable) return;
+    const candidate = detailVideoSrc;
+    if (!fallbackAttemptedRef.current && candidate && videoSrc && candidate !== videoSrc) {
+      fallbackAttemptedRef.current = true;
+      setVideoUnavailable(false);
+      setActiveVideoSrc(candidate);
+    }
+  }, [detailVideoSrc, videoSrc, videoUnavailable]);
 
   const handleWheel = (e: WheelEvent) => {
     e.stopPropagation();
@@ -344,6 +381,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
           <div className="expand-video expand-video-mobile" aria-label="Pitch video">
             {!showVideoFallback ? (
               <video
+                key={videoSrc}
                 ref={videoRef}
                 className="expand-media"
                 src={videoSrc}
@@ -352,7 +390,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 autoPlay
                 playsInline
                 preload="metadata"
-                onError={() => setVideoUnavailable(true)}
+                onError={handleVideoError}
                 onLoadedData={() => setVideoUnavailable(false)}
               />
             ) : (
