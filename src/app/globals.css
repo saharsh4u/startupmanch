@@ -363,6 +363,11 @@ a {
   color: rgba(255, 255, 255, 0.6);
 }
 
+.submit-card-header h2 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
 .submit-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -424,6 +429,12 @@ a {
   color: rgba(255, 255, 255, 0.45);
 }
 
+.form-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #ff9b9b;
+}
+
 .form-field input,
 .form-field select,
 .form-field textarea {
@@ -437,6 +448,13 @@ a {
 .form-field textarea {
   min-height: 90px;
   resize: vertical;
+}
+
+.form-field input[aria-invalid="true"],
+.form-field select[aria-invalid="true"],
+.form-field textarea[aria-invalid="true"] {
+  border-color: rgba(255, 155, 155, 0.9);
+  box-shadow: 0 0 0 2px rgba(255, 155, 155, 0.18);
 }
 
 .form-checkbox {
@@ -488,6 +506,39 @@ button:disabled {
 .submit-note {
   font-size: 0.85rem;
   color: rgba(235, 235, 235, 0.7);
+}
+
+.submit-auth-gate {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.submit-error-summary {
+  border-color: rgba(255, 155, 155, 0.35);
+  background: rgba(255, 70, 70, 0.08);
+}
+
+.submit-error-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.submit-error-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #ffb7b7;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.submit-error-link:hover,
+.submit-error-link:focus-visible {
+  color: #ffd3d3;
 }
 
 .submit-error {
@@ -3422,6 +3473,8 @@ body {
   .submit-actions button,
   .admin-actions button {
     width: 100%;
+    flex: none;
+    min-height: 44px;
   }
 
   .expand-shell {
