@@ -118,10 +118,16 @@ const buildRailSlots = (
 export const buildLiveAdSlots = (
   campaigns: ActiveAdCampaign[],
   fallbackLeft: AdSlot[],
-  fallbackRight: AdSlot[]
+  fallbackRight: AdSlot[],
+  occupiedCount?: number
 ) => {
   const paidItems = campaigns.map(toCampaignItem);
-  const spotsLeft = AD_PAID_SURFACE_CAPACITY - campaigns.length;
+  const occupiedSlotsRaw =
+    typeof occupiedCount === "number" && Number.isFinite(occupiedCount)
+      ? occupiedCount
+      : campaigns.length;
+  const occupiedSlots = Math.max(0, Math.floor(occupiedSlotsRaw));
+  const spotsLeft = AD_PAID_SURFACE_CAPACITY - occupiedSlots;
   const advertiseItem = createAdvertiseItem(spotsLeft);
 
   return {

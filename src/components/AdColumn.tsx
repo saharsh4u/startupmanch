@@ -37,13 +37,13 @@ const AdFace = ({
   item,
   isBack,
   side,
-  interactive,
+  suppressKeyboardFocus,
   onAdvertiseClick,
 }: {
   item: AdItem;
   isBack?: boolean;
   side?: "left" | "right";
-  interactive: boolean;
+  suppressKeyboardFocus?: boolean;
   onAdvertiseClick: () => void;
 }) => {
   const className = `ad-face${isBack ? " back" : ""}${
@@ -51,14 +51,6 @@ const AdFace = ({
   }`;
 
   const style = { "--ad-accent": item.accent } as CSSProperties;
-
-  if (!interactive) {
-    return (
-      <div className={`${className} ad-face-static`} style={style} aria-hidden="true">
-        <AdFaceContent item={item} />
-      </div>
-    );
-  }
 
   if (isAdvertiseItem(item)) {
     return (
@@ -68,6 +60,7 @@ const AdFace = ({
         style={style}
         onClick={onAdvertiseClick}
         aria-label="Advertise on StartupManch"
+        tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
         <AdFaceContent item={item} />
       </button>
@@ -86,6 +79,7 @@ const AdFace = ({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Visit ${item.name}`}
+        tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
         <AdFaceContent item={item} />
       </a>
@@ -109,28 +103,28 @@ export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "lef
     const delaySeconds = pairIndex * 2.6 + sideOffset;
 
     return (
-    <div
-      key={`${isClone ? "clone" : "slot"}-${side ?? "rail"}-${index}-${slot.front.name}-${slot.back.name}`}
-      className={`ad-slot${isClone ? " is-clone" : ""}`}
-      style={{ "--delay": `${delaySeconds}s` } as CSSProperties}
-      aria-hidden={isClone ? true : undefined}
-    >
-      <div className="ad-flip">
-        <AdFace
-          item={slot.front}
-          side={side}
-          interactive={!isClone}
-          onAdvertiseClick={() => setModalOpen(true)}
-        />
-        <AdFace
-          item={slot.back}
-          isBack
-          side={side}
-          interactive={!isClone}
-          onAdvertiseClick={() => setModalOpen(true)}
-        />
+      <div
+        key={`${isClone ? "clone" : "slot"}-${side ?? "rail"}-${index}-${slot.front.name}-${slot.back.name}`}
+        className={`ad-slot${isClone ? " is-clone" : ""}`}
+        style={{ "--delay": `${delaySeconds}s` } as CSSProperties}
+        aria-hidden={isClone ? true : undefined}
+      >
+        <div className="ad-flip">
+          <AdFace
+            item={slot.front}
+            side={side}
+            suppressKeyboardFocus={isClone}
+            onAdvertiseClick={() => setModalOpen(true)}
+          />
+          <AdFace
+            item={slot.back}
+            isBack
+            side={side}
+            suppressKeyboardFocus={isClone}
+            onAdvertiseClick={() => setModalOpen(true)}
+          />
+        </div>
       </div>
-    </div>
     );
   };
 

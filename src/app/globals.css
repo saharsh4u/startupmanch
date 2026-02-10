@@ -4832,3 +4832,45 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Final homepage/mobile UX overrides */
+@media (max-width: 640px) {
+  .page-home .site-nav-row {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    row-gap: 10px;
+    text-align: center;
+  }
+
+  .page-home .site-nav-logo {
+    justify-self: center;
+  }
+
+  .page-home .site-nav-links {
+    grid-column: auto;
+    width: auto;
+    max-width: 100%;
+    justify-content: center;
+    overflow-x: visible;
+    white-space: normal;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-home .ad-face-link,
+  .page-home .ad-face-button {
+    touch-action: manipulation;
+  }
+}
+
+.pitch-row {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.pitch-row::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
