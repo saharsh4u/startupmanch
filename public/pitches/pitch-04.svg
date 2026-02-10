@@ -9,7 +9,4 @@
   <circle cx="520" cy="320" r="190" fill="#2bb673" opacity="0.25" />
   <circle cx="140" cy="1020" r="220" fill="#2bb673" opacity="0.16" />
   <rect x="80" y="160" width="560" height="960" rx="36" fill="#111" opacity="0.55" />
-  <text x="120" y="300" fill="#f2f2f2" font-family="Segoe UI, sans-serif" font-size="42" font-weight="600">HealthBridge</text>
-  <text x="120" y="360" fill="#cfcfcf" font-family="Segoe UI, sans-serif" font-size="24">Clinics for tier-2 India</text>
-  <text x="120" y="980" fill="#f2f2f2" font-family="Segoe UI, sans-serif" font-size="22">Pitch Preview</text>
 </svg>

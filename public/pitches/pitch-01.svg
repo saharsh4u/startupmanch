@@ -9,7 +9,4 @@
   <circle cx="520" cy="240" r="180" fill="#7b3f3f" opacity="0.35" />
   <circle cx="120" cy="980" r="220" fill="#ff7a1a" opacity="0.2" />
   <rect x="80" y="160" width="560" height="960" rx="36" fill="#111" opacity="0.55" />
-  <text x="120" y="300" fill="#f2f2f2" font-family="Segoe UI, sans-serif" font-size="42" font-weight="600">MasalaMile</text>
-  <text x="120" y="360" fill="#cfcfcf" font-family="Segoe UI, sans-serif" font-size="24">Cloud kitchens for office teams</text>
-  <text x="120" y="980" fill="#f2f2f2" font-family="Segoe UI, sans-serif" font-size="22">Pitch Preview</text>
 </svg>
