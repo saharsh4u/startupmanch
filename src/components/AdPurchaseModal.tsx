@@ -19,6 +19,76 @@ type PlanResponse = {
   error?: string;
 };
 
+type CashfreeMode = "sandbox" | "production";
+
+type CheckoutResponse = {
+  provider?: "cashfree";
+  mode?: CashfreeMode;
+  url?: string;
+  sessionId?: string;
+  orderId?: string;
+  paymentSessionId?: string;
+  error?: string;
+};
+
+type CashfreeCheckoutInstance = {
+  checkout: (options: {
+    paymentSessionId: string;
+    redirectTarget?: "_self" | "_blank";
+  }) => Promise<unknown> | unknown;
+};
+
+type CashfreeFactory = (options: { mode: CashfreeMode }) => CashfreeCheckoutInstance;
+
+type CashfreeWindow = Window & {
+  Cashfree?: CashfreeFactory;
+};
+
+const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
+
+const loadCashfreeFactory = async () => {
+  if (typeof window === "undefined") {
+    throw new Error("Cashfree checkout is only available in the browser.");
+  }
+
+  const cashfreeWindow = window as CashfreeWindow;
+  if (cashfreeWindow.Cashfree) {
+    return cashfreeWindow.Cashfree;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
+    if (existing) {
+      let attempts = 0;
+      const waitForSdk = () => {
+        if ((window as CashfreeWindow).Cashfree) {
+          resolve();
+        } else if (attempts > 120) {
+          reject(new Error("Cashfree checkout SDK did not initialize."));
+        } else {
+          attempts += 1;
+          setTimeout(waitForSdk, 50);
+        }
+      };
+      waitForSdk();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = CASHFREE_SDK_URL;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load Cashfree checkout SDK."));
+    document.head.appendChild(script);
+  });
+
+  if (!cashfreeWindow.Cashfree) {
+    throw new Error("Cashfree checkout SDK is unavailable.");
+  }
+
+  return cashfreeWindow.Cashfree;
+};
+
 export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps) {
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -111,12 +181,28 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
         }),
       });
 
-      const payload = (await response.json()) as { url?: string; error?: string };
-      if (!response.ok || !payload.url) {
+      const payload = (await response.json()) as CheckoutResponse;
+      if (!response.ok) {
         throw new Error(payload.error ?? "Unable to start checkout.");
       }
 
-      window.location.href = payload.url;
+      if (payload.provider === "cashfree" && payload.paymentSessionId) {
+        const factory = await loadCashfreeFactory();
+        const instance = factory({ mode: payload.mode === "sandbox" ? "sandbox" : "production" });
+        await instance.checkout({
+          paymentSessionId: payload.paymentSessionId,
+          redirectTarget: "_self",
+        });
+        setCheckoutLoading(false);
+        return;
+      }
+
+      if (payload.url) {
+        window.location.href = payload.url;
+        return;
+      }
+
+      throw new Error(payload.error ?? "Unable to start checkout.");
     } catch (error) {
       setErrorText((error as Error).message || "Unable to start checkout.");
       setCheckoutLoading(false);

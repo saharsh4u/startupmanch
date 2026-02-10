@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   createCashfreeOrder,
   getAdPlanConfig,
+  getCashfreeConfig,
   hasCashfreeCredentials,
   resolveSiteUrl,
 } from "@/lib/cashfree/server";
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     }
 
     const plan = getAdPlanConfig();
+    const cashfreeConfig = getCashfreeConfig();
     const siteUrl = resolveSiteUrl(request);
     const orderId = buildOrderId();
     const customerId = `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -80,12 +82,18 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    const redirectUrl = order.payment_link?.trim();
-    if (!redirectUrl) {
-      throw new Error("Cashfree did not return a payment link.");
+    const paymentSessionId = order.payment_session_id?.trim();
+    if (!paymentSessionId) {
+      throw new Error("Cashfree did not return payment_session_id.");
     }
 
-    return NextResponse.json({ url: redirectUrl, sessionId: order.order_id });
+    return NextResponse.json({
+      provider: "cashfree",
+      sessionId: order.order_id,
+      orderId: order.order_id,
+      paymentSessionId,
+      mode: cashfreeConfig.mode,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to start checkout.";
     if (isConfigError(message)) {
