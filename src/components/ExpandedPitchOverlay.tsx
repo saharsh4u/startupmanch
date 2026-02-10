@@ -334,7 +334,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
         )}
 
         <div className="expand-layout">
-          <div className="expand-video" aria-label="Pitch video">
+          <div className="expand-video expand-video-mobile" aria-label="Pitch video">
             {videoSrc ? (
               <video
                 ref={videoRef}
@@ -344,21 +344,22 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 controls
                 autoPlay
                 playsInline
+                preload="metadata"
               />
             ) : (
               <div
-                className="expand-media"
+                className="expand-media expand-media-fallback"
                 style={{
                   backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
                   backgroundColor: "var(--overlay-media-fallback)",
                 }}
               >
-                {!pitch.poster ? <span className="trust-note">Video unavailable</span> : null}
+                <span className="expand-media-fallback-label">Video unavailable</span>
               </div>
             )}
           </div>
 
-          <div className="expand-info" aria-label="Founder and pitch details">
+          <div className="expand-info expand-info-mobile" aria-label="Founder and pitch details">
             <div className="expand-meta-toprow">
               <div className="pitch-show-badge">Pitch</div>
               <span className="expand-counter" aria-live="polite">
