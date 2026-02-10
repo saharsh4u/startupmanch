@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
+import { approvePitchWithTranscodeGate } from "@/lib/video/mux/approval";
 
 export const runtime = "nodejs";
 
@@ -17,27 +17,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "startup_id and pitch_id are required" }, { status: 400 });
   }
 
-  const { error: startupError } = await supabaseAdmin
-    .from("startups")
-    .update({ status: "approved" })
-    .eq("id", startup_id);
+  const result = await approvePitchWithTranscodeGate({
+    pitchId: String(pitch_id),
+    startupId: String(startup_id),
+    approvedBy: authContext.userId,
+  });
 
-  if (startupError) {
-    return NextResponse.json({ error: startupError.message }, { status: 500 });
-  }
-
-  const { error: pitchError } = await supabaseAdmin
-    .from("pitches")
-    .update({
-      status: "approved",
-      approved_at: new Date().toISOString(),
-      approved_by: authContext.userId,
-    })
-    .eq("id", pitch_id);
-
-  if (pitchError) {
-    return NextResponse.json({ error: pitchError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(result.body, { status: result.httpStatus });
 }

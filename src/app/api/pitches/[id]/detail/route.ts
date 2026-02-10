@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     .select(
       `
         id, ask, equity, valuation, video_path, poster_path, created_at,
+        video_processing_status, video_mux_playback_id,
         startup:startup_id (
           id, name, category, city, one_liner, website, founder_story, monthly_revenue,
           social_links, founder_photo_url, founder_id
@@ -68,7 +70,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   let video_url: string | null = null;
   let poster_url: string | null = null;
 
-  if (pitchRow.video_path) {
+  const muxPlaybackUrl = buildMuxPlaybackUrl((pitchRow as any).video_mux_playback_id);
+  if ((pitchRow as any).video_processing_status === "ready" && muxPlaybackUrl) {
+    video_url = muxPlaybackUrl;
+  } else if (pitchRow.video_path) {
     const { data } = await supabaseAdmin.storage
       .from("pitch-videos")
       .createSignedUrl(pitchRow.video_path, 60 * 60);

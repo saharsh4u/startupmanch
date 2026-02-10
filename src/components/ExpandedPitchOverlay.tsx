@@ -80,6 +80,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [detailError, setDetailError] = useState<string | null>(null);
   const [revenue, setRevenue] = useState<RevenueData | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [videoUnavailable, setVideoUnavailable] = useState(false);
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
@@ -138,16 +139,20 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const videoSrc = pitch?.video ?? detail?.pitch.video_url ?? null;
-  const poster = pitch?.poster ?? detail?.pitch.poster_url ?? undefined;
+  const videoSrc = detail?.pitch.video_url ?? pitch?.video ?? null;
+  const poster = detail?.pitch.poster_url ?? pitch?.poster ?? undefined;
+
+  useEffect(() => {
+    setVideoUnavailable(false);
+  }, [pitchId, videoSrc]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !videoSrc) return;
+    if (!video || !videoSrc || videoUnavailable) return;
     video.pause();
     video.currentTime = 0;
     video.play().catch(() => undefined);
-  }, [pitch?.id, videoSrc]);
+  }, [pitch?.id, videoSrc, videoUnavailable]);
 
   useEffect(() => {
     if (!pitchId) return;
@@ -293,6 +298,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     window.open(normalizedWebsite, "_blank", "noopener,noreferrer");
   };
 
+  const showVideoFallback = !videoSrc || videoUnavailable;
+
   if (!pitch) return null;
 
   return (
@@ -335,7 +342,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
         <div className="expand-layout">
           <div className="expand-video expand-video-mobile" aria-label="Pitch video">
-            {videoSrc ? (
+            {!showVideoFallback ? (
               <video
                 ref={videoRef}
                 className="expand-media"
@@ -345,12 +352,14 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 autoPlay
                 playsInline
                 preload="metadata"
+                onError={() => setVideoUnavailable(true)}
+                onLoadedData={() => setVideoUnavailable(false)}
               />
             ) : (
               <div
                 className="expand-media expand-media-fallback"
                 style={{
-                  backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
+                  backgroundImage: poster ? `url(${poster})` : "none",
                   backgroundColor: "var(--overlay-media-fallback)",
                 }}
               >

@@ -1,23 +1,18 @@
 import { NextResponse } from "next/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
-import { approvePitchWithTranscodeGate } from "@/lib/video/mux/approval";
+import { retryPitchTranscode } from "@/lib/video/mux/approval";
 
 export const runtime = "nodejs";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
-  const authContext = await getAuthContext(_request);
+  const authContext = await getAuthContext(request);
   if (!authContext || !requireRole(authContext, ["admin"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = params;
-  const result = await approvePitchWithTranscodeGate({
-    pitchId: id,
-    approvedBy: authContext.userId,
-  });
-
+  const result = await retryPitchTranscode({ pitchId: params.id });
   return NextResponse.json(result.body, { status: result.httpStatus });
 }

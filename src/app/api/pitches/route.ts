@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
+import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,12 @@ type PitchFeedItem = {
   out_count: number;
   comment_count: number;
   score: number | string | null;
+};
+
+type PitchVideoStateRow = {
+  id: string;
+  video_processing_status: string | null;
+  video_mux_playback_id: string | null;
 };
 
 const asNumber = (value: unknown) => {
@@ -73,12 +80,34 @@ export async function GET(request: Request) {
   }
 
   const rows = (data ?? []) as PitchFeedItem[];
+  const pitchIds = rows.map((item) => item.pitch_id);
+
+  const videoStateByPitchId = new Map<string, PitchVideoStateRow>();
+  if (pitchIds.length) {
+    const { data: videoStateRows, error: videoStateError } = await supabaseAdmin
+      .from("pitches")
+      .select("id,video_processing_status,video_mux_playback_id")
+      .in("id", pitchIds);
+
+    if (videoStateError) {
+      return NextResponse.json({ error: videoStateError.message }, { status: 500 });
+    }
+
+    for (const row of (videoStateRows ?? []) as PitchVideoStateRow[]) {
+      videoStateByPitchId.set(row.id, row);
+    }
+  }
+
   const enriched = await Promise.all(
     rows.map(async (item: PitchFeedItem) => {
       let video_url: string | null = null;
       let poster_url: string | null = null;
 
-      if (item.video_path) {
+      const videoState = videoStateByPitchId.get(item.pitch_id);
+      const muxPlaybackUrl = buildMuxPlaybackUrl(videoState?.video_mux_playback_id);
+      if (videoState?.video_processing_status === "ready" && muxPlaybackUrl) {
+        video_url = muxPlaybackUrl;
+      } else if (item.video_path) {
         const { data: signedVideo } = await supabaseAdmin.storage
           .from("pitch-videos")
           .createSignedUrl(item.video_path, 60 * 60);
