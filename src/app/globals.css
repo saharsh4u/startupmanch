@@ -4835,25 +4835,39 @@ body {
 
 /* Final homepage/mobile UX overrides */
 @media (max-width: 640px) {
+  .page-home .site-nav {
+    padding: 2px 0;
+  }
+
   .page-home .site-nav-row {
     grid-template-columns: 1fr;
     justify-items: center;
-    row-gap: 10px;
+    row-gap: 8px;
+    padding: 12px 14px;
     text-align: center;
   }
 
   .page-home .site-nav-logo {
+    justify-content: center;
     justify-self: center;
   }
 
   .page-home .site-nav-links {
     grid-column: auto;
-    width: auto;
+    width: 100%;
     max-width: 100%;
+    display: flex;
     justify-content: center;
+    align-items: center;
+    gap: 6px 8px;
     overflow-x: visible;
     white-space: normal;
     flex-wrap: wrap;
+  }
+
+  .page-home .site-nav-links a {
+    padding: 6px 10px;
+    line-height: 1;
   }
 }
 
