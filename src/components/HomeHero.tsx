@@ -6,7 +6,7 @@ export default function HomeHero() {
         <span>StartupManch</span>
       </div>
       <h1>Find Next Startup Through Real Pitches</h1>
-      <p className="hero-subline">Watch. Judge. Back.</p>
+      <p className="hero-subline">Without a Pitch, It's Just an Idea</p>
       <div className="hero-actions">
         <div className="hero-search">
           <span className="search-icon">⌕</span>
