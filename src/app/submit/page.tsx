@@ -285,7 +285,7 @@ export default function SubmitPage() {
         return startup.one_liner.trim() ? null : "One-liner is required.";
       case "startupWebsite": {
         const websiteValue = startup.website.trim();
-        if (!websiteValue) return "Website is required.";
+        if (!websiteValue) return null;
         return isValidHttpUrl(websiteValue) ? null : "Enter a valid website URL (http/https).";
       }
       case "startupFounderPhotoUrl": {
@@ -385,8 +385,9 @@ export default function SubmitPage() {
         throw new Error("Please sign in first.");
       }
 
+      const websiteValue = startup.website.trim();
       const socialLinks = {
-        website: startup.website || null,
+        website: websiteValue || null,
       };
 
       const startupRes = await fetch("/api/startups", {
@@ -397,6 +398,7 @@ export default function SubmitPage() {
         },
         body: JSON.stringify({
           ...startup,
+          website: websiteValue || null,
           social_links: socialLinks,
         }),
       });
@@ -650,11 +652,10 @@ export default function SubmitPage() {
               {renderFieldError("startupOneLiner")}
             </div>
             <div className="form-field">
-              <label htmlFor={fieldIds.startupWebsite}>Website</label>
+              <label htmlFor={fieldIds.startupWebsite}>Website (optional)</label>
               <input
                 id={fieldIds.startupWebsite}
                 type="url"
-                required
                 {...getFieldA11yProps("startupWebsite")}
                 placeholder="https://startup.com"
                 value={startup.website}
