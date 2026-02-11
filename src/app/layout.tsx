@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inconsolata } from "next/font/google";
+import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 const inconsolataDisplay = Inconsolata({
@@ -23,8 +24,27 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
+  const themeBootstrapScript = `
+    (function () {
+      try {
+        var key = ${JSON.stringify(THEME_STORAGE_KEY)};
+        var fallback = ${JSON.stringify(DEFAULT_THEME)};
+        var stored = localStorage.getItem(key);
+        var theme = stored === "light" || stored === "dark" ? stored : fallback;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (error) {
+        document.documentElement.dataset.theme = ${JSON.stringify(DEFAULT_THEME)};
+        document.documentElement.style.colorScheme = ${JSON.stringify(DEFAULT_THEME)};
+      }
+    })();
+  `;
+
   return (
-    <html lang="en">
+    <html lang="en" data-theme={DEFAULT_THEME} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+      </head>
       <body className={`${inconsolataDisplay.variable} ${inconsolataBody.variable}`}>
         {children}
       </body>
