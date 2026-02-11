@@ -5,8 +5,24 @@ import { parseStartupWritePayload } from "@/lib/startups/payload";
 
 export const runtime = "nodejs";
 
+const isMissingStartupProfileColumns = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("founded_on") ||
+    normalized.includes("country_code") ||
+    normalized.includes("is_for_sale") ||
+    normalized.includes("asking_price") ||
+    normalized.includes("currency_code") ||
+    normalized.includes("self_reported_all_time_revenue") ||
+    normalized.includes("self_reported_mrr") ||
+    normalized.includes("self_reported_active_subscriptions")
+  );
+};
+
 const startupResponseSelect =
   "id,founder_id,name,category,city,one_liner,website,founder_photo_url,founder_story,monthly_revenue,social_links,is_d2c,status,founded_on,country_code,is_for_sale,asking_price,currency_code,self_reported_all_time_revenue,self_reported_mrr,self_reported_active_subscriptions,created_at";
+const startupResponseSelectLegacy =
+  "id,founder_id,name,category,city,one_liner,website,founder_photo_url,founder_story,monthly_revenue,social_links,is_d2c,status,created_at";
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const startupId = params.id;
@@ -43,31 +59,71 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const values = parsed.values;
+  const fullUpdatePayload = {
+    name: values.name,
+    category: values.category,
+    city: values.city,
+    one_liner: values.one_liner,
+    website: values.website,
+    founder_photo_url: values.founder_photo_url,
+    founder_story: values.founder_story,
+    monthly_revenue: values.monthly_revenue,
+    social_links: values.social_links,
+    is_d2c: values.is_d2c,
+    founded_on: values.founded_on,
+    country_code: values.country_code,
+    is_for_sale: values.is_for_sale,
+    asking_price: values.asking_price,
+    currency_code: values.currency_code,
+    self_reported_all_time_revenue: values.self_reported_all_time_revenue,
+    self_reported_mrr: values.self_reported_mrr,
+    self_reported_active_subscriptions: values.self_reported_active_subscriptions,
+  };
+
   const { data: updated, error: updateError } = await supabaseAdmin
     .from("startups")
-    .update({
-      name: values.name,
-      category: values.category,
-      city: values.city,
-      one_liner: values.one_liner,
-      website: values.website,
-      founder_photo_url: values.founder_photo_url,
-      founder_story: values.founder_story,
-      monthly_revenue: values.monthly_revenue,
-      social_links: values.social_links,
-      is_d2c: values.is_d2c,
-      founded_on: values.founded_on,
-      country_code: values.country_code,
-      is_for_sale: values.is_for_sale,
-      asking_price: values.asking_price,
-      currency_code: values.currency_code,
-      self_reported_all_time_revenue: values.self_reported_all_time_revenue,
-      self_reported_mrr: values.self_reported_mrr,
-      self_reported_active_subscriptions: values.self_reported_active_subscriptions,
-    })
+    .update(fullUpdatePayload)
     .eq("id", startupId)
     .select(startupResponseSelect)
     .single();
+
+  if (updateError && isMissingStartupProfileColumns(updateError.message)) {
+    const { data: fallbackUpdated, error: fallbackError } = await supabaseAdmin
+      .from("startups")
+      .update({
+        name: values.name,
+        category: values.category,
+        city: values.city,
+        one_liner: values.one_liner,
+        website: values.website,
+        founder_photo_url: values.founder_photo_url,
+        founder_story: values.founder_story,
+        monthly_revenue: values.monthly_revenue,
+        social_links: values.social_links,
+        is_d2c: values.is_d2c,
+      })
+      .eq("id", startupId)
+      .select(startupResponseSelectLegacy)
+      .single();
+
+    if (fallbackError) {
+      return NextResponse.json({ error: fallbackError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      startup: {
+        ...fallbackUpdated,
+        founded_on: null,
+        country_code: null,
+        is_for_sale: false,
+        asking_price: null,
+        currency_code: "INR",
+        self_reported_all_time_revenue: null,
+        self_reported_mrr: null,
+        self_reported_active_subscriptions: null,
+      },
+    });
+  }
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });

@@ -6,12 +6,17 @@ import { ensureAnonWatchId, readAnonWatchId } from "@/lib/watchers/identity";
 export const runtime = "nodejs";
 
 const isDuplicateError = (code: string | null | undefined) => code === "23505";
+const isMissingStartupWatchersTable = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("startup_watchers");
 
 const getWatchCount = async (startupId: string) => {
-  const { count } = await supabaseAdmin
+  const { count, error } = await supabaseAdmin
     .from("startup_watchers")
     .select("id", { count: "exact", head: true })
     .eq("startup_id", startupId);
+  if (error && !isMissingStartupWatchersTable(error.message)) {
+    throw new Error(error.message);
+  }
   return count ?? 0;
 };
 
@@ -32,22 +37,28 @@ const resolveWatchingState = async (
   anonId: string | null
 ) => {
   if (profileId) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("startup_watchers")
       .select("id")
       .eq("startup_id", startupId)
       .eq("profile_id", profileId)
       .maybeSingle();
+    if (error && !isMissingStartupWatchersTable(error.message)) {
+      throw new Error(error.message);
+    }
     if (data) return true;
   }
 
   if (anonId) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("startup_watchers")
       .select("id")
       .eq("startup_id", startupId)
       .eq("anon_id", anonId)
       .maybeSingle();
+    if (error && !isMissingStartupWatchersTable(error.message)) {
+      throw new Error(error.message);
+    }
     if (data) return true;
   }
 
@@ -99,6 +110,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   const { error } = await supabaseAdmin.from("startup_watchers").insert(insertPayload);
   if (error && !isDuplicateError(error.code)) {
+    if (isMissingStartupWatchersTable(error.message)) {
+      return NextResponse.json({ error: "Watcher feature unavailable" }, { status: 503 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -135,6 +149,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .eq("startup_id", startupId)
       .eq("profile_id", auth.userId);
     if (error) {
+      if (isMissingStartupWatchersTable(error.message)) {
+        return NextResponse.json({ error: "Watcher feature unavailable" }, { status: 503 });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   } else if (anonId) {
@@ -144,6 +161,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .eq("startup_id", startupId)
       .eq("anon_id", anonId);
     if (error) {
+      if (isMissingStartupWatchersTable(error.message)) {
+        return NextResponse.json({ error: "Watcher feature unavailable" }, { status: 503 });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }

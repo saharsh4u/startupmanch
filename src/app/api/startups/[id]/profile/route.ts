@@ -11,6 +11,10 @@ export const dynamic = "force-dynamic";
 const RANK_PAGE_SIZE = 100;
 const RANK_MAX_PAGES = 80;
 const RANK_FALLBACK_CHUNK_SIZE = 300;
+const startupSelectFull =
+  "id,founder_id,name,category,city,one_liner,website,founder_photo_url,founder_story,monthly_revenue,social_links,is_d2c,status,founded_on,country_code,is_for_sale,asking_price,currency_code,self_reported_all_time_revenue,self_reported_mrr,self_reported_active_subscriptions,created_at";
+const startupSelectLegacy =
+  "id,founder_id,name,category,city,one_liner,website,founder_photo_url,founder_story,monthly_revenue,social_links,is_d2c,status,created_at";
 
 type StartupRow = {
   id: string;
@@ -116,6 +120,20 @@ const isMissingRevenueTables = (message: string | null | undefined) => {
   return (
     normalized.includes("revenue_connections") ||
     normalized.includes("revenue_snapshots")
+  );
+};
+
+const isMissingStartupProfileColumns = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("founded_on") ||
+    normalized.includes("country_code") ||
+    normalized.includes("is_for_sale") ||
+    normalized.includes("asking_price") ||
+    normalized.includes("currency_code") ||
+    normalized.includes("self_reported_all_time_revenue") ||
+    normalized.includes("self_reported_mrr") ||
+    normalized.includes("self_reported_active_subscriptions")
   );
 };
 
@@ -409,17 +427,55 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "startup id required" }, { status: 400 });
     }
 
-    const { data: startup, error: startupError } = await supabaseAdmin
+    const primaryStartupRes = await supabaseAdmin
       .from("startups")
-      .select(
-        "id,founder_id,name,category,city,one_liner,website,founder_photo_url,founder_story,monthly_revenue,social_links,is_d2c,status,founded_on,country_code,is_for_sale,asking_price,currency_code,self_reported_all_time_revenue,self_reported_mrr,self_reported_active_subscriptions,created_at"
-      )
+      .select(startupSelectFull)
       .eq("id", startupId)
       .maybeSingle();
 
-    if (startupError) {
-      return NextResponse.json({ error: startupError.message }, { status: 500 });
+    let startup: StartupRow | null = null;
+    if (!primaryStartupRes.error) {
+      startup = (primaryStartupRes.data ?? null) as StartupRow | null;
+    } else if (isMissingStartupProfileColumns(primaryStartupRes.error.message)) {
+      const fallbackStartupRes = await supabaseAdmin
+        .from("startups")
+        .select(startupSelectLegacy)
+        .eq("id", startupId)
+        .maybeSingle();
+
+      if (fallbackStartupRes.error) {
+        return NextResponse.json({ error: fallbackStartupRes.error.message }, { status: 500 });
+      }
+
+      const legacyRow = fallbackStartupRes.data as Omit<
+        StartupRow,
+        | "founded_on"
+        | "country_code"
+        | "is_for_sale"
+        | "asking_price"
+        | "currency_code"
+        | "self_reported_all_time_revenue"
+        | "self_reported_mrr"
+        | "self_reported_active_subscriptions"
+      > | null;
+
+      startup = legacyRow
+        ? {
+            ...legacyRow,
+            founded_on: null,
+            country_code: null,
+            is_for_sale: false,
+            asking_price: null,
+            currency_code: "INR",
+            self_reported_all_time_revenue: null,
+            self_reported_mrr: null,
+            self_reported_active_subscriptions: null,
+          }
+        : null;
+    } else {
+      return NextResponse.json({ error: primaryStartupRes.error.message }, { status: 500 });
     }
+
     if (!startup) {
       return NextResponse.json({ error: "Startup not found" }, { status: 404 });
     }

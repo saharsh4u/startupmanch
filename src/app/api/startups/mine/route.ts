@@ -4,8 +4,24 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const startupSelect =
+const isMissingStartupProfileColumns = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("founded_on") ||
+    normalized.includes("country_code") ||
+    normalized.includes("is_for_sale") ||
+    normalized.includes("asking_price") ||
+    normalized.includes("currency_code") ||
+    normalized.includes("self_reported_all_time_revenue") ||
+    normalized.includes("self_reported_mrr") ||
+    normalized.includes("self_reported_active_subscriptions")
+  );
+};
+
+const startupSelectFull =
   "id,founder_id,name,category,city,one_liner,website,founder_photo_url,founder_story,monthly_revenue,social_links,is_d2c,status,founded_on,country_code,is_for_sale,asking_price,currency_code,self_reported_all_time_revenue,self_reported_mrr,self_reported_active_subscriptions,created_at";
+const startupSelectLegacy =
+  "id,founder_id,name,category,city,one_liner,website,founder_photo_url,founder_story,monthly_revenue,social_links,is_d2c,status,created_at";
 
 type StartupRow = {
   id: string;
@@ -32,6 +48,18 @@ type StartupRow = {
   created_at: string;
 };
 
+type LegacyStartupRow = Omit<
+  StartupRow,
+  | "founded_on"
+  | "country_code"
+  | "is_for_sale"
+  | "asking_price"
+  | "currency_code"
+  | "self_reported_all_time_revenue"
+  | "self_reported_mrr"
+  | "self_reported_active_subscriptions"
+>;
+
 type PitchRow = {
   id: string;
   startup_id: string;
@@ -48,22 +76,48 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const allowAdminScopeAll = auth.role === "admin" && url.searchParams.get("scope") === "all";
 
-  let query = supabaseAdmin
+  const buildStartupQuery = (selectClause: string) => {
+    let query = supabaseAdmin
     .from("startups")
-    .select(startupSelect)
-    .order("created_at", { ascending: false })
-    .limit(100);
+      .select(selectClause)
+      .order("created_at", { ascending: false })
+      .limit(100);
 
-  if (!allowAdminScopeAll) {
-    query = query.eq("founder_id", auth.userId);
-  }
+    if (!allowAdminScopeAll) {
+      query = query.eq("founder_id", auth.userId);
+    }
 
-  const { data: startups, error: startupError } = await query;
+    return query;
+  };
+
+  const { data: startups, error: startupError } = await buildStartupQuery(startupSelectFull);
+
+  let startupRows: StartupRow[] = [];
   if (startupError) {
-    return NextResponse.json({ error: startupError.message }, { status: 500 });
-  }
+    if (!isMissingStartupProfileColumns(startupError.message)) {
+      return NextResponse.json({ error: startupError.message }, { status: 500 });
+    }
 
-  const startupRows = (startups ?? []) as StartupRow[];
+    const { data: legacyRows, error: legacyError } = await buildStartupQuery(startupSelectLegacy);
+    if (legacyError) {
+      return NextResponse.json({ error: legacyError.message }, { status: 500 });
+    }
+
+    const normalizedLegacyRows = (legacyRows ?? []) as unknown as LegacyStartupRow[];
+    startupRows = normalizedLegacyRows.map((row) => ({
+        ...row,
+        founded_on: null,
+        country_code: null,
+        is_for_sale: false,
+        asking_price: null,
+        currency_code: "INR",
+        self_reported_all_time_revenue: null,
+        self_reported_mrr: null,
+        self_reported_active_subscriptions: null,
+      }));
+  } else {
+    startupRows = (startups ?? []) as unknown as StartupRow[];
+  }
   if (!startupRows.length) {
     return NextResponse.json({ startups: [] });
   }

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
+const isMissingContactStartupColumn = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return normalized.includes("startup_id") && normalized.includes("contact_requests");
+};
+
 export async function POST(req: Request) {
   try {
     const { pitch_id, startup_id, name, email, message, offer_amount } = await req.json();
@@ -73,6 +78,49 @@ export async function POST(req: Request) {
     });
 
     if (error) {
+      if (isMissingContactStartupColumn(error.message)) {
+        let fallbackPitchId = safePitchId;
+
+        if (!fallbackPitchId && safeStartupId) {
+          const { data: latestPitch, error: latestPitchError } = await supabaseAdmin
+            .from("pitches")
+            .select("id")
+            .eq("startup_id", safeStartupId)
+            .eq("status", "approved")
+            .order("approved_at", { ascending: false, nullsFirst: false })
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestPitchError) {
+            return NextResponse.json({ error: "Failed to resolve startup pitch" }, { status: 500 });
+          }
+          fallbackPitchId = latestPitch?.id ?? null;
+        }
+
+        if (!fallbackPitchId) {
+          return NextResponse.json(
+            { error: "Startup contact requires at least one approved pitch." },
+            { status: 400 }
+          );
+        }
+
+        const { error: fallbackInsertError } = await supabaseAdmin.from("contact_requests").insert({
+          pitch_id: fallbackPitchId,
+          name: safeName,
+          email: safeEmail,
+          message: safeMessage,
+          offer_amount: parsedOffer,
+        });
+
+        if (!fallbackInsertError) {
+          return NextResponse.json({ ok: true, compat: true });
+        }
+
+        console.error("contact fallback insert error", fallbackInsertError);
+        return NextResponse.json({ error: "Failed to save request" }, { status: 500 });
+      }
+
       console.error("contact insert error", error);
       return NextResponse.json({ error: "Failed to save request" }, { status: 500 });
     }
