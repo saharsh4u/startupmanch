@@ -4950,3 +4950,65 @@ body {
     padding-bottom: calc(78px + env(safe-area-inset-bottom));
   }
 }
+
+/* Homepage infinite-scroll controls (additive only) */
+.pitch-feed-status {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  min-height: 1.1rem;
+}
+
+.pitch-feed-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pitch-load-more,
+.pitch-back-to-top {
+  appearance: none;
+  border: 1px solid var(--stroke);
+  background: var(--panel-soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.pitch-load-more:hover,
+.pitch-back-to-top:hover {
+  border-color: var(--stroke-strong);
+}
+
+.pitch-load-more:focus-visible,
+.pitch-back-to-top:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.pitch-feed-sentinel {
+  height: 1px;
+  width: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pitch-row.is-loading {
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .pitch-feed-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pitch-load-more,
+  .pitch-back-to-top {
+    width: 100%;
+    text-align: center;
+  }
+}
