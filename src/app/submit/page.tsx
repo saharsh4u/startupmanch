@@ -70,7 +70,7 @@ const SUBMIT_VALIDATED_FIELDS: FieldKey[] = [
 const FIELD_LABELS: Record<FieldKey, string> = {
   authEmail: "Email",
   authPassword: "Password",
-  startupName: "Startup name",
+  startupName: "Startup / company name",
   startupCategory: "Category",
   startupCity: "City",
   startupOneLiner: "One-liner",
@@ -631,13 +631,13 @@ export default function SubmitPage() {
           </div>
           <div className="submit-grid">
             <div className="form-field">
-              <label htmlFor={fieldIds.startupName}>Startup name</label>
+              <label htmlFor={fieldIds.startupName}>Startup / company name</label>
               <input
                 id={fieldIds.startupName}
                 type="text"
                 required
                 {...getFieldA11yProps("startupName")}
-                placeholder="MasalaMile"
+                placeholder="MasalaMile / MasalaMile Foods Pvt Ltd"
                 value={startup.name}
                 onBlur={() => handleFieldBlur("startupName")}
                 onChange={(event) => {

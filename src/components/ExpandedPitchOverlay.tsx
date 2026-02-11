@@ -290,6 +290,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   const founderName = detail?.founder.display_name ?? pitch.name ?? "Founder";
   const founderCity = detail?.startup.city ?? detail?.founder.city ?? "—";
+  const startupName = detail?.startup.name?.trim() || pitch.name || "Startup";
+  const startupOneLiner = detail?.startup.one_liner?.trim() || pitch.tagline || null;
 
   const foundedDisplay = useMemo(() => {
     if (!detail?.pitch.created_at) return "—";
@@ -422,6 +424,12 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
             {detailLoading ? <p className="trust-note">Loading details…</p> : null}
             {detailError ? <p className="trust-note error">Details unavailable.</p> : null}
+
+            <div className="expand-startup">
+              <p className="metric-label">Startup / company</p>
+              <h3 className="expand-startup-name">{startupName}</h3>
+              {startupOneLiner ? <p className="expand-startup-tagline">{startupOneLiner}</p> : null}
+            </div>
 
             <div className="trust-actions">
               <button
