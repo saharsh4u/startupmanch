@@ -5829,18 +5829,25 @@ html[data-theme="light"] .theme-toggle-thumb {
 }
 
 .startup-profile-video {
-  width: 100%;
-  height: clamp(220px, 34vw, 380px);
+  display: block;
+  width: clamp(220px, 34vw, 360px);
+  aspect-ratio: 9 / 16;
+  height: auto;
+  margin-inline: auto;
   border-radius: 12px;
   border: 1px solid var(--stroke);
   background: #0b0b0b;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 
 .startup-profile-video-fallback {
   display: grid;
   place-items: center;
-  height: clamp(220px, 34vw, 380px);
+  width: clamp(220px, 34vw, 360px);
+  aspect-ratio: 9 / 16;
+  height: auto;
+  margin-inline: auto;
   background-size: cover;
   background-position: center;
   color: var(--muted);
