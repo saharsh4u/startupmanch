@@ -46,12 +46,6 @@ type TeaserPending = {
   style_key: string;
 };
 
-type ApprovalsLiveItem = {
-  id: string;
-  startup_name: string;
-  approved_at: string;
-};
-
 type FeedPitch = PitchShow & {
   category: string | null;
   approvedAt: string | null;
@@ -64,7 +58,7 @@ type PitchFeedProps = {
   selectedCategory?: string | null;
 };
 
-type SlotFilter = "all" | "approved" | "pending" | "open";
+type SlotFilter = "all" | "approved" | "open";
 
 const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
@@ -74,7 +68,7 @@ const ROW_SIZE = 5;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
-const APPROVAL_POLL_SECONDS = 25;
+const SHUFFLE_WINDOW_SECONDS = 5 * 60;
 
 const accentPalette = [
   "#42d6ff",
@@ -121,17 +115,6 @@ const chunkBySize = <T,>(items: T[], size: number) => {
     chunks.push(items.slice(index, index + size));
   }
   return chunks;
-};
-
-const shuffle = <T,>(items: T[]) => {
-  const output = [...items];
-  for (let index = output.length - 1; index > 0; index -= 1) {
-    const nextIndex = Math.floor(Math.random() * (index + 1));
-    const current = output[index];
-    output[index] = output[nextIndex];
-    output[nextIndex] = current;
-  }
-  return output;
 };
 
 const hashString = (input: string) => {
@@ -204,7 +187,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
-  const seenApprovalIdsRef = useRef<Set<string>>(new Set());
+  const shuffleRefreshLockRef = useRef(false);
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -219,9 +202,9 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const [approvedTeasers, setApprovedTeasers] = useState<TeaserApproved[]>([]);
   const [pendingTeasers, setPendingTeasers] = useState<TeaserPending[]>([]);
   const [isRefreshingApprovals, setIsRefreshingApprovals] = useState(false);
-  const [approvalCountdown, setApprovalCountdown] = useState(APPROVAL_POLL_SECONDS);
+  const [shuffleCountdown, setShuffleCountdown] = useState(SHUFFLE_WINDOW_SECONDS);
+  const [nextShuffleAtMs, setNextShuffleAtMs] = useState<number | null>(null);
   const [liveToast, setLiveToast] = useState<string | null>(null);
-  const [lastApprovalWatermark, setLastApprovalWatermark] = useState<string>(new Date(0).toISOString());
 
   const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -289,10 +272,13 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
           cache: "no-store",
           signal,
         }),
-        fetch(`/api/pitches?mode=feed&tab=trending&limit=${MORE_SECTION_PAGE_SIZE}&offset=0`, {
-          cache: "no-store",
-          signal,
-        }),
+        fetch(
+          `/api/pitches?mode=feed&tab=trending&limit=${MORE_SECTION_PAGE_SIZE}&offset=0&shuffle=true`,
+          {
+            cache: "no-store",
+            signal,
+          }
+        ),
         SLOT_UPGRADE_ENABLED
           ? fetch("/api/pitches/teasers", { cache: "no-store", signal })
           : Promise.resolve(null),
@@ -303,7 +289,13 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
       }
 
       const weekPayload = weekRes.ok ? await weekRes.json() : null;
-      const feedPayload = feedRes.ok ? await feedRes.json() : null;
+      const feedPayload = (feedRes.ok ? await feedRes.json() : null) as
+        | {
+            data?: ApiPitch[];
+            window_id?: number | null;
+            next_shuffle_at?: string | null;
+          }
+        | null;
       const teaserPayload = teaserRes && teaserRes.ok ? await teaserRes.json() : null;
 
       const weekData = (weekPayload?.data ?? []) as ApiPitch[];
@@ -314,12 +306,10 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
       const weekIds = new Set(filteredWeek.map((item) => item.id));
 
       const mappedFeed = feedData.map((item, index) => mapPitch(item, index));
-      const filteredFeed = shuffle(
-        dedupePitches(
-          mappedFeed
-            .filter((item) => matchesCategory(item, selectedCategory))
-            .filter((item) => !weekIds.has(item.id))
-        )
+      const filteredFeed = dedupePitches(
+        mappedFeed
+          .filter((item) => matchesCategory(item, selectedCategory))
+          .filter((item) => !weekIds.has(item.id))
       ).slice(0, MORE_SECTION_PAGE_SIZE);
 
       const initialBaseFeed = filteredFeed.length ? filteredFeed : filteredFallback;
@@ -343,9 +333,15 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         setApprovedTeasers(approved);
         setPendingTeasers(pending);
 
-        const serverTime =
-          typeof teaserPayload.server_time === "string" ? teaserPayload.server_time : new Date().toISOString();
-        setLastApprovalWatermark(serverTime);
+      }
+
+      if (typeof feedPayload?.next_shuffle_at === "string") {
+        const nextAt = Date.parse(feedPayload.next_shuffle_at);
+        if (Number.isFinite(nextAt)) {
+          setNextShuffleAtMs(nextAt);
+          const secondsLeft = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+          setShuffleCountdown(secondsLeft);
+        }
       }
     },
     [filteredFallback, mapPitch, selectedCategory]
@@ -395,80 +391,37 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   }, [filteredFallback, loadSectionData]);
 
   useEffect(() => {
-    if (!SLOT_UPGRADE_ENABLED) return;
+    if (!SLOT_UPGRADE_ENABLED || loadingInitial || !nextShuffleAtMs) return;
 
-    const timer = window.setInterval(() => {
-      setApprovalCountdown((value) => (value <= 1 ? APPROVAL_POLL_SECONDS : value - 1));
-    }, 1000);
+    const tick = () => {
+      const secondsLeft = Math.max(0, Math.ceil((nextShuffleAtMs - Date.now()) / 1000));
+      setShuffleCountdown(secondsLeft);
+    };
 
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, []);
-
-  const pollLiveApprovals = useCallback(async () => {
-    if (!SLOT_UPGRADE_ENABLED) return;
-    if (document.hidden) return;
-
-    try {
-      const res = await fetch(
-        `/api/pitches/approvals/live?after=${encodeURIComponent(lastApprovalWatermark)}&limit=25`,
-        {
-          cache: "no-store",
-        }
-      );
-      if (!res.ok) return;
-
-      const payload = (await res.json()) as {
-        items?: ApprovalsLiveItem[];
-        server_time?: string;
-      };
-      const incoming = (payload.items ?? []).filter((item) => !seenApprovalIdsRef.current.has(item.id));
-
-      if (incoming.length > 0) {
-        incoming.forEach((item) => seenApprovalIdsRef.current.add(item.id));
-        const lead = incoming[0];
-        const suffix = incoming.length > 1 ? ` (+${incoming.length - 1} more)` : "";
-        setLiveToast(`New pitch approved: ${lead.startup_name}${suffix}`);
-
-        setIsRefreshingApprovals(true);
-        const refreshController = new AbortController();
-        try {
-          await loadSectionData(refreshController.signal, { refreshOnly: true });
-        } finally {
-          setIsRefreshingApprovals(false);
-        }
-      }
-
-      const watermark =
-        typeof payload.server_time === "string" && payload.server_time.trim().length
-          ? payload.server_time
-          : new Date().toISOString();
-      setLastApprovalWatermark(watermark);
-      setApprovalCountdown(APPROVAL_POLL_SECONDS);
-    } catch {
-      // Keep silent and retry in next cycle.
-    }
-  }, [lastApprovalWatermark, loadSectionData]);
+  }, [loadingInitial, nextShuffleAtMs]);
 
   useEffect(() => {
-    if (!SLOT_UPGRADE_ENABLED || loadingInitial) return;
+    if (!SLOT_UPGRADE_ENABLED || loadingInitial || !nextShuffleAtMs) return;
+    if (shuffleCountdown > 0) return;
+    if (shuffleRefreshLockRef.current) return;
 
-    const interval = window.setInterval(() => {
-      void pollLiveApprovals();
-    }, APPROVAL_POLL_SECONDS * 1000);
+    shuffleRefreshLockRef.current = true;
 
-    const onVisibility = () => {
-      if (!document.hidden) {
-        void pollLiveApprovals();
-      }
-    };
+    const refreshController = new AbortController();
+    setIsRefreshingApprovals(true);
 
-    window.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [loadingInitial, pollLiveApprovals]);
+    void loadSectionData(refreshController.signal, { refreshOnly: true })
+      .then(() => {
+        setLiveToast("Slots reshuffled");
+      })
+      .finally(() => {
+        setIsRefreshingApprovals(false);
+        shuffleRefreshLockRef.current = false;
+      });
+  }, [loadingInitial, loadSectionData, nextShuffleAtMs, shuffleCountdown]);
 
   useEffect(() => {
     if (!liveToast) return;
@@ -528,33 +481,19 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     return [];
   }, [approvedMorePitches, normalizedSearch, slotFilter]);
 
-  const pendingVisible = useMemo(() => {
-    if (!SLOT_UPGRADE_ENABLED) return [] as TeaserPending[];
-    const base = pendingTeasers.filter((item) => {
-      if (!normalizedSearch.length) return true;
-      return (item.category ?? "").toLowerCase().includes(normalizedSearch);
-    });
-
-    if (slotFilter === "pending" || slotFilter === "all") return base.slice(0, PENDING_SLOT_MAX);
-    return [];
-  }, [normalizedSearch, pendingTeasers, slotFilter]);
-
   const rowSlots = useMemo(() => {
     const approvedSlots = slotFilter === "open" ? [] : approvedVisible;
-    const pendingSlots = slotFilter === "open" ? [] : pendingVisible;
-
-    const taken = approvedSlots.length + pendingSlots.length;
+    const taken = approvedSlots.length;
     const openCount = Math.max(0, MORE_SECTION_SLOTS - taken);
 
     return [
       ...approvedSlots.map((pitch) => ({ type: "approved" as const, pitch })),
-      ...pendingSlots.map((pending) => ({ type: "pending" as const, pending })),
       ...Array.from({ length: openCount }, (_, index) => ({
         type: "open" as const,
         id: `placeholder-${index + 1}`,
       })),
     ];
-  }, [approvedVisible, pendingVisible, slotFilter]);
+  }, [approvedVisible, slotFilter]);
 
   const rowGroups = useMemo(() => chunkBySize(rowSlots, ROW_SIZE), [rowSlots]);
 
@@ -720,7 +659,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     : loadError
       ? loadError
       : SLOT_UPGRADE_ENABLED && isRefreshingApprovals
-        ? "Checking approvals…"
+        ? "Reshuffling slots…"
         : null;
 
   const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
@@ -780,7 +719,6 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                     {([
                       { id: "all", label: "All" },
                       { id: "approved", label: "Approved" },
-                      { id: "pending", label: "Pending teasers" },
                       { id: "open", label: "Open slots" },
                     ] as Array<{ id: SlotFilter; label: string }>).map((item) => (
                       <button
@@ -793,6 +731,9 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                       </button>
                     ))}
                   </div>
+                  <p className="slot-random-note">
+                    Randomly shuffled every 5 min (independent of engagement).
+                  </p>
                 </div>
 
                 <div className="slot-teaser-strip" aria-label="Recent uploads teasers">
@@ -897,32 +838,6 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                           );
                         }
 
-                        if (slot.type === "pending") {
-                          const accent = accentForKey(slot.pending.style_key);
-                          return (
-                            <article
-                              key={`${slot.pending.id}-row-${rowIndex}`}
-                              className={`pitch-slot-pending-card${isRefreshingApprovals ? " is-refreshing" : ""}`}
-                              style={{ ["--slot-accent" as string]: accent }}
-                            >
-                              <div
-                                className="pitch-slot-pending-media"
-                                style={{
-                                  backgroundImage: slot.pending.poster_url ? `url(${slot.pending.poster_url})` : undefined,
-                                }}
-                              />
-                              <div className="pitch-slot-pending-content">
-                                <div className="pitch-slot-open-badge">Pending review</div>
-                                <h4>New submission</h4>
-                                <p>{slot.pending.category ?? "Category pending"}</p>
-                                <span className="pitch-slot-countdown">
-                                  Next approval check in {formatCountdown(approvalCountdown)}
-                                </span>
-                              </div>
-                            </article>
-                          );
-                        }
-
                         const accent = accentForKey(slot.id);
                         return (
                           <Link
@@ -938,7 +853,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                             <span className="pitch-slot-open-action">Upload your pitch</span>
                             {SLOT_UPGRADE_ENABLED ? (
                               <span className="pitch-slot-countdown">
-                                Next approval check in {formatCountdown(approvalCountdown)}
+                                Next shuffle in {formatCountdown(shuffleCountdown)}
                               </span>
                             ) : null}
                           </Link>

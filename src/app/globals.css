@@ -5049,6 +5049,12 @@ body {
   gap: 8px;
 }
 
+.slot-random-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
 .slot-filter-chip {
   border: 1px solid var(--stroke);
   background: transparent;

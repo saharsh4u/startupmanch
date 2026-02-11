@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
@@ -26,6 +27,27 @@ type PitchFeedItem = {
   score: number | string | null;
 };
 
+type ShuffledPitchRow = {
+  id: string;
+  startup_id: string;
+  created_at: string;
+  approved_at: string | null;
+  video_path: string | null;
+  poster_path: string | null;
+  startups: {
+    id: string;
+    name: string | null;
+    category: string | null;
+    city: string | null;
+    one_liner: string | null;
+    monthly_revenue: string | null;
+    founder_id: string | null;
+    founder_photo_url: string | null;
+    founder_story: string | null;
+    status: string | null;
+  } | null;
+};
+
 type PitchVideoStateRow = {
   id: string;
   startup_id: string;
@@ -46,6 +68,15 @@ type ProfileMetaRow = {
   display_name: string | null;
 };
 
+type PitchStatsRow = {
+  pitch_id: string;
+  in_count: number | null;
+  out_count: number | null;
+  comment_count: number | null;
+};
+
+const SHUFFLE_WINDOW_MS = 5 * 60 * 1000;
+
 const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
   const normalized = (message ?? "").toLowerCase();
   return (
@@ -57,6 +88,43 @@ const isMissingVideoProcessingColumnError = (message: string | null | undefined)
 const asNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildShuffleWindow = (now = Date.now()) => {
+  const windowId = Math.floor(now / SHUFFLE_WINDOW_MS);
+  const nextShuffleAtMs = (windowId + 1) * SHUFFLE_WINDOW_MS;
+  return {
+    windowId,
+    nextShuffleAt: new Date(nextShuffleAtMs).toISOString(),
+  };
+};
+
+const stableShuffleKey = (windowId: number, pitchId: string) =>
+  createHash("sha256").update(`${windowId}:${pitchId}`).digest("hex");
+
+const applyDeterministicShuffle = (
+  items: ShuffledPitchRow[],
+  windowId: number,
+  categoryFilter: string | null
+) => {
+  const filtered = items.filter((item) => {
+    if (!item.startups || item.startups.status !== "approved") return false;
+    if (!categoryFilter) return true;
+    const category = (item.startups.category ?? "").toLowerCase();
+    return category.includes(categoryFilter.toLowerCase());
+  });
+
+  return filtered
+    .map((item) => ({
+      item,
+      key: stableShuffleKey(windowId, item.id),
+    }))
+    .sort((left, right) => {
+      if (left.key < right.key) return -1;
+      if (left.key > right.key) return 1;
+      return left.item.id.localeCompare(right.item.id);
+    })
+    .map((entry) => entry.item);
 };
 
 export async function GET(request: Request) {
@@ -76,33 +144,96 @@ export async function GET(request: Request) {
   const safeTab = validTabs.has(tab) ? tab : "trending";
   const resolvedTab = safeTab === "category" && !categoryFilter ? "trending" : safeTab;
   const safeMode = validModes.has(modeParam) ? modeParam : "feed";
+  const shouldShuffleByWindow =
+    safeMode === "feed" &&
+    (searchParams.get("shuffle") === "true" || searchParams.get("shuffle") === "1");
 
-  const rpcArgs: {
-    mode: string;
-    tab: string;
-    max_items: number;
-    offset_items: number;
-    min_votes: number;
-    category_filter?: string;
-  } = {
-    mode: safeMode,
-    tab: resolvedTab,
-    max_items: limit,
-    offset_items: offset,
-    min_votes: minVotes,
-  };
+  let rows: PitchFeedItem[] = [];
+  let shuffleWindow: ReturnType<typeof buildShuffleWindow> | null = null;
 
-  if (resolvedTab === "category" && categoryFilter) {
-    rpcArgs.category_filter = categoryFilter;
+  if (shouldShuffleByWindow) {
+    shuffleWindow = buildShuffleWindow();
+    const { data: baseRows, error: baseError } = await supabaseAdmin
+      .from("pitches")
+      .select(
+        "id,startup_id,created_at,approved_at,video_path,poster_path,startups!inner(id,name,category,city,one_liner,monthly_revenue,founder_id,founder_photo_url,founder_story,status)"
+      )
+      .eq("status", "approved")
+      .eq("type", "elevator");
+
+    if (baseError) {
+      return NextResponse.json({ error: baseError.message }, { status: 500 });
+    }
+
+    const shuffledRows = applyDeterministicShuffle(
+      (baseRows ?? []) as unknown as ShuffledPitchRow[],
+      shuffleWindow.windowId,
+      categoryFilter
+    );
+    const paged = shuffledRows.slice(offset, offset + limit);
+    const pageIds = paged.map((item) => item.id);
+
+    const statsByPitchId = new Map<string, PitchStatsRow>();
+    if (pageIds.length) {
+      const { data: statRows, error: statError } = await supabaseAdmin
+        .from("pitch_stats")
+        .select("pitch_id,in_count,out_count,comment_count")
+        .in("pitch_id", pageIds);
+      if (statError) {
+        return NextResponse.json({ error: statError.message }, { status: 500 });
+      }
+      for (const stat of (statRows ?? []) as PitchStatsRow[]) {
+        statsByPitchId.set(stat.pitch_id, stat);
+      }
+    }
+
+    rows = paged.map((item) => {
+      const stats = statsByPitchId.get(item.id);
+      return {
+        pitch_id: item.id,
+        startup_id: item.startup_id,
+        startup_name: item.startups?.name ?? "Startup",
+        category: item.startups?.category ?? null,
+        city: item.startups?.city ?? null,
+        one_liner: item.startups?.one_liner ?? null,
+        monthly_revenue: item.startups?.monthly_revenue ?? null,
+        video_path: item.video_path,
+        poster_path: item.poster_path,
+        created_at: item.created_at,
+        approved_at: item.approved_at,
+        in_count: asNumber(stats?.in_count),
+        out_count: asNumber(stats?.out_count),
+        comment_count: asNumber(stats?.comment_count),
+        score: 0,
+      };
+    });
+  } else {
+    const rpcArgs: {
+      mode: string;
+      tab: string;
+      max_items: number;
+      offset_items: number;
+      min_votes: number;
+      category_filter?: string;
+    } = {
+      mode: safeMode,
+      tab: resolvedTab,
+      max_items: limit,
+      offset_items: offset,
+      min_votes: minVotes,
+    };
+
+    if (resolvedTab === "category" && categoryFilter) {
+      rpcArgs.category_filter = categoryFilter;
+    }
+
+    const { data, error } = await supabaseAdmin.rpc("fetch_pitch_feed", rpcArgs);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    rows = (data ?? []) as PitchFeedItem[];
   }
-
-  const { data, error } = await supabaseAdmin.rpc("fetch_pitch_feed", rpcArgs);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const rows = (data ?? []) as PitchFeedItem[];
   const pitchIds = rows.map((item) => item.pitch_id);
 
   const videoStateByPitchId = new Map<string, PitchVideoStateRow>();
@@ -159,7 +290,7 @@ export async function GET(request: Request) {
   }
 
   const enriched = await Promise.all(
-    rows.map(async (item: PitchFeedItem) => {
+    rows.map(async (item: PitchFeedItem, index: number) => {
       let video_url: string | null = null;
       let poster_url: string | null = null;
 
@@ -196,13 +327,27 @@ export async function GET(request: Request) {
         founder_photo_url: startupMeta?.founder_photo_url ?? null,
         founder_story: startupMeta?.founder_story ?? null,
         founder_name: founderName,
+        slot_index: offset + index + 1,
         video_url,
         poster_url,
       };
     })
   );
+  const response = NextResponse.json({
+    mode: safeMode,
+    tab: resolvedTab,
+    data: enriched,
+    offset,
+    limit,
+    window_id: shuffleWindow?.windowId ?? null,
+    next_shuffle_at: shuffleWindow?.nextShuffleAt ?? null,
+  });
 
-  return NextResponse.json({ mode: safeMode, tab: resolvedTab, data: enriched, offset, limit });
+  if (shuffleWindow) {
+    response.headers.set("Cache-Control", "public, s-maxage=240, stale-while-revalidate=30");
+  }
+
+  return response;
 }
 
 export async function POST(request: Request) {
