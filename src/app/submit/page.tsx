@@ -98,7 +98,10 @@ export default function SubmitPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
   const [authError, setAuthError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+  const linkedinEnabled = process.env.NEXT_PUBLIC_LINKEDIN_AUTH_ENABLED === "true";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
@@ -132,7 +135,7 @@ export default function SubmitPage() {
   const [revMessage, setRevMessage] = useState<string | null>(null);
 
   const isAuthed = authStatus === "authed";
-  const authBusy = authStatus === "loading" || googleLoading;
+  const authBusy = authStatus === "loading" || googleLoading || linkedinLoading;
 
   const authHelperText = useMemo(() => {
     if (isAuthed && sessionEmail) return `Signed in as ${sessionEmail}`;
@@ -225,16 +228,51 @@ export default function SubmitPage() {
       setGoogleLoading(true);
       setAuthError(null);
       const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const redirectBase = siteUrl || origin;
       const { error } = await supabaseBrowser.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: origin ? `${origin}/submit` : undefined,
+          redirectTo: redirectBase ? `${redirectBase.replace(/\/+$/, "")}/auth/callback` : undefined,
+          scopes: "openid email profile",
+          queryParams: {
+            prompt: "select_account",
+            access_type: "offline",
+          },
         },
       });
       if (error) throw error;
     } catch (error: any) {
       setAuthError(error.message ?? "Google sign-in failed.");
       setGoogleLoading(false);
+    }
+  };
+
+  const handleLinkedIn = async () => {
+    if (!hasBrowserSupabaseEnv) {
+      setAuthStatus("error");
+      setAuthError(AUTH_UNAVAILABLE_MESSAGE);
+      return;
+    }
+    if (!linkedinEnabled) {
+      setAuthError("LinkedIn sign-in is temporarily unavailable.");
+      return;
+    }
+    try {
+      setLinkedinLoading(true);
+      setAuthError(null);
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const redirectBase = siteUrl || origin;
+      const { error } = await supabaseBrowser.auth.signInWithOAuth({
+        provider: "linkedin_oidc",
+        options: {
+          redirectTo: redirectBase ? `${redirectBase.replace(/\/+$/, "")}/auth/callback` : undefined,
+          scopes: "openid profile email",
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      setAuthError(error.message ?? "LinkedIn sign-in failed.");
+      setLinkedinLoading(false);
     }
   };
 
@@ -563,6 +601,15 @@ export default function SubmitPage() {
                 ) : (
                   <button type="button" className="google-button" disabled>
                     Google unavailable
+                  </button>
+                )}
+                {linkedinEnabled ? (
+                  <button type="button" className="google-button" disabled={authBusy} onClick={handleLinkedIn}>
+                    Continue with LinkedIn
+                  </button>
+                ) : (
+                  <button type="button" className="google-button" disabled>
+                    LinkedIn unavailable
                   </button>
                 )}
               </div>

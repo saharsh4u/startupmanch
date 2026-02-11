@@ -15,6 +15,7 @@ const getBearerToken = (request: Request) => {
 };
 
 const adminEmail = "saharashsharma3@gmail.com";
+const normalizeEmail = (value: string | null | undefined) => value?.trim().toLowerCase() ?? "";
 
 export const getAuthContext = async (request: Request): Promise<AuthContext | null> => {
   const token = getBearerToken(request);
@@ -22,6 +23,13 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
 
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) return null;
+  const normalizedEmail = normalizeEmail(data.user.email);
+  const displayName =
+    typeof data.user.user_metadata?.full_name === "string"
+      ? data.user.user_metadata.full_name
+      : typeof data.user.user_metadata?.name === "string"
+        ? data.user.user_metadata.name
+        : null;
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -30,15 +38,15 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
     .single();
 
   if (profileError || !profile) {
-    const email = data.user.email ?? "";
-    const role = email.toLowerCase() === adminEmail ? "admin" : "founder";
+    const role = normalizedEmail === adminEmail ? "admin" : "founder";
     const { data: created, error: createError } = await supabaseAdmin
       .from("profiles")
       .upsert(
         {
           id: data.user.id,
-          email,
+          email: normalizedEmail || null,
           role,
+          display_name: displayName,
         },
         { onConflict: "id" }
       )
@@ -51,14 +59,25 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
 
     return {
       userId: created.id,
-      email: created.email ?? email,
+      email: created.email ?? normalizedEmail,
       role: created.role,
     };
   }
 
+  const normalizedProfileEmail = normalizeEmail(profile.email);
+  if (normalizedProfileEmail !== normalizedEmail) {
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        email: normalizedEmail || null,
+        display_name: displayName,
+      })
+      .eq("id", profile.id);
+  }
+
   return {
     userId: profile.id,
-    email: profile.email ?? data.user.email ?? "",
+    email: normalizedProfileEmail || normalizedEmail,
     role: profile.role,
   };
 };
