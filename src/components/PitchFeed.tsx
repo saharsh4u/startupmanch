@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
@@ -430,6 +431,13 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
             ? "Scroll to load more pitches."
             : "Auto-load unavailable. Use the button below to load more."
           : "No more pitches";
+  const showUploadPitchCta =
+    !loadingInitial &&
+    !loadingMore &&
+    !loadError &&
+    topPitches.length > 0 &&
+    rowPool.length === 0 &&
+    !hasMore;
 
   const overlayOpen =
     expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
@@ -516,6 +524,15 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                 <button type="button" className="pitch-load-more" onClick={() => void loadMorePage()}>
                   {loadError ? "Retry loading pitches" : "Load more pitches"}
                 </button>
+              ) : null}
+
+              {showUploadPitchCta ? (
+                <>
+                  <p className="pitch-upload-cta-note">Be the first in this section.</p>
+                  <Link href="/submit" className="pitch-upload-cta">
+                    Upload your pitch
+                  </Link>
+                </>
               ) : null}
 
               {hasLoadedAdditionalPages ? (
