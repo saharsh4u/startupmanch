@@ -28,8 +28,8 @@ type PitchFeedProps = {
   selectedCategory?: string | null;
 };
 
-const INITIAL_PAGE_SIZE = 20;
-const PAGE_SIZE = 10;
+const MORE_SECTION_PAGE_SIZE = 50;
+const MORE_SECTION_SLOTS = 50;
 const ROW_SIZE = 5;
 const INITIAL_SKELETON_ROWS = 2;
 
@@ -68,6 +68,17 @@ const chunkBySize = <T,>(items: T[], size: number) => {
   return chunks;
 };
 
+const shuffle = <T,>(items: T[]) => {
+  const output = [...items];
+  for (let index = output.length - 1; index > 0; index -= 1) {
+    const nextIndex = Math.floor(Math.random() * (index + 1));
+    const current = output[index];
+    output[index] = output[nextIndex];
+    output[nextIndex] = current;
+  }
+  return output;
+};
+
 const buildTopPitches = (
   weekCandidates: FeedPitch[],
   feedCandidates: FeedPitch[],
@@ -103,10 +114,7 @@ const getErrorMessage = (error: unknown) => {
 export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
-  const loadMoreAbortRef = useRef<AbortController | null>(null);
-  const loadingMoreRef = useRef(false);
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -114,18 +122,9 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const [overlayPitches, setOverlayPitches] = useState<FeedPitch[]>([]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
-  const [feedOffset, setFeedOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const [loadingInitial, setLoadingInitial] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [hasLoadedAdditionalPages, setHasLoadedAdditionalPages] = useState(false);
   const [fixedTopPitches, setFixedTopPitches] = useState<FeedPitch[] | null>(null);
-  const [supportsAutoLoad, setSupportsAutoLoad] = useState(false);
-
-  useEffect(() => {
-    setSupportsAutoLoad(typeof window !== "undefined" && "IntersectionObserver" in window);
-  }, []);
 
   const fallback = useMemo<FeedPitch[]>(
     () =>
@@ -172,11 +171,8 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
   useEffect(() => {
     let active = true;
-    loadingMoreRef.current = false;
 
     initialAbortRef.current?.abort();
-    loadMoreAbortRef.current?.abort();
-    loadMoreAbortRef.current = null;
 
     const controller = new AbortController();
     initialAbortRef.current = controller;
@@ -184,13 +180,9 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     setLoaded(false);
     setLoadError(null);
     setLoadingInitial(true);
-    setLoadingMore(false);
-    setFeedOffset(0);
-    setHasMore(true);
     setItems([]);
     setWeekPicks([]);
     setFixedTopPitches(null);
-    setHasLoadedAdditionalPages(false);
     setOverlayPitches([]);
     setExpandedIndex(null);
 
@@ -201,7 +193,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
             cache: "no-store",
             signal: controller.signal,
           }),
-          fetch(`/api/pitches?mode=feed&tab=trending&limit=${INITIAL_PAGE_SIZE}&offset=0`, {
+          fetch(`/api/pitches?mode=feed&tab=trending&limit=${MORE_SECTION_PAGE_SIZE}&offset=0`, {
             cache: "no-store",
             signal: controller.signal,
           }),
@@ -224,11 +216,13 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         const weekIds = new Set(filteredWeek.map((item) => item.id));
 
         const mappedFeed = feedData.map((item, index) => mapPitch(item, index));
-        const filteredFeed = dedupePitches(
-          mappedFeed
+        const filteredFeed = shuffle(
+          dedupePitches(
+            mappedFeed
             .filter((item) => matchesCategory(item, selectedCategory))
             .filter((item) => !weekIds.has(item.id))
-        );
+          )
+        ).slice(0, MORE_SECTION_PAGE_SIZE);
 
         const initialBaseFeed = filteredFeed.length ? filteredFeed : filteredFallback;
         const initialTopPitches = buildTopPitches(filteredWeek, initialBaseFeed, filteredFallback);
@@ -236,8 +230,6 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         setWeekPicks(filteredWeek);
         setItems(filteredFeed);
         setFixedTopPitches(initialTopPitches);
-        setFeedOffset(feedData.length);
-        setHasMore(feedRes.ok ? feedData.length === INITIAL_PAGE_SIZE : false);
       } catch (error) {
         const message = getErrorMessage(error);
         if (!active || !message) return;
@@ -246,8 +238,6 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         setWeekPicks([]);
         setItems([]);
         setFixedTopPitches(fallbackTopPitches);
-        setFeedOffset(0);
-        setHasMore(false);
         setLoadError(message);
       } finally {
         if (!active) return;
@@ -261,91 +251,8 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     return () => {
       active = false;
       controller.abort();
-      loadMoreAbortRef.current?.abort();
-      loadMoreAbortRef.current = null;
     };
   }, [filteredFallback, mapPitch, selectedCategory]);
-
-  const loadMorePage = useCallback(async () => {
-    if (!hasMore || loadingInitial || loadingMoreRef.current) return;
-
-    const offset = feedOffset;
-    const controller = new AbortController();
-    loadMoreAbortRef.current?.abort();
-    loadMoreAbortRef.current = controller;
-
-    loadingMoreRef.current = true;
-    setLoadingMore(true);
-    setLoadError(null);
-
-    try {
-      const response = await fetch(
-        `/api/pitches?mode=feed&tab=trending&limit=${PAGE_SIZE}&offset=${offset}`,
-        {
-          cache: "no-store",
-          signal: controller.signal,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Unable to load more pitches.");
-      }
-
-      const payload = await response.json();
-      const data = (payload?.data ?? []) as ApiPitch[];
-      const weekIds = new Set(weekPicks.map((item) => item.id));
-      const mapped = data.map((item, index) => mapPitch(item, offset + index));
-      const filtered = mapped
-        .filter((item) => matchesCategory(item, selectedCategory))
-        .filter((item) => !weekIds.has(item.id));
-
-      setItems((previous) => dedupePitches([...previous, ...filtered]));
-      setFeedOffset(offset + data.length);
-      setHasMore(data.length === PAGE_SIZE);
-      if (data.length > 0) {
-        setHasLoadedAdditionalPages(true);
-      }
-    } catch (error) {
-      const message = getErrorMessage(error);
-      if (message) {
-        setLoadError(message);
-      }
-    } finally {
-      if (loadMoreAbortRef.current === controller) {
-        loadMoreAbortRef.current = null;
-        loadingMoreRef.current = false;
-        setLoadingMore(false);
-      }
-    }
-  }, [feedOffset, hasMore, loadingInitial, mapPitch, selectedCategory, weekPicks]);
-
-  useEffect(() => {
-    if (!supportsAutoLoad || loadingInitial || loadingMore || !hasMore || loadError) {
-      return;
-    }
-
-    const node = sentinelRef.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          void loadMorePage();
-        }
-      },
-      {
-        root: null,
-        rootMargin: "300px 0px",
-        threshold: 0,
-      }
-    );
-
-    observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMore, loadError, loadMorePage, loadingInitial, loadingMore, supportsAutoLoad]);
 
   const filteredWeekPicks = useMemo(
     () => weekPicks.filter((item) => matchesCategory(item, selectedCategory)),
@@ -357,30 +264,45 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     [items, selectedCategory]
   );
 
-  const baseFeed = useMemo(
-    () => (filteredItems.length ? filteredItems : filteredFallback),
-    [filteredItems, filteredFallback]
-  );
+  const baseFeed = filteredItems;
 
   const dynamicTopPitches = useMemo(
-    () => buildTopPitches(filteredWeekPicks, baseFeed, filteredFallback),
-    [filteredWeekPicks, baseFeed, filteredFallback]
+    () => buildTopPitches(filteredWeekPicks, filteredItems, filteredFallback),
+    [filteredWeekPicks, filteredItems, filteredFallback]
   );
 
   const topPitches = fixedTopPitches ?? dynamicTopPitches;
 
   const topIds = useMemo(() => new Set(topPitches.map((item) => item.id)), [topPitches]);
 
-  const rowPool = useMemo(
-    () => dedupePitches(baseFeed.filter((item) => !topIds.has(item.id))),
+  const approvedMorePitches = useMemo(
+    () =>
+      dedupePitches(baseFeed.filter((item) => !topIds.has(item.id))).slice(
+        0,
+        MORE_SECTION_SLOTS
+      ),
     [baseFeed, topIds]
   );
 
-  const rowGroups = useMemo(() => chunkBySize(rowPool, ROW_SIZE), [rowPool]);
+  const rowSlots = useMemo(
+    () => [
+      ...approvedMorePitches.map((pitch) => ({ type: "pitch" as const, pitch })),
+      ...Array.from(
+        { length: Math.max(0, MORE_SECTION_SLOTS - approvedMorePitches.length) },
+        (_, index) => ({ type: "placeholder" as const, id: `placeholder-${index + 1}` })
+      ),
+    ],
+    [approvedMorePitches]
+  );
 
-  const expandedList = useMemo(() => [...topPitches, ...rowPool], [topPitches, rowPool]);
+  const rowGroups = useMemo(() => chunkBySize(rowSlots, ROW_SIZE), [rowSlots]);
 
-  const hasVisiblePitches = topPitches.length > 0 || rowPool.length > 0;
+  const expandedList = useMemo(
+    () => [...topPitches, ...approvedMorePitches],
+    [approvedMorePitches, topPitches]
+  );
+
+  const hasVisiblePitches = topPitches.length > 0 || approvedMorePitches.length > 0;
 
   useEffect(() => {
     topPitches.forEach((pitch) => {
@@ -420,24 +342,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     target.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
   };
 
-  const statusMessage = loadingInitial
-    ? "Loading pitches…"
-    : loadingMore
-      ? "Loading more pitches…"
-      : loadError
-        ? loadError
-        : hasMore
-          ? supportsAutoLoad
-            ? "Scroll to load more pitches."
-            : "Auto-load unavailable. Use the button below to load more."
-          : "No more pitches";
-  const showUploadPitchCta =
-    !loadingInitial &&
-    !loadingMore &&
-    !loadError &&
-    topPitches.length > 0 &&
-    rowPool.length === 0 &&
-    !hasMore;
+  const statusMessage = loadingInitial ? "Loading pitches…" : loadError;
 
   const overlayOpen =
     expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
@@ -494,55 +399,44 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                   ))
                 : rowGroups.map((group, rowIndex) => (
                     <div key={`row-group-${rowIndex}`} className="pitch-row">
-                      {group.map((pitch) => (
-                        <PitchShowCard
-                          key={`${pitch.id}-row-${rowIndex}`}
-                          pitch={pitch}
-                          size="row"
-                          variant="regular"
-                          onExpand={handleExpand}
-                        />
-                      ))}
+                      {group.map((slot) =>
+                        slot.type === "pitch" ? (
+                          <PitchShowCard
+                            key={`${slot.pitch.id}-row-${rowIndex}`}
+                            pitch={slot.pitch}
+                            size="row"
+                            variant="regular"
+                            onExpand={handleExpand}
+                          />
+                        ) : (
+                          <Link
+                            key={`${slot.id}-row-${rowIndex}`}
+                            href="/submit"
+                            className="pitch-slot-open-card"
+                            aria-label="Upload your pitch"
+                          >
+                            <div className="pitch-slot-open-badge">Slot open</div>
+                            <h4>Be the next approved pitch</h4>
+                            <p>This space fills as soon as admin approves a submission.</p>
+                            <span className="pitch-slot-open-action">Upload your pitch</span>
+                          </Link>
+                        )
+                      )}
                     </div>
                   ))}
-
-              {loadingMore ? (
-                <div className="pitch-row is-loading" aria-hidden="true">
-                  {Array.from({ length: ROW_SIZE }, (_, cardIndex) => (
-                    <article key={`append-loading-card-${cardIndex}`} className="pitch-show-card row skeleton" />
-                  ))}
-                </div>
-              ) : null}
             </div>
 
-            <div className="pitch-feed-status" role="status" aria-live="polite">
-              {statusMessage}
-            </div>
+            {statusMessage ? (
+              <div className="pitch-feed-status" role="status" aria-live="polite">
+                {statusMessage}
+              </div>
+            ) : null}
 
             <div className="pitch-feed-actions">
-              {hasMore && !loadingInitial && !loadingMore ? (
-                <button type="button" className="pitch-load-more" onClick={() => void loadMorePage()}>
-                  {loadError ? "Retry loading pitches" : "Load more pitches"}
-                </button>
-              ) : null}
-
-              {showUploadPitchCta ? (
-                <>
-                  <p className="pitch-upload-cta-note">Be the first in this section.</p>
-                  <Link href="/submit" className="pitch-upload-cta">
-                    Upload your pitch
-                  </Link>
-                </>
-              ) : null}
-
-              {hasLoadedAdditionalPages ? (
-                <button type="button" className="pitch-back-to-top" onClick={handleBackToTop}>
-                  Back to top
-                </button>
-              ) : null}
+              <button type="button" className="pitch-back-to-top" onClick={handleBackToTop}>
+                Back to top
+              </button>
             </div>
-
-            <div ref={sentinelRef} className="pitch-feed-sentinel" aria-hidden="true" />
           </div>
         </>
       )}

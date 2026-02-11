@@ -5017,6 +5017,71 @@ body {
   pointer-events: none;
 }
 
+.pitch-slot-open-card {
+  position: relative;
+  min-width: clamp(190px, 24vw, 260px);
+  width: clamp(190px, 24vw, 260px);
+  min-height: clamp(250px, 34vw, 320px);
+  border-radius: var(--radius-l);
+  border: 1px dashed var(--stroke-strong);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+    radial-gradient(circle at 84% 12%, rgba(255, 255, 255, 0.06), transparent 52%);
+  color: var(--text);
+  text-decoration: none;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
+}
+
+.pitch-slot-open-card:hover {
+  border-color: var(--focus-ring);
+  transform: translateY(-1px);
+}
+
+.pitch-slot-open-card:focus-visible {
+  border-color: var(--focus-ring);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.pitch-slot-open-badge {
+  width: fit-content;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pitch-slot-open-card h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.pitch-slot-open-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.pitch-slot-open-action {
+  width: fit-content;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 0.76rem;
+  line-height: 1;
+  background: var(--panel-soft);
+}
+
 @media (max-width: 640px) {
   .pitch-feed-actions {
     flex-direction: column;
@@ -5032,6 +5097,13 @@ body {
 
   .pitch-upload-cta-note {
     align-self: flex-start;
+  }
+
+  .pitch-slot-open-card {
+    min-width: 160px;
+    width: 160px;
+    min-height: 236px;
+    padding: 12px;
   }
 }
 
