@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
+  createAdOnboardingToken,
   createCashfreeOrder,
   getAdPlanConfig,
   getCashfreeConfig,
@@ -52,6 +53,10 @@ export async function POST(request: Request) {
     const siteUrl = resolveSiteUrl(request);
     const orderId = buildOrderId();
     const customerId = `cust_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const onboardingToken = createAdOnboardingToken({
+      orderId,
+      billingEmail,
+    });
 
     const order = await createCashfreeOrder({
       orderId,
@@ -61,7 +66,9 @@ export async function POST(request: Request) {
         customer_phone: billingPhone,
       },
       orderMeta: {
-        return_url: `${siteUrl}/advertise/success?session_id={order_id}`,
+        return_url: `${siteUrl}/advertise/success?session_id={order_id}&onboarding_token=${encodeURIComponent(
+          onboardingToken
+        )}`,
         notify_url: `${siteUrl}/api/ads/webhook`,
       },
     });
@@ -92,6 +99,7 @@ export async function POST(request: Request) {
       sessionId: order.order_id,
       orderId: order.order_id,
       paymentSessionId,
+      onboardingToken,
       mode: cashfreeConfig.mode,
     });
   } catch (error) {

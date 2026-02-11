@@ -39,9 +39,10 @@ const emptyForm: FormState = {
 
 type AdOnboardingClientProps = {
   sessionId: string;
+  onboardingToken: string;
 };
 
-export default function AdOnboardingClient({ sessionId }: AdOnboardingClientProps) {
+export default function AdOnboardingClient({ sessionId, onboardingToken }: AdOnboardingClientProps) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorText, setErrorText] = useState<string | null>(null);
   const [campaignStatus, setCampaignStatus] = useState<string | null>(null);
@@ -57,6 +58,11 @@ export default function AdOnboardingClient({ sessionId }: AdOnboardingClientProp
       setErrorText("Missing checkout session ID.");
       return;
     }
+    if (!onboardingToken) {
+      setStatus("error");
+      setErrorText("Missing onboarding token.");
+      return;
+    }
 
     let cancelled = false;
 
@@ -66,9 +72,14 @@ export default function AdOnboardingClient({ sessionId }: AdOnboardingClientProp
       setSaved(false);
 
       try {
-        const response = await fetch(`/api/ads/onboarding?session_id=${encodeURIComponent(sessionId)}`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/ads/onboarding?session_id=${encodeURIComponent(sessionId)}&onboarding_token=${encodeURIComponent(
+            onboardingToken
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
         const payload = (await response.json()) as CampaignResponse;
 
         if (cancelled) return;
@@ -100,7 +111,7 @@ export default function AdOnboardingClient({ sessionId }: AdOnboardingClientProp
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [onboardingToken, sessionId]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -111,6 +122,7 @@ export default function AdOnboardingClient({ sessionId }: AdOnboardingClientProp
     try {
       const payload = new FormData();
       payload.set("session_id", sessionId);
+      payload.set("onboarding_token", onboardingToken);
       payload.set("company_name", form.companyName);
       payload.set("destination_url", form.destinationUrl);
       payload.set("tagline", form.tagline);
@@ -151,6 +163,7 @@ export default function AdOnboardingClient({ sessionId }: AdOnboardingClientProp
         </header>
 
         {!sessionId ? <p className="ad-onboarding-error">Missing checkout session ID.</p> : null}
+        {!onboardingToken ? <p className="ad-onboarding-error">Missing onboarding token.</p> : null}
 
         {status === "loading" ? <p className="ad-onboarding-state">Loading campaign details…</p> : null}
 

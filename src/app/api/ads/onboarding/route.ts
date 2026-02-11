@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { getAdPlanConfig, getCashfreeOrder, hasCashfreeCredentials } from "@/lib/cashfree/server";
+import {
+  getAdPlanConfig,
+  getCashfreeOrder,
+  hasCashfreeCredentials,
+  verifyAdOnboardingToken,
+} from "@/lib/cashfree/server";
 import { sanitizeAccent, sanitizeBadge, sanitizeName, sanitizeTagline } from "@/lib/ads";
 
 export const runtime = "nodejs";
@@ -82,19 +87,31 @@ const normalizeWebsite = (value: string) => {
 
 const isPaidOrder = (status: string | null | undefined) => status?.toUpperCase() === "PAID";
 
-const ensureCheckoutCampaign = async (sessionId: string) => {
+const ensureCheckoutCampaign = async (sessionId: string, onboardingToken: string) => {
   if (!hasCashfreeCredentials()) {
     throw new Error("CASHFREE_APP_ID and CASHFREE_SECRET_KEY are required");
+  }
+  if (!onboardingToken.trim()) {
+    throw new Error("onboarding_token is required");
   }
 
   const order = await getCashfreeOrder(sessionId);
   if (!isPaidOrder(order.order_status)) {
     throw new Error("Payment is not confirmed yet.");
   }
+  const customerEmail = order.customer_details?.customer_email?.trim().toLowerCase() || null;
+  if (
+    !verifyAdOnboardingToken({
+      token: onboardingToken,
+      orderId: sessionId,
+      billingEmail: customerEmail,
+    })
+  ) {
+    throw new Error("Unauthorized onboarding token.");
+  }
 
   const plan = getAdPlanConfig();
   const customerId = order.customer_details?.customer_id?.trim() || null;
-  const customerEmail = order.customer_details?.customer_email?.trim().toLowerCase() || null;
   const cfOrderId = order.cf_order_id?.trim() || null;
   const periodEnd = addBillingPeriod(plan.interval);
 
@@ -157,14 +174,21 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const sessionId =
       (searchParams.get("session_id") ?? searchParams.get("order_id") ?? "").trim();
+    const onboardingToken = (searchParams.get("onboarding_token") ?? "").trim();
     if (!sessionId) {
       return NextResponse.json({ error: "session_id is required" }, { status: 400 });
     }
+    if (!onboardingToken) {
+      return NextResponse.json({ error: "onboarding_token is required" }, { status: 401 });
+    }
 
-    const campaign = await ensureCheckoutCampaign(sessionId);
+    const campaign = await ensureCheckoutCampaign(sessionId, onboardingToken);
     return NextResponse.json({ campaign });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load campaign details.";
+    if (message.toLowerCase().includes("unauthorized")) {
+      return NextResponse.json({ error: message }, { status: 401 });
+    }
     const status =
       message.includes("not confirmed") || message.includes("session_id") || message.includes("required")
         ? 400
@@ -177,11 +201,15 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const sessionId = String(formData.get("session_id") ?? "").trim();
+    const onboardingToken = String(formData.get("onboarding_token") ?? "").trim();
     if (!sessionId) {
       return NextResponse.json({ error: "session_id is required" }, { status: 400 });
     }
+    if (!onboardingToken) {
+      return NextResponse.json({ error: "onboarding_token is required" }, { status: 401 });
+    }
 
-    const campaign = await ensureCheckoutCampaign(sessionId);
+    const campaign = await ensureCheckoutCampaign(sessionId, onboardingToken);
 
     const companyName = sanitizeName(String(formData.get("company_name") ?? "").trim());
     const destinationUrl = normalizeWebsite(String(formData.get("destination_url") ?? ""));
@@ -255,6 +283,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ campaign: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to submit campaign details.";
+    if (message.toLowerCase().includes("unauthorized")) {
+      return NextResponse.json({ error: message }, { status: 401 });
+    }
     const status = message.includes("required") || message.includes("must") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

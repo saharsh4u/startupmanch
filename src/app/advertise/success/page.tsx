@@ -18,6 +18,7 @@ export default async function AdvertiseSuccessPage({ searchParams }: AdvertiseSu
   const sessionId = (
     firstValue(resolvedSearchParams.session_id) || firstValue(resolvedSearchParams.order_id)
   ).trim();
+  const onboardingToken = firstValue(resolvedSearchParams.onboarding_token).trim();
 
-  return <AdOnboardingClient sessionId={sessionId} />;
+  return <AdOnboardingClient sessionId={sessionId} onboardingToken={onboardingToken} />;
 }

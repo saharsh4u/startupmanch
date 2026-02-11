@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { getAdPlanConfig, getCashfreeOrder, hasCashfreeCredentials } from "@/lib/cashfree/server";
+import {
+  getAdPlanConfig,
+  getCashfreeOrder,
+  hasCashfreeCredentials,
+  isCashfreeWebhookTimestampFresh,
+  verifyCashfreeWebhookSignature,
+} from "@/lib/cashfree/server";
 
 export const runtime = "nodejs";
 
@@ -57,6 +63,13 @@ export async function POST(request: Request) {
     const raw = await request.text();
     if (!raw.trim().length) {
       return NextResponse.json({ received: true, ignored: "empty_payload" });
+    }
+    const timestamp = request.headers.get("x-webhook-timestamp");
+    if (!isCashfreeWebhookTimestampFresh(timestamp)) {
+      return NextResponse.json({ received: true, ignored: "stale_or_missing_timestamp" }, { status: 401 });
+    }
+    if (!verifyCashfreeWebhookSignature(raw, request.headers)) {
+      return NextResponse.json({ received: true, ignored: "invalid_signature" }, { status: 401 });
     }
 
     const payload = JSON.parse(raw) as CashfreeWebhookPayload;
