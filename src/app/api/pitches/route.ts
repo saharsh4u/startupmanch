@@ -19,6 +19,7 @@ type PitchFeedItem = {
   video_path: string | null;
   poster_path: string | null;
   created_at: string;
+  approved_at?: string | null;
   in_count: number;
   out_count: number;
   comment_count: number;
@@ -27,8 +28,22 @@ type PitchFeedItem = {
 
 type PitchVideoStateRow = {
   id: string;
+  startup_id: string;
+  approved_at: string | null;
   video_processing_status: string | null;
   video_mux_playback_id: string | null;
+};
+
+type StartupMetaRow = {
+  id: string;
+  founder_id: string | null;
+  founder_photo_url: string | null;
+  founder_story: string | null;
+};
+
+type ProfileMetaRow = {
+  id: string;
+  display_name: string | null;
 };
 
 const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
@@ -91,10 +106,11 @@ export async function GET(request: Request) {
   const pitchIds = rows.map((item) => item.pitch_id);
 
   const videoStateByPitchId = new Map<string, PitchVideoStateRow>();
+  const startupIds = new Set<string>();
   if (pitchIds.length) {
     const { data: videoStateRows, error: videoStateError } = await supabaseAdmin
       .from("pitches")
-      .select("id,video_processing_status,video_mux_playback_id")
+      .select("id,startup_id,approved_at,video_processing_status,video_mux_playback_id")
       .in("id", pitchIds);
 
     if (videoStateError) {
@@ -104,7 +120,41 @@ export async function GET(request: Request) {
     } else {
       for (const row of (videoStateRows ?? []) as PitchVideoStateRow[]) {
         videoStateByPitchId.set(row.id, row);
+        if (row.startup_id) startupIds.add(row.startup_id);
       }
+    }
+  }
+
+  const startupMetaById = new Map<string, StartupMetaRow>();
+  const founderIds = new Set<string>();
+
+  if (startupIds.size) {
+    const { data: startupRows, error: startupError } = await supabaseAdmin
+      .from("startups")
+      .select("id,founder_id,founder_photo_url,founder_story")
+      .in("id", Array.from(startupIds));
+    if (startupError) {
+      return NextResponse.json({ error: startupError.message }, { status: 500 });
+    }
+
+    for (const row of (startupRows ?? []) as StartupMetaRow[]) {
+      startupMetaById.set(row.id, row);
+      if (row.founder_id) founderIds.add(row.founder_id);
+    }
+  }
+
+  const founderNameById = new Map<string, string | null>();
+  if (founderIds.size) {
+    const { data: profileRows, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id,display_name")
+      .in("id", Array.from(founderIds));
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 });
+    }
+
+    for (const row of (profileRows ?? []) as ProfileMetaRow[]) {
+      founderNameById.set(row.id, row.display_name);
     }
   }
 
@@ -114,6 +164,10 @@ export async function GET(request: Request) {
       let poster_url: string | null = null;
 
       const videoState = videoStateByPitchId.get(item.pitch_id);
+      const startupMeta = startupMetaById.get(item.startup_id);
+      const founderName = startupMeta?.founder_id
+        ? founderNameById.get(startupMeta.founder_id) ?? null
+        : null;
       const muxPlaybackUrl = buildMuxPlaybackUrl(videoState?.video_mux_playback_id);
       if (videoState?.video_processing_status === "ready" && muxPlaybackUrl) {
         video_url = muxPlaybackUrl;
@@ -138,6 +192,10 @@ export async function GET(request: Request) {
         out_count: asNumber(item.out_count),
         comment_count: asNumber(item.comment_count),
         score: asNumber(item.score),
+        approved_at: item.approved_at ?? videoState?.approved_at ?? null,
+        founder_photo_url: startupMeta?.founder_photo_url ?? null,
+        founder_story: startupMeta?.founder_story ?? null,
+        founder_name: founderName,
         video_url,
         poster_url,
       };

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
 import { pitches as fallbackPitches } from "@/data/pitches";
@@ -13,6 +13,10 @@ type ApiPitch = {
   category: string | null;
   monthly_revenue?: string | null;
   poster_url: string | null;
+  approved_at?: string | null;
+  founder_photo_url?: string | null;
+  founder_name?: string | null;
+  founder_story?: string | null;
   in_count?: number;
   out_count?: number;
   comment_count?: number;
@@ -20,26 +24,77 @@ type ApiPitch = {
   video_url?: string | null;
 };
 
+type TeaserApproved = {
+  id: string;
+  startup_name: string;
+  category: string | null;
+  one_liner: string | null;
+  founder_name: string | null;
+  founder_photo_url: string | null;
+  founder_story: string | null;
+  approved_at: string | null;
+  created_at: string;
+  poster_url: string | null;
+  video_url: string | null;
+};
+
+type TeaserPending = {
+  id: string;
+  category: string | null;
+  created_at: string;
+  poster_url: string | null;
+  style_key: string;
+};
+
+type ApprovalsLiveItem = {
+  id: string;
+  startup_name: string;
+  approved_at: string;
+};
+
 type FeedPitch = PitchShow & {
   category: string | null;
+  approvedAt: string | null;
+  founderPhotoUrl: string | null;
+  founderName: string | null;
+  founderStory: string | null;
 };
 
 type PitchFeedProps = {
   selectedCategory?: string | null;
 };
 
+type SlotFilter = "all" | "approved" | "pending" | "open";
+
+const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
+
 const MORE_SECTION_PAGE_SIZE = 50;
 const MORE_SECTION_SLOTS = 50;
 const ROW_SIZE = 5;
 const INITIAL_SKELETON_ROWS = 2;
+const TEASER_MAX = 10;
+const PENDING_SLOT_MAX = 12;
+const APPROVAL_POLL_SECONDS = 25;
+
+const accentPalette = [
+  "#42d6ff",
+  "#7effa1",
+  "#ffb357",
+  "#ff7e91",
+  "#9f8cff",
+  "#66f0cf",
+  "#ffd166",
+  "#8ad1ff",
+] as const;
 
 const normalizeCategory = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
+
 const asNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const matchesCategory = (item: FeedPitch, selectedCategory: string | null | undefined) => {
+const matchesCategory = (item: { category: string | null }, selectedCategory: string | null | undefined) => {
   if (!selectedCategory) return true;
   const selected = normalizeCategory(selectedCategory);
   if (!selected.length) return true;
@@ -79,6 +134,23 @@ const shuffle = <T,>(items: T[]) => {
   return output;
 };
 
+const hashString = (input: string) => {
+  let value = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    value = (value << 5) - value + input.charCodeAt(index);
+    value |= 0;
+  }
+  return Math.abs(value);
+};
+
+const accentForKey = (key: string) => accentPalette[hashString(key) % accentPalette.length];
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof DOMException && error.name === "AbortError") return null;
+  if (error instanceof Error && error.message.trim().length) return error.message;
+  return "Unable to load more pitches.";
+};
+
 const buildTopPitches = (
   weekCandidates: FeedPitch[],
   feedCandidates: FeedPitch[],
@@ -98,23 +170,41 @@ const buildTopPitches = (
 
   pushUnique(weekCandidates);
   pushUnique(feedCandidates);
-  if (top.length < 4) {
-    pushUnique(fallbackCandidates);
-  }
+  if (top.length < 4) pushUnique(fallbackCandidates);
 
   return top;
 };
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof DOMException && error.name === "AbortError") return null;
-  if (error instanceof Error && error.message.trim().length) return error.message;
-  return "Unable to load more pitches.";
+const formatCountdown = (seconds: number) => {
+  const bounded = Math.max(0, seconds);
+  const mins = Math.floor(bounded / 60)
+    .toString()
+    .padStart(2, "0");
+  const secs = Math.floor(bounded % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${mins}:${secs}`;
+};
+
+const relativeTime = (iso: string | null | undefined) => {
+  if (!iso) return "just now";
+  const when = Date.parse(iso);
+  if (!Number.isFinite(when)) return "just now";
+  const seconds = Math.max(0, Math.floor((Date.now() - when) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 };
 
 export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
+  const seenApprovalIdsRef = useRef<Set<string>>(new Set());
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -125,6 +215,21 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fixedTopPitches, setFixedTopPitches] = useState<FeedPitch[] | null>(null);
+
+  const [approvedTeasers, setApprovedTeasers] = useState<TeaserApproved[]>([]);
+  const [pendingTeasers, setPendingTeasers] = useState<TeaserPending[]>([]);
+  const [isRefreshingApprovals, setIsRefreshingApprovals] = useState(false);
+  const [approvalCountdown, setApprovalCountdown] = useState(APPROVAL_POLL_SECONDS);
+  const [liveToast, setLiveToast] = useState<string | null>(null);
+  const [lastApprovalWatermark, setLastApprovalWatermark] = useState<string>(new Date(0).toISOString());
+
+  const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [hoveredPreviewPitchId, setHoveredPreviewPitchId] = useState<string | null>(null);
+  const [focusedPreviewPitchId, setFocusedPreviewPitchId] = useState<string | null>(null);
+  const [visiblePreviewPitchIds, setVisiblePreviewPitchIds] = useState<Set<string>>(new Set());
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const fallback = useMemo<FeedPitch[]>(
     () =>
@@ -141,6 +246,10 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         comments: 0,
         score: 0,
         monthlyRevenue: null,
+        approvedAt: null,
+        founderPhotoUrl: null,
+        founderName: null,
+        founderStory: null,
       })),
     []
   );
@@ -166,14 +275,86 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
       comments: asNumber(item.comment_count),
       score: asNumber(item.score),
       monthlyRevenue: (item.monthly_revenue ?? "").trim() || null,
+      approvedAt: item.approved_at ?? null,
+      founderPhotoUrl: item.founder_photo_url ?? null,
+      founderName: item.founder_name ?? null,
+      founderStory: item.founder_story ?? null,
     };
   }, []);
+
+  const loadSectionData = useCallback(
+    async (signal: AbortSignal, options?: { refreshOnly?: boolean }) => {
+      const [weekRes, feedRes, teaserRes] = await Promise.all([
+        fetch("/api/pitches?mode=week&limit=4&min_votes=10", {
+          cache: "no-store",
+          signal,
+        }),
+        fetch(`/api/pitches?mode=feed&tab=trending&limit=${MORE_SECTION_PAGE_SIZE}&offset=0`, {
+          cache: "no-store",
+          signal,
+        }),
+        SLOT_UPGRADE_ENABLED
+          ? fetch("/api/pitches/teasers", { cache: "no-store", signal })
+          : Promise.resolve(null),
+      ]);
+
+      if (!weekRes.ok && !feedRes.ok) {
+        throw new Error("Unable to load pitches.");
+      }
+
+      const weekPayload = weekRes.ok ? await weekRes.json() : null;
+      const feedPayload = feedRes.ok ? await feedRes.json() : null;
+      const teaserPayload = teaserRes && teaserRes.ok ? await teaserRes.json() : null;
+
+      const weekData = (weekPayload?.data ?? []) as ApiPitch[];
+      const feedData = (feedPayload?.data ?? []) as ApiPitch[];
+
+      const mappedWeek = weekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
+      const filteredWeek = mappedWeek.filter((item) => matchesCategory(item, selectedCategory));
+      const weekIds = new Set(filteredWeek.map((item) => item.id));
+
+      const mappedFeed = feedData.map((item, index) => mapPitch(item, index));
+      const filteredFeed = shuffle(
+        dedupePitches(
+          mappedFeed
+            .filter((item) => matchesCategory(item, selectedCategory))
+            .filter((item) => !weekIds.has(item.id))
+        )
+      ).slice(0, MORE_SECTION_PAGE_SIZE);
+
+      const initialBaseFeed = filteredFeed.length ? filteredFeed : filteredFallback;
+      const initialTopPitches = buildTopPitches(filteredWeek, initialBaseFeed, filteredFallback);
+
+      setWeekPicks(filteredWeek);
+      setItems(filteredFeed);
+      if (!options?.refreshOnly) {
+        setFixedTopPitches(initialTopPitches);
+      }
+
+      if (SLOT_UPGRADE_ENABLED && teaserPayload) {
+        const approved = ((teaserPayload.approved ?? []) as TeaserApproved[])
+          .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
+          .slice(0, 8);
+
+        const pending = ((teaserPayload.pending ?? []) as TeaserPending[])
+          .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
+          .slice(0, PENDING_SLOT_MAX);
+
+        setApprovedTeasers(approved);
+        setPendingTeasers(pending);
+
+        const serverTime =
+          typeof teaserPayload.server_time === "string" ? teaserPayload.server_time : new Date().toISOString();
+        setLastApprovalWatermark(serverTime);
+      }
+    },
+    [filteredFallback, mapPitch, selectedCategory]
+  );
 
   useEffect(() => {
     let active = true;
 
     initialAbortRef.current?.abort();
-
     const controller = new AbortController();
     initialAbortRef.current = controller;
 
@@ -188,48 +369,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
     const loadInitialData = async () => {
       try {
-        const [weekRes, feedRes] = await Promise.all([
-          fetch("/api/pitches?mode=week&limit=4&min_votes=10", {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-          fetch(`/api/pitches?mode=feed&tab=trending&limit=${MORE_SECTION_PAGE_SIZE}&offset=0`, {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-        ]);
-
-        if (!weekRes.ok && !feedRes.ok) {
-          throw new Error("Unable to load pitches.");
-        }
-
-        const weekPayload = weekRes.ok ? await weekRes.json() : null;
-        const feedPayload = feedRes.ok ? await feedRes.json() : null;
-
-        if (!active) return;
-
-        const weekData = (weekPayload?.data ?? []) as ApiPitch[];
-        const feedData = (feedPayload?.data ?? []) as ApiPitch[];
-
-        const mappedWeek = weekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
-        const filteredWeek = mappedWeek.filter((item) => matchesCategory(item, selectedCategory));
-        const weekIds = new Set(filteredWeek.map((item) => item.id));
-
-        const mappedFeed = feedData.map((item, index) => mapPitch(item, index));
-        const filteredFeed = shuffle(
-          dedupePitches(
-            mappedFeed
-            .filter((item) => matchesCategory(item, selectedCategory))
-            .filter((item) => !weekIds.has(item.id))
-          )
-        ).slice(0, MORE_SECTION_PAGE_SIZE);
-
-        const initialBaseFeed = filteredFeed.length ? filteredFeed : filteredFallback;
-        const initialTopPitches = buildTopPitches(filteredWeek, initialBaseFeed, filteredFallback);
-
-        setWeekPicks(filteredWeek);
-        setItems(filteredFeed);
-        setFixedTopPitches(initialTopPitches);
+        await loadSectionData(controller.signal);
       } catch (error) {
         const message = getErrorMessage(error);
         if (!active || !message) return;
@@ -252,7 +392,100 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
       active = false;
       controller.abort();
     };
-  }, [filteredFallback, mapPitch, selectedCategory]);
+  }, [filteredFallback, loadSectionData]);
+
+  useEffect(() => {
+    if (!SLOT_UPGRADE_ENABLED) return;
+
+    const timer = window.setInterval(() => {
+      setApprovalCountdown((value) => (value <= 1 ? APPROVAL_POLL_SECONDS : value - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const pollLiveApprovals = useCallback(async () => {
+    if (!SLOT_UPGRADE_ENABLED) return;
+    if (document.hidden) return;
+
+    try {
+      const res = await fetch(
+        `/api/pitches/approvals/live?after=${encodeURIComponent(lastApprovalWatermark)}&limit=25`,
+        {
+          cache: "no-store",
+        }
+      );
+      if (!res.ok) return;
+
+      const payload = (await res.json()) as {
+        items?: ApprovalsLiveItem[];
+        server_time?: string;
+      };
+      const incoming = (payload.items ?? []).filter((item) => !seenApprovalIdsRef.current.has(item.id));
+
+      if (incoming.length > 0) {
+        incoming.forEach((item) => seenApprovalIdsRef.current.add(item.id));
+        const lead = incoming[0];
+        const suffix = incoming.length > 1 ? ` (+${incoming.length - 1} more)` : "";
+        setLiveToast(`New pitch approved: ${lead.startup_name}${suffix}`);
+
+        setIsRefreshingApprovals(true);
+        const refreshController = new AbortController();
+        try {
+          await loadSectionData(refreshController.signal, { refreshOnly: true });
+        } finally {
+          setIsRefreshingApprovals(false);
+        }
+      }
+
+      const watermark =
+        typeof payload.server_time === "string" && payload.server_time.trim().length
+          ? payload.server_time
+          : new Date().toISOString();
+      setLastApprovalWatermark(watermark);
+      setApprovalCountdown(APPROVAL_POLL_SECONDS);
+    } catch {
+      // Keep silent and retry in next cycle.
+    }
+  }, [lastApprovalWatermark, loadSectionData]);
+
+  useEffect(() => {
+    if (!SLOT_UPGRADE_ENABLED || loadingInitial) return;
+
+    const interval = window.setInterval(() => {
+      void pollLiveApprovals();
+    }, APPROVAL_POLL_SECONDS * 1000);
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        void pollLiveApprovals();
+      }
+    };
+
+    window.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [loadingInitial, pollLiveApprovals]);
+
+  useEffect(() => {
+    if (!liveToast) return;
+    const timer = window.setTimeout(() => {
+      setLiveToast(null);
+    }, 4200);
+    return () => window.clearTimeout(timer);
+  }, [liveToast]);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setIsMobileViewport(window.matchMedia("(max-width: 768px)").matches);
+    };
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
 
   const filteredWeekPicks = useMemo(
     () => weekPicks.filter((item) => matchesCategory(item, selectedCategory)),
@@ -272,37 +505,157 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   );
 
   const topPitches = fixedTopPitches ?? dynamicTopPitches;
-
   const topIds = useMemo(() => new Set(topPitches.map((item) => item.id)), [topPitches]);
 
   const approvedMorePitches = useMemo(
-    () =>
-      dedupePitches(baseFeed.filter((item) => !topIds.has(item.id))).slice(
-        0,
-        MORE_SECTION_SLOTS
-      ),
+    () => dedupePitches(baseFeed.filter((item) => !topIds.has(item.id))).slice(0, MORE_SECTION_SLOTS),
     [baseFeed, topIds]
   );
 
-  const rowSlots = useMemo(
-    () => [
-      ...approvedMorePitches.map((pitch) => ({ type: "pitch" as const, pitch })),
-      ...Array.from(
-        { length: Math.max(0, MORE_SECTION_SLOTS - approvedMorePitches.length) },
-        (_, index) => ({ type: "placeholder" as const, id: `placeholder-${index + 1}` })
-      ),
-    ],
-    [approvedMorePitches]
-  );
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const approvedVisible = useMemo(() => {
+    const base = approvedMorePitches.filter((pitch) => {
+      if (!normalizedSearch.length) return true;
+      return [pitch.name, pitch.tagline, pitch.category ?? ""]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch);
+    });
+
+    if (!SLOT_UPGRADE_ENABLED) return base;
+    if (slotFilter === "approved" || slotFilter === "all") return base;
+    return [];
+  }, [approvedMorePitches, normalizedSearch, slotFilter]);
+
+  const pendingVisible = useMemo(() => {
+    if (!SLOT_UPGRADE_ENABLED) return [] as TeaserPending[];
+    const base = pendingTeasers.filter((item) => {
+      if (!normalizedSearch.length) return true;
+      return (item.category ?? "").toLowerCase().includes(normalizedSearch);
+    });
+
+    if (slotFilter === "pending" || slotFilter === "all") return base.slice(0, PENDING_SLOT_MAX);
+    return [];
+  }, [normalizedSearch, pendingTeasers, slotFilter]);
+
+  const rowSlots = useMemo(() => {
+    const approvedSlots = slotFilter === "open" ? [] : approvedVisible;
+    const pendingSlots = slotFilter === "open" ? [] : pendingVisible;
+
+    const taken = approvedSlots.length + pendingSlots.length;
+    const openCount = Math.max(0, MORE_SECTION_SLOTS - taken);
+
+    return [
+      ...approvedSlots.map((pitch) => ({ type: "approved" as const, pitch })),
+      ...pendingSlots.map((pending) => ({ type: "pending" as const, pending })),
+      ...Array.from({ length: openCount }, (_, index) => ({
+        type: "open" as const,
+        id: `placeholder-${index + 1}`,
+      })),
+    ];
+  }, [approvedVisible, pendingVisible, slotFilter]);
 
   const rowGroups = useMemo(() => chunkBySize(rowSlots, ROW_SIZE), [rowSlots]);
 
-  const expandedList = useMemo(
-    () => [...topPitches, ...approvedMorePitches],
-    [approvedMorePitches, topPitches]
-  );
-
+  const expandedList = useMemo(() => [...topPitches, ...approvedMorePitches], [approvedMorePitches, topPitches]);
   const hasVisiblePitches = topPitches.length > 0 || approvedMorePitches.length > 0;
+
+  const teaserItems = useMemo(() => {
+    if (!SLOT_UPGRADE_ENABLED) return [] as Array<
+      | { type: "approved"; item: TeaserApproved; time: number }
+      | { type: "pending"; item: TeaserPending; time: number }
+    >;
+
+    const approved = approvedTeasers.map((item) => ({
+      type: "approved" as const,
+      item,
+      time: Date.parse(item.approved_at ?? item.created_at) || 0,
+    }));
+
+    const pending = pendingTeasers.map((item) => ({
+      type: "pending" as const,
+      item,
+      time: Date.parse(item.created_at) || 0,
+    }));
+
+    return [...approved, ...pending]
+      .sort((left, right) => right.time - left.time)
+      .slice(0, TEASER_MAX);
+  }, [approvedTeasers, pendingTeasers]);
+
+  const founderAvatarStack = useMemo(() => {
+    if (!SLOT_UPGRADE_ENABLED) return [] as Array<{ name: string; photo: string | null }>;
+
+    const seen = new Set<string>();
+    const list: Array<{ name: string; photo: string | null }> = [];
+
+    for (const item of approvedTeasers) {
+      const name = (item.founder_name ?? item.startup_name ?? "Founder").trim();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      list.push({ name, photo: item.founder_photo_url ?? null });
+      if (list.length >= 5) break;
+    }
+
+    return list;
+  }, [approvedTeasers]);
+
+  const testimonials = useMemo(() => {
+    if (!SLOT_UPGRADE_ENABLED) return [] as Array<{ id: string; quote: string; author: string; role: string }>;
+
+    const source = approvedMorePitches.slice(0, 3);
+    return source.map((pitch) => {
+      const story = (pitch.founderStory ?? "").trim();
+      const compactStory = story.replace(/\s+/g, " ").slice(0, 120);
+      const quote = compactStory.length
+        ? compactStory
+        : `${pitch.tagline || "We built this to solve a painful workflow."}`;
+
+      return {
+        id: pitch.id,
+        quote,
+        author: pitch.founderName ?? pitch.name,
+        role: pitch.category ?? "Founder",
+      };
+    });
+  }, [approvedMorePitches]);
+
+  useEffect(() => {
+    if (!SLOT_UPGRADE_ENABLED || !isMobileViewport) {
+      setVisiblePreviewPitchIds(new Set());
+      return;
+    }
+
+    const rootNode = moreSectionRef.current;
+    if (!rootNode) return;
+
+    const elements = Array.from(rootNode.querySelectorAll<HTMLElement>("[data-preview-pitch-id]"));
+    if (!elements.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setVisiblePreviewPitchIds((previous) => {
+          const next = new Set(previous);
+          entries.forEach((entry) => {
+            const id = entry.target.getAttribute("data-preview-pitch-id");
+            if (!id) return;
+            if (entry.isIntersecting) next.add(id);
+            else next.delete(id);
+          });
+          return next;
+        });
+      },
+      {
+        root: null,
+        threshold: 0.55,
+      }
+    );
+
+    elements.forEach((element) => observer.observe(element));
+
+    return () => observer.disconnect();
+  }, [isMobileViewport, rowGroups]);
 
   useEffect(() => {
     topPitches.forEach((pitch) => {
@@ -342,10 +695,35 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     target.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
   };
 
-  const statusMessage = loadingInitial ? "Loading pitches…" : loadError;
+  const handleSharePitch = async (
+    event: MouseEvent<HTMLButtonElement>,
+    pitch: FeedPitch
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const shareUrl = `${window.location.origin}/?pitch=${encodeURIComponent(pitch.id)}`;
 
-  const overlayOpen =
-    expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: pitch.name, text: pitch.tagline, url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+      setLiveToast(`Shared ${pitch.name}`);
+    } catch {
+      // Ignore user cancellation.
+    }
+  };
+
+  const statusMessage = loadingInitial
+    ? "Loading pitches…"
+    : loadError
+      ? loadError
+      : SLOT_UPGRADE_ENABLED && isRefreshingApprovals
+        ? "Checking approvals…"
+        : null;
+
+  const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
 
   return (
     <section className="pitch-section" ref={sectionRef}>
@@ -380,11 +758,69 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
               ))}
             </div>
           </div>
+
           <div className="pitch-divider labeled">
             <span>More pitches</span>
             <p className="pitch-subtext">Fresh from the community.</p>
           </div>
+
           <div className={`pitch-mosaic more-band${loaded ? " is-loaded" : ""}`} ref={moreSectionRef}>
+            {SLOT_UPGRADE_ENABLED ? (
+              <>
+                <div className="slot-controls">
+                  <label className="slot-search" aria-label="Search pitches">
+                    <span>⌕</span>
+                    <input
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Search pitches"
+                    />
+                  </label>
+                  <div className="slot-filter-chips" role="tablist" aria-label="Slot filters">
+                    {([
+                      { id: "all", label: "All" },
+                      { id: "approved", label: "Approved" },
+                      { id: "pending", label: "Pending teasers" },
+                      { id: "open", label: "Open slots" },
+                    ] as Array<{ id: SlotFilter; label: string }>).map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`slot-filter-chip${slotFilter === item.id ? " is-active" : ""}`}
+                        onClick={() => setSlotFilter(item.id)}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="slot-teaser-strip" aria-label="Recent uploads teasers">
+                  {teaserItems.map((entry) =>
+                    entry.type === "approved" ? (
+                      <article key={`teaser-approved-${entry.item.id}`} className="slot-teaser approved">
+                        <div className="slot-teaser-media" style={{ backgroundImage: entry.item.poster_url ? `url(${entry.item.poster_url})` : undefined }} />
+                        <div className="slot-teaser-body">
+                          <p className="slot-teaser-kicker">Approved {relativeTime(entry.item.approved_at)}</p>
+                          <h4>{entry.item.startup_name}</h4>
+                          <p>{entry.item.one_liner ?? entry.item.category ?? "New approved pitch"}</p>
+                        </div>
+                      </article>
+                    ) : (
+                      <article key={`teaser-pending-${entry.item.id}`} className="slot-teaser pending">
+                        <div className="slot-teaser-media is-anon" style={{ backgroundImage: entry.item.poster_url ? `url(${entry.item.poster_url})` : undefined }} />
+                        <div className="slot-teaser-body">
+                          <p className="slot-teaser-kicker">Pending {relativeTime(entry.item.created_at)}</p>
+                          <h4>New submission</h4>
+                          <p>{entry.item.category ?? "Category pending"}</p>
+                        </div>
+                      </article>
+                    )
+                  )}
+                </div>
+              </>
+            ) : null}
+
             <div className="pitch-rows">
               {loadingInitial
                 ? Array.from({ length: INITIAL_SKELETON_ROWS }, (_, rowIndex) => (
@@ -399,29 +835,115 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                   ))
                 : rowGroups.map((group, rowIndex) => (
                     <div key={`row-group-${rowIndex}`} className="pitch-row">
-                      {group.map((slot) =>
-                        slot.type === "pitch" ? (
-                          <PitchShowCard
-                            key={`${slot.pitch.id}-row-${rowIndex}`}
-                            pitch={slot.pitch}
-                            size="row"
-                            variant="regular"
-                            onExpand={handleExpand}
-                          />
-                        ) : (
+                      {group.map((slot) => {
+                        if (slot.type === "approved") {
+                          const shouldPreview =
+                            !SLOT_UPGRADE_ENABLED ||
+                            hoveredPreviewPitchId === slot.pitch.id ||
+                            focusedPreviewPitchId === slot.pitch.id ||
+                            visiblePreviewPitchIds.has(slot.pitch.id);
+
+                          const displayPitch: FeedPitch = {
+                            ...slot.pitch,
+                            video: shouldPreview ? slot.pitch.video : null,
+                          };
+
+                          const accent = accentForKey(slot.pitch.id);
+                          const founderLabel = (slot.pitch.founderName ?? slot.pitch.name ?? "F").trim();
+
+                          return (
+                            <div
+                              key={`${slot.pitch.id}-row-${rowIndex}`}
+                              className="pitch-slot-approved"
+                              data-preview-pitch-id={slot.pitch.id}
+                              style={{ ["--slot-accent" as string]: accent }}
+                              onMouseEnter={() => setHoveredPreviewPitchId(slot.pitch.id)}
+                              onMouseLeave={() => setHoveredPreviewPitchId((current) => (current === slot.pitch.id ? null : current))}
+                              onFocusCapture={() => setFocusedPreviewPitchId(slot.pitch.id)}
+                              onBlurCapture={() => setFocusedPreviewPitchId((current) => (current === slot.pitch.id ? null : current))}
+                            >
+                              <PitchShowCard
+                                pitch={displayPitch}
+                                size="row"
+                                variant="regular"
+                                onExpand={handleExpand}
+                              />
+                              <div className="pitch-slot-approved-meta">
+                                <div className="pitch-slot-founder">
+                                  {slot.pitch.founderPhotoUrl ? (
+                                    <span
+                                      className="pitch-slot-founder-avatar"
+                                      style={{ backgroundImage: `url(${slot.pitch.founderPhotoUrl})` }}
+                                      aria-hidden="true"
+                                    />
+                                  ) : (
+                                    <span className="pitch-slot-founder-fallback" aria-hidden="true">
+                                      {founderLabel.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                  <span>{slot.pitch.founderName ?? slot.pitch.name}</span>
+                                </div>
+                                {SLOT_UPGRADE_ENABLED ? (
+                                  <button
+                                    type="button"
+                                    className="pitch-slot-share"
+                                    onClick={(event) => void handleSharePitch(event, slot.pitch)}
+                                  >
+                                    Share
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (slot.type === "pending") {
+                          const accent = accentForKey(slot.pending.style_key);
+                          return (
+                            <article
+                              key={`${slot.pending.id}-row-${rowIndex}`}
+                              className={`pitch-slot-pending-card${isRefreshingApprovals ? " is-refreshing" : ""}`}
+                              style={{ ["--slot-accent" as string]: accent }}
+                            >
+                              <div
+                                className="pitch-slot-pending-media"
+                                style={{
+                                  backgroundImage: slot.pending.poster_url ? `url(${slot.pending.poster_url})` : undefined,
+                                }}
+                              />
+                              <div className="pitch-slot-pending-content">
+                                <div className="pitch-slot-open-badge">Pending review</div>
+                                <h4>New submission</h4>
+                                <p>{slot.pending.category ?? "Category pending"}</p>
+                                <span className="pitch-slot-countdown">
+                                  Next approval check in {formatCountdown(approvalCountdown)}
+                                </span>
+                              </div>
+                            </article>
+                          );
+                        }
+
+                        const accent = accentForKey(slot.id);
+                        return (
                           <Link
                             key={`${slot.id}-row-${rowIndex}`}
                             href="/submit"
-                            className="pitch-slot-open-card"
+                            className={`pitch-slot-open-card${isRefreshingApprovals ? " is-refreshing" : ""}`}
+                            style={{ ["--slot-accent" as string]: accent }}
                             aria-label="Upload your pitch"
                           >
                             <div className="pitch-slot-open-badge">Slot open</div>
                             <h4>Be the next approved pitch</h4>
                             <p>This space fills as soon as admin approves a submission.</p>
                             <span className="pitch-slot-open-action">Upload your pitch</span>
+                            {SLOT_UPGRADE_ENABLED ? (
+                              <span className="pitch-slot-countdown">
+                                Next approval check in {formatCountdown(approvalCountdown)}
+                              </span>
+                            ) : null}
                           </Link>
-                        )
-                      )}
+                        );
+                      })}
                     </div>
                   ))}
             </div>
@@ -432,11 +954,52 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
               </div>
             ) : null}
 
+            {liveToast ? (
+              <div className="pitch-live-toast" role="status" aria-live="polite">
+                {liveToast}
+              </div>
+            ) : null}
+
             <div className="pitch-feed-actions">
               <button type="button" className="pitch-back-to-top" onClick={handleBackToTop}>
                 Back to top
               </button>
             </div>
+
+            {SLOT_UPGRADE_ENABLED ? (
+              <div className="slot-testimonials" aria-label="Founder testimonials">
+                <div className="slot-testimonials-header">
+                  <h4>Founder voices</h4>
+                  {founderAvatarStack.length ? (
+                    <div className="slot-founder-stack" aria-hidden="true">
+                      {founderAvatarStack.map((founder) =>
+                        founder.photo ? (
+                          <span
+                            key={`${founder.name}-photo`}
+                            className="slot-founder-dot"
+                            style={{ backgroundImage: `url(${founder.photo})` }}
+                          />
+                        ) : (
+                          <span key={`${founder.name}-fallback`} className="slot-founder-dot fallback">
+                            {founder.name.charAt(0).toUpperCase()}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="slot-testimonials-grid">
+                  {testimonials.map((item) => (
+                    <article key={`testimonial-${item.id}`} className="slot-testimonial-card">
+                      <p>&ldquo;{item.quote}&rdquo;</p>
+                      <span>
+                        {item.author} · {item.role}
+                      </span>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </>
       )}

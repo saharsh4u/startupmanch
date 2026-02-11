@@ -5017,16 +5017,187 @@ body {
   pointer-events: none;
 }
 
+.slot-controls {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.slot-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  padding: 7px 12px;
+  width: min(100%, 340px);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.slot-search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.slot-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.slot-filter-chip {
+  border: 1px solid var(--stroke);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.74rem;
+}
+
+.slot-filter-chip.is-active {
+  color: var(--text);
+  border-color: var(--stroke-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.slot-teaser-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  margin: 4px 0 12px;
+}
+
+.slot-teaser {
+  min-width: 210px;
+  width: 210px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  flex: 0 0 auto;
+}
+
+.slot-teaser-media {
+  height: 80px;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  background-size: cover;
+  background-position: center;
+}
+
+.slot-teaser-media.is-anon {
+  filter: blur(1.5px) saturate(0.75);
+}
+
+.slot-teaser-body {
+  padding: 9px 10px 10px;
+}
+
+.slot-teaser-kicker {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.67rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.slot-teaser-body h4 {
+  margin: 0 0 4px;
+  font-size: 0.84rem;
+}
+
+.slot-teaser-body p {
+  margin: 0;
+  font-size: 0.73rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.pitch-slot-approved {
+  position: relative;
+  min-width: clamp(190px, 24vw, 260px);
+  width: clamp(190px, 24vw, 260px);
+  flex: 0 0 auto;
+}
+
+.pitch-slot-approved .pitch-show-card.row {
+  width: 100%;
+  border-color: color-mix(in srgb, var(--slot-accent, #66d2ff) 52%, rgba(255, 255, 255, 0.2));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--slot-accent, #66d2ff) 22%, transparent),
+    0 16px 26px rgba(0, 0, 0, 0.28);
+}
+
+.pitch-slot-approved-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pitch-slot-founder {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  min-width: 0;
+}
+
+.pitch-slot-founder span:last-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pitch-slot-founder-avatar,
+.pitch-slot-founder-fallback {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background-size: cover;
+  background-position: center;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.7rem;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.pitch-slot-founder-fallback {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pitch-slot-share {
+  border: 1px solid color-mix(in srgb, var(--slot-accent, #66d2ff) 48%, var(--stroke));
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.pitch-slot-share:hover,
+.pitch-slot-share:focus-visible {
+  border-color: var(--slot-accent, var(--focus-ring));
+}
+
 .pitch-slot-open-card {
   position: relative;
   min-width: clamp(190px, 24vw, 260px);
   width: clamp(190px, 24vw, 260px);
   min-height: clamp(250px, 34vw, 320px);
   border-radius: var(--radius-l);
-  border: 1px dashed var(--stroke-strong);
+  border: 1px dashed color-mix(in srgb, var(--slot-accent, #66d2ff) 58%, var(--stroke-strong));
   background:
     linear-gradient(165deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-    radial-gradient(circle at 84% 12%, rgba(255, 255, 255, 0.06), transparent 52%);
+    radial-gradient(circle at 84% 12%, color-mix(in srgb, var(--slot-accent, #66d2ff) 24%, transparent), transparent 52%);
   color: var(--text);
   text-decoration: none;
   padding: 14px;
@@ -5038,14 +5209,19 @@ body {
 }
 
 .pitch-slot-open-card:hover {
-  border-color: var(--focus-ring);
+  border-color: var(--slot-accent, var(--focus-ring));
   transform: translateY(-1px);
 }
 
 .pitch-slot-open-card:focus-visible {
-  border-color: var(--focus-ring);
+  border-color: var(--slot-accent, var(--focus-ring));
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+.pitch-slot-open-card.is-refreshing,
+.pitch-slot-pending-card.is-refreshing {
+  animation: slotPulse 1.2s ease-in-out infinite;
 }
 
 .pitch-slot-open-badge {
@@ -5082,6 +5258,142 @@ body {
   background: var(--panel-soft);
 }
 
+.pitch-slot-countdown {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.pitch-slot-pending-card {
+  min-width: clamp(190px, 24vw, 260px);
+  width: clamp(190px, 24vw, 260px);
+  min-height: clamp(250px, 34vw, 320px);
+  border-radius: var(--radius-l);
+  border: 1px solid color-mix(in srgb, var(--slot-accent, #7aa2ff) 45%, var(--stroke));
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  flex: 0 0 auto;
+}
+
+.pitch-slot-pending-media {
+  min-height: 104px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(1px) saturate(0.8);
+  border-bottom: 1px solid var(--stroke);
+}
+
+.pitch-slot-pending-content {
+  padding: 11px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.pitch-slot-pending-content h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.pitch-slot-pending-content p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.pitch-live-toast {
+  margin-top: 8px;
+  border: 1px solid rgba(60, 235, 156, 0.4);
+  background: rgba(60, 235, 156, 0.09);
+  color: #9ff0c9;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.76rem;
+}
+
+.slot-testimonials {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--stroke);
+}
+
+.slot-testimonials-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.slot-testimonials-header h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.slot-founder-stack {
+  display: flex;
+  align-items: center;
+}
+
+.slot-founder-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background-size: cover;
+  background-position: center;
+  margin-left: -6px;
+  background-color: rgba(255, 255, 255, 0.06);
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.68rem;
+}
+
+.slot-founder-dot:first-child {
+  margin-left: 0;
+}
+
+.slot-founder-dot.fallback {
+  color: var(--text);
+}
+
+.slot-testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.slot-testimonial-card {
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.slot-testimonial-card p {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.slot-testimonial-card span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+@keyframes slotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
 @media (max-width: 640px) {
   .pitch-feed-actions {
     flex-direction: column;
@@ -5104,6 +5416,33 @@ body {
     width: 160px;
     min-height: 236px;
     padding: 12px;
+  }
+
+  .pitch-slot-approved {
+    min-width: 160px;
+    width: 160px;
+  }
+
+  .pitch-slot-pending-card {
+    min-width: 160px;
+    width: 160px;
+    min-height: 236px;
+  }
+
+  .slot-teaser {
+    min-width: 176px;
+    width: 176px;
+  }
+
+  .slot-testimonials-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pitch-slot-open-card.is-refreshing,
+  .pitch-slot-pending-card.is-refreshing {
+    animation: none;
   }
 }
 
