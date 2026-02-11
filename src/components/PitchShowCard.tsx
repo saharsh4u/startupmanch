@@ -9,6 +9,7 @@ export type PitchShow = {
   tagline: string;
   poster: string;
   video?: string | null;
+  isFallback?: boolean;
   category?: string | null;
   upvotes?: number;
   downvotes?: number;

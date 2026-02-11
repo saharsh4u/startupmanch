@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "smoke:production": "npm exec --yes --package=playwright@1.51.0 -- node scripts/production-smoke.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

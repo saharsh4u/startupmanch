@@ -75,6 +75,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [isMobile, setIsMobile] = useState(false);
   const pitch = pitches[index];
   const pitchId = pitch?.id ?? "";
+  const isFallbackPitch = Boolean(pitch?.isFallback);
+  const canFetchPitchDetails = Boolean(pitchId && !isFallbackPitch);
 
   const [detail, setDetail] = useState<PitchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -165,10 +167,14 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   }, [pitch?.id, videoSrc, videoUnavailable]);
 
   useEffect(() => {
-    if (!pitchId) return;
     setDetail(null);
     setDetailError(null);
     setRevenue(null);
+    if (!canFetchPitchDetails) {
+      setDetailLoading(false);
+      setRevenueLoading(false);
+      return;
+    }
 
     const detailAbort = new AbortController();
     const revenueAbort = new AbortController();
@@ -221,7 +227,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       detailAbort.abort();
       revenueAbort.abort();
     };
-  }, [pitchId]);
+  }, [canFetchPitchDetails, pitchId]);
 
   useEffect(() => {
     if (activeVideoSrc) return;
