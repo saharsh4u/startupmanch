@@ -38,20 +38,46 @@ export default function AuthCallbackClient() {
         return;
       }
 
-      if (!code) {
-        setStatus("error");
-        setErrorText("Missing OAuth code. Please try signing in again.");
+      if (code) {
+        const { error } = await supabaseBrowser.auth.exchangeCodeForSession(code);
+        if (error) {
+          setStatus("error");
+          setErrorText(error.message ?? "Unable to complete sign-in. Please try again.");
+          return;
+        }
+        router.replace("/submit");
         return;
       }
 
-      const { error } = await supabaseBrowser.auth.exchangeCodeForSession(code);
-      if (error) {
+      const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+      const hashParams = new URLSearchParams(hash);
+      const hashError = sanitizeMessage(hashParams.get("error"));
+      const hashErrorDescription = sanitizeMessage(hashParams.get("error_description"));
+      if (hashError) {
         setStatus("error");
-        setErrorText(error.message ?? "Unable to complete sign-in. Please try again.");
+        setErrorText(hashErrorDescription ?? hashError);
         return;
       }
 
-      router.replace("/submit");
+      const accessToken = sanitizeMessage(hashParams.get("access_token"));
+      const refreshToken = sanitizeMessage(hashParams.get("refresh_token"));
+      if (accessToken && refreshToken) {
+        const { error } = await supabaseBrowser.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) {
+          setStatus("error");
+          setErrorText(error.message ?? "Unable to complete sign-in. Please try again.");
+          return;
+        }
+        router.replace("/submit");
+        return;
+      }
+
+      setStatus("error");
+      setErrorText("Missing OAuth code. Please try signing in again.");
+      return;
     };
 
     completeOAuth().catch((error: unknown) => {
@@ -60,6 +86,13 @@ export default function AuthCallbackClient() {
       setErrorText(message);
     });
   }, [code, providerError, providerErrorDescription, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.location.hash) return;
+    // Remove token fragments from URL once callback view has mounted.
+    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+  }, []);
 
   if (status === "loading") {
     return (
