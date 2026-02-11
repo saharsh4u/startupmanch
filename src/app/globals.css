@@ -5830,15 +5830,17 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 .startup-profile-video {
   width: 100%;
+  height: clamp(220px, 34vw, 380px);
   border-radius: 12px;
   border: 1px solid var(--stroke);
-  background: var(--panel-soft);
-  min-height: 260px;
+  background: #0b0b0b;
+  object-fit: contain;
 }
 
 .startup-profile-video-fallback {
   display: grid;
   place-items: center;
+  height: clamp(220px, 34vw, 380px);
   background-size: cover;
   background-position: center;
   color: var(--muted);
