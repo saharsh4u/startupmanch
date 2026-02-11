@@ -8,6 +8,7 @@ import { pitches as fallbackPitches } from "@/data/pitches";
 
 type ApiPitch = {
   pitch_id: string;
+  startup_id: string;
   startup_name: string;
   one_liner: string | null;
   category: string | null;
@@ -218,6 +219,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     () =>
       fallbackPitches.map((pitch) => ({
         id: pitch.id,
+        startupId: null,
         name: pitch.name,
         tagline: pitch.tagline,
         poster: pitch.poster,
@@ -247,6 +249,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
     return {
       id: item.pitch_id ?? `pitch-${seedIndex}`,
+      startupId: item.startup_id ?? null,
       name: item.startup_name ?? "Startup",
       tagline: item.one_liner ?? item.category ?? "New pitch",
       poster: item.poster_url ?? fallbackPoster,

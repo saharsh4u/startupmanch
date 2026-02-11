@@ -3,20 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
+import StartupProfileFormFields from "@/components/StartupProfileFormFields";
 import TopNav from "@/components/TopNav";
+import {
+  DEFAULT_STARTUP_PROFILE_FORM_VALUES,
+  type StartupProfileFormValues,
+  toStartupApiPayload,
+} from "@/lib/startups/form";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type AuthStatus = "idle" | "loading" | "authed" | "error";
-
-type StartupPayload = {
-  name: string;
-  category: string;
-  city: string;
-  one_liner: string;
-  website: string;
-  founder_photo_url: string;
-  monthly_revenue: string;
-};
 
 type PitchPayload = {
   ask: string;
@@ -35,7 +31,15 @@ const fieldIds = {
   startupOneLiner: "startup-one-liner",
   startupWebsite: "startup-website",
   startupFounderPhotoUrl: "startup-founder-photo-url",
+  startupFounderStory: "startup-founder-story",
   startupMonthlyRevenue: "startup-monthly-revenue",
+  startupFoundedOn: "startup-founded-on",
+  startupCountryCode: "startup-country-code",
+  startupCurrencyCode: "startup-currency-code",
+  startupAllTimeRevenue: "startup-all-time-revenue",
+  startupMrr: "startup-mrr",
+  startupActiveSubscriptions: "startup-active-subscriptions",
+  startupAskingPrice: "startup-asking-price",
   revenueKey: "revenue-key",
   pitchAsk: "pitch-ask",
   pitchType: "pitch-type",
@@ -61,6 +65,7 @@ const SUBMIT_VALIDATED_FIELDS: FieldKey[] = [
   "startupOneLiner",
   "startupWebsite",
   "startupFounderPhotoUrl",
+  "startupAskingPrice",
   "pitchAsk",
   "pitchType",
   "pitchDuration",
@@ -76,7 +81,15 @@ const FIELD_LABELS: Record<FieldKey, string> = {
   startupOneLiner: "One-liner",
   startupWebsite: "Website",
   startupFounderPhotoUrl: "Founder photo URL",
+  startupFounderStory: "Founder story",
   startupMonthlyRevenue: "Monthly revenue",
+  startupFoundedOn: "Founded on",
+  startupCountryCode: "Country code",
+  startupCurrencyCode: "Currency",
+  startupAllTimeRevenue: "Self-reported all-time revenue",
+  startupMrr: "Self-reported MRR",
+  startupActiveSubscriptions: "Self-reported active subscriptions",
+  startupAskingPrice: "Asking price",
   revenueKey: "Revenue key",
   pitchAsk: "Ask",
   pitchType: "Pitch type",
@@ -106,14 +119,8 @@ export default function SubmitPage() {
   const [password, setPassword] = useState("");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
-  const [startup, setStartup] = useState<StartupPayload>({
-    name: "",
-    category: "",
-    city: "",
-    one_liner: "",
-    website: "",
-    founder_photo_url: "",
-    monthly_revenue: "",
+  const [startup, setStartup] = useState<StartupProfileFormValues>({
+    ...DEFAULT_STARTUP_PROFILE_FORM_VALUES,
   });
 
   const [pitch, setPitch] = useState<PitchPayload>({
@@ -333,6 +340,13 @@ export default function SubmitPage() {
           ? null
           : "Founder photo URL must be a valid http/https link.";
       }
+      case "startupAskingPrice":
+        if (!startup.is_for_sale) return null;
+        if (!startup.asking_price.trim()) return "Asking price is required when startup is for sale.";
+        if (Number(startup.asking_price) < 0 || !Number.isFinite(Number(startup.asking_price))) {
+          return "Asking price must be a valid number greater than or equal to 0.";
+        }
+        return null;
       case "pitchAsk":
         return pitch.ask.trim() ? null : "Ask is required.";
       case "pitchType":
@@ -423,10 +437,7 @@ export default function SubmitPage() {
         throw new Error("Please sign in first.");
       }
 
-      const websiteValue = startup.website.trim();
-      const socialLinks = {
-        website: websiteValue || null,
-      };
+      const startupPayload = toStartupApiPayload(startup);
 
       const startupRes = await fetch("/api/startups", {
         method: "POST",
@@ -434,11 +445,7 @@ export default function SubmitPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...startup,
-          website: websiteValue || null,
-          social_links: socialLinks,
-        }),
+        body: JSON.stringify(startupPayload),
       });
 
       if (!startupRes.ok) {
@@ -630,116 +637,14 @@ export default function SubmitPage() {
             <span>Short, crisp, Bharat‑first.</span>
           </div>
           <div className="submit-grid">
-            <div className="form-field">
-              <label htmlFor={fieldIds.startupName}>Startup / company name</label>
-              <input
-                id={fieldIds.startupName}
-                type="text"
-                required
-                {...getFieldA11yProps("startupName")}
-                placeholder="MasalaMile / MasalaMile Foods Pvt Ltd"
-                value={startup.name}
-                onBlur={() => handleFieldBlur("startupName")}
-                onChange={(event) => {
-                  clearFieldError("startupName");
-                  setStartup({ ...startup, name: event.target.value });
-                }}
-              />
-              {renderFieldError("startupName")}
-            </div>
-            <div className="form-field">
-              <label htmlFor={fieldIds.startupCategory}>Category</label>
-              <input
-                id={fieldIds.startupCategory}
-                type="text"
-                required
-                {...getFieldA11yProps("startupCategory")}
-                placeholder="Food & Beverage"
-                value={startup.category}
-                onBlur={() => handleFieldBlur("startupCategory")}
-                onChange={(event) => {
-                  clearFieldError("startupCategory");
-                  setStartup({ ...startup, category: event.target.value });
-                }}
-              />
-              {renderFieldError("startupCategory")}
-            </div>
-            <div className="form-field">
-              <label htmlFor={fieldIds.startupCity}>City</label>
-              <input
-                id={fieldIds.startupCity}
-                type="text"
-                required
-                {...getFieldA11yProps("startupCity")}
-                placeholder="Bengaluru"
-                value={startup.city}
-                onBlur={() => handleFieldBlur("startupCity")}
-                onChange={(event) => {
-                  clearFieldError("startupCity");
-                  setStartup({ ...startup, city: event.target.value });
-                }}
-              />
-              {renderFieldError("startupCity")}
-            </div>
-            <div className="form-field">
-              <label htmlFor={fieldIds.startupOneLiner}>One‑liner</label>
-              <input
-                id={fieldIds.startupOneLiner}
-                type="text"
-                required
-                {...getFieldA11yProps("startupOneLiner")}
-                placeholder="Cloud kitchen for office teams"
-                value={startup.one_liner}
-                onBlur={() => handleFieldBlur("startupOneLiner")}
-                onChange={(event) => {
-                  clearFieldError("startupOneLiner");
-                  setStartup({ ...startup, one_liner: event.target.value });
-                }}
-              />
-              {renderFieldError("startupOneLiner")}
-            </div>
-            <div className="form-field">
-              <label htmlFor={fieldIds.startupWebsite}>Website (optional)</label>
-              <input
-                id={fieldIds.startupWebsite}
-                type="url"
-                {...getFieldA11yProps("startupWebsite")}
-                placeholder="https://startup.com"
-                value={startup.website}
-                onBlur={() => handleFieldBlur("startupWebsite")}
-                onChange={(event) => {
-                  clearFieldError("startupWebsite");
-                  setStartup({ ...startup, website: event.target.value });
-                }}
-              />
-              {renderFieldError("startupWebsite")}
-            </div>
-            <div className="form-field">
-              <label htmlFor={fieldIds.startupFounderPhotoUrl}>Founder photo URL</label>
-              <input
-                id={fieldIds.startupFounderPhotoUrl}
-                type="url"
-                {...getFieldA11yProps("startupFounderPhotoUrl")}
-                placeholder="https://images.unsplash.com/..."
-                value={startup.founder_photo_url}
-                onBlur={() => handleFieldBlur("startupFounderPhotoUrl")}
-                onChange={(event) => {
-                  clearFieldError("startupFounderPhotoUrl");
-                  setStartup({ ...startup, founder_photo_url: event.target.value });
-                }}
-              />
-              {renderFieldError("startupFounderPhotoUrl")}
-            </div>
-            <div className="form-field">
-              <label htmlFor={fieldIds.startupMonthlyRevenue}>Monthly revenue</label>
-              <input
-                id={fieldIds.startupMonthlyRevenue}
-                type="text"
-                placeholder="$25k MRR"
-                value={startup.monthly_revenue}
-                onChange={(event) => setStartup({ ...startup, monthly_revenue: event.target.value })}
-              />
-            </div>
+            <StartupProfileFormFields
+              values={startup}
+              onChange={setStartup}
+              onBlurField={handleFieldBlur}
+              clearFieldError={clearFieldError}
+              getFieldA11yProps={getFieldA11yProps}
+              renderFieldError={renderFieldError}
+            />
           </div>
         </section>
 

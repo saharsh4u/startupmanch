@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelEvent } from "react";
 import type { PitchShow } from "./PitchShowCard";
@@ -291,6 +292,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const founderName = detail?.founder.display_name ?? pitch.name ?? "Founder";
   const founderCity = detail?.startup.city ?? detail?.founder.city ?? "—";
   const startupName = detail?.startup.name?.trim() || pitch.name || "Startup";
+  const startupProfileId = detail?.startup.id ?? pitch.startupId ?? null;
   const startupOneLiner = detail?.startup.one_liner?.trim() || pitch.tagline || null;
 
   const foundedDisplay = useMemo(() => {
@@ -427,7 +429,13 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
             <div className="expand-startup">
               <p className="metric-label">Startup / company</p>
-              <h3 className="expand-startup-name">{startupName}</h3>
+              {startupProfileId ? (
+                <Link href={`/startup/${startupProfileId}`} className="expand-startup-link">
+                  <h3 className="expand-startup-name">{startupName}</h3>
+                </Link>
+              ) : (
+                <h3 className="expand-startup-name">{startupName}</h3>
+              )}
               {startupOneLiner ? <p className="expand-startup-tagline">{startupOneLiner}</p> : null}
             </div>
 

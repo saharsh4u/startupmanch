@@ -59,11 +59,32 @@ create table if not exists public.startups (
   founder_photo_url text,
   founder_story text,
   monthly_revenue text,
+  founded_on date,
+  country_code text,
+  is_for_sale boolean not null default false,
+  asking_price numeric,
+  currency_code text not null default 'INR',
+  self_reported_all_time_revenue numeric,
+  self_reported_mrr numeric,
+  self_reported_active_subscriptions int,
   social_links jsonb,
   is_d2c boolean not null default false,
   status public.startup_status not null default 'pending',
   created_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'startups_currency_code_check'
+  ) then
+    alter table public.startups
+      add constraint startups_currency_code_check
+      check (upper(currency_code) in ('INR', 'USD'));
+  end if;
+end $$;
 
 -- Single analytics event stream for client instrumentation
 create table if not exists public.analytics (
@@ -161,12 +182,49 @@ create table if not exists public.intro_requests (
 create table if not exists public.contact_requests (
   id uuid primary key default gen_random_uuid(),
   pitch_id uuid references public.pitches(id) on delete cascade,
+  startup_id uuid references public.startups(id) on delete cascade,
   name text,
   email text,
   message text,
   offer_amount numeric,
   created_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'contact_requests_startup_or_pitch_check'
+  ) then
+    alter table public.contact_requests
+      add constraint contact_requests_startup_or_pitch_check
+      check (pitch_id is not null or startup_id is not null);
+  end if;
+end $$;
+
+create index if not exists contact_requests_startup_id_idx
+  on public.contact_requests (startup_id);
+
+create table if not exists public.startup_watchers (
+  id uuid primary key default gen_random_uuid(),
+  startup_id uuid not null references public.startups(id) on delete cascade,
+  profile_id uuid references public.profiles(id) on delete cascade,
+  anon_id text,
+  created_at timestamptz not null default now(),
+  check (num_nonnulls(profile_id, anon_id) = 1)
+);
+
+create unique index if not exists startup_watchers_startup_profile_uidx
+  on public.startup_watchers (startup_id, profile_id)
+  where profile_id is not null;
+
+create unique index if not exists startup_watchers_startup_anon_uidx
+  on public.startup_watchers (startup_id, anon_id)
+  where anon_id is not null;
+
+create index if not exists startup_watchers_startup_idx
+  on public.startup_watchers (startup_id);
 
 alter table public.contact_requests enable row level security;
 

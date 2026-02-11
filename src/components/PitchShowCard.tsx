@@ -5,6 +5,7 @@ import ContactModal from "./ContactModal";
 
 export type PitchShow = {
   id: string;
+  startupId?: string | null;
   name: string;
   tagline: string;
   poster: string;
