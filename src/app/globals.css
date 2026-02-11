@@ -5034,3 +5034,19 @@ body {
     align-self: flex-start;
   }
 }
+
+/* Homepage ad flips: random independent pairs controlled via React state */
+.ad-flip {
+  animation: none !important;
+  transition: transform 740ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.ad-flip.is-flipped {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-flip {
+    transition: none;
+  }
+}

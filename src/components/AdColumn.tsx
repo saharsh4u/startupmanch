@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import AdPurchaseModal from "@/components/AdPurchaseModal";
 import type { AdItem, AdSlot } from "@/data/ads";
 import { isAdvertiseItem, isCampaignItem } from "@/lib/ads";
@@ -93,23 +93,31 @@ const AdFace = ({
   );
 };
 
-export default function AdColumn({ slots, side }: { slots: AdSlot[]; side?: "left" | "right" }) {
+export default function AdColumn({
+  slots,
+  side,
+  activeFlipIndexes = [],
+}: {
+  slots: AdSlot[];
+  side?: "left" | "right";
+  activeFlipIndexes?: number[];
+}) {
   const [modalOpen, setModalOpen] = useState(false);
+  const activeFlipSet = useMemo(() => new Set(activeFlipIndexes), [activeFlipIndexes]);
   const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}`;
 
   const renderSlot = (slot: AdSlot, index: number, isClone = false) => {
-    const pairIndex = Math.floor(index / 2);
-    const sideOffset = side === "right" ? 1.1 : 0;
-    const delaySeconds = pairIndex * 2.6 + sideOffset;
+    const isFlipped = activeFlipSet.has(index);
 
     return (
       <div
         key={`${isClone ? "clone" : "slot"}-${side ?? "rail"}-${index}-${slot.front.name}-${slot.back.name}`}
         className={`ad-slot${isClone ? " is-clone" : ""}`}
-        style={{ "--delay": `${delaySeconds}s` } as CSSProperties}
+        data-side={side ?? "rail"}
+        data-slot-index={index}
         aria-hidden={isClone ? true : undefined}
       >
-        <div className="ad-flip">
+        <div className={`ad-flip${isFlipped ? " is-flipped" : ""}`}>
           <AdFace
             item={slot.front}
             side={side}
