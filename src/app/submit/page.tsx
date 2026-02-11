@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import StartupProfileFormFields from "@/components/StartupProfileFormFields";
 import TopNav from "@/components/TopNav";
@@ -530,7 +531,7 @@ export default function SubmitPage() {
   };
 
   return (
-    <main className="page submit-page">
+    <AdRailsScaffold>
       <div className="submit-shell">
         <TopNav context="inner" />
         <header className="submit-hero">
@@ -852,6 +853,6 @@ export default function SubmitPage() {
         </section>
         <SiteFooter />
       </div>
-    </main>
+    </AdRailsScaffold>
   );
 }

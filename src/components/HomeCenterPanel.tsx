@@ -35,7 +35,7 @@ export default function HomeCenterPanel() {
   }, [scrollToCurrentHash]);
 
   return (
-    <div className="center-panel">
+    <>
       <TopNav context="home" showPostPitch={false} />
       <HomeHero />
       <div id="top-rated-block" className="anchor-block">
@@ -45,6 +45,6 @@ export default function HomeCenterPanel() {
         <RankingsTable />
       </div>
       <SiteFooter />
-    </div>
+    </>
   );
 }

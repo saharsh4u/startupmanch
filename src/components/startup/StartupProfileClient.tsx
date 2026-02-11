@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
 import RevenueTrendCard from "@/components/startup/RevenueTrendCard";
 import SaleBanner from "@/components/startup/SaleBanner";
-import SponsorStrip from "@/components/startup/SponsorStrip";
 import StartupContactModal from "@/components/startup/StartupContactModal";
 import StartupMetricsRow from "@/components/startup/StartupMetricsRow";
 import { formatDualAmount, formatRelativeDate, type StartupProfilePayload } from "@/lib/startups/profile";
@@ -153,18 +153,18 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
 
   if (loading) {
     return (
-      <main className="page startup-profile-page">
+      <AdRailsScaffold>
         <div className="startup-profile-shell">
           <TopNav context="inner" showPostPitch={false} />
           <section className="startup-profile-loading">Loading startup profile...</section>
         </div>
-      </main>
+      </AdRailsScaffold>
     );
   }
 
   if (error || !profile) {
     return (
-      <main className="page startup-profile-page">
+      <AdRailsScaffold>
         <div className="startup-profile-shell">
           <TopNav context="inner" showPostPitch={false} />
           <section className="startup-profile-error">
@@ -175,7 +175,7 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
             </button>
           </section>
         </div>
-      </main>
+      </AdRailsScaffold>
     );
   }
 
@@ -189,11 +189,9 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
   }));
 
   return (
-    <main className="page startup-profile-page">
+    <AdRailsScaffold>
       <div className="startup-profile-shell">
         <TopNav context="inner" showPostPitch={false} />
-
-        <SponsorStrip title="Trusted sponsors" />
 
         <header className="startup-profile-hero">
           <div className="startup-profile-titleblock">
@@ -378,8 +376,6 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
             Reach founder
           </button>
         </div>
-
-        <SponsorStrip title="More sponsor tools" />
         <SiteFooter />
       </div>
 
@@ -389,6 +385,6 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
         startupName={profile.startup.name}
         onClose={() => setContactOpen(false)}
       />
-    </main>
+    </AdRailsScaffold>
   );
 }

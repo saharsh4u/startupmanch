@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
@@ -187,7 +188,7 @@ export default function AdminPage() {
   };
 
   return (
-    <main className="page admin-page">
+    <AdRailsScaffold>
       <div className="admin-shell">
         <TopNav context="inner" />
         <header className="admin-hero">
@@ -338,6 +339,6 @@ export default function AdminPage() {
         </section>
         <SiteFooter />
       </div>
-    </main>
+    </AdRailsScaffold>
   );
 }

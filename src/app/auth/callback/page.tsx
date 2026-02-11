@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
+import TopNav from "@/components/TopNav";
 import AuthCallbackClient from "./AuthCallbackClient";
 
 const Fallback = () => (
@@ -12,10 +14,13 @@ const Fallback = () => (
 
 export default function AuthCallbackPage() {
   return (
-    <main className="submit-page">
-      <Suspense fallback={<Fallback />}>
-        <AuthCallbackClient />
-      </Suspense>
-    </main>
+    <AdRailsScaffold>
+      <div className="submit-shell">
+        <TopNav context="inner" />
+        <Suspense fallback={<Fallback />}>
+          <AuthCallbackClient />
+        </Suspense>
+      </div>
+    </AdRailsScaffold>
   );
 }

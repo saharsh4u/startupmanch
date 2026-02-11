@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
 
 type CampaignResponse = {
   campaign?: {
@@ -154,7 +155,7 @@ export default function AdOnboardingClient({ sessionId, onboardingToken }: AdOnb
   };
 
   return (
-    <main className="page advertise-success-page">
+    <AdRailsScaffold>
       <section className="ad-onboarding-card">
         <header className="ad-onboarding-header">
           <p className="ad-onboarding-kicker">Payment successful</p>
@@ -267,6 +268,6 @@ export default function AdOnboardingClient({ sessionId, onboardingToken }: AdOnb
           <Link href="/">Back to homepage</Link>
         </div>
       </section>
-    </main>
+    </AdRailsScaffold>
   );
 }

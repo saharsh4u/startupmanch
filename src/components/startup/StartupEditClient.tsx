@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import StartupProfileFormFields, { type StartupProfileFieldKey } from "@/components/StartupProfileFormFields";
 import TopNav from "@/components/TopNav";
@@ -224,17 +225,17 @@ export default function StartupEditClient() {
 
   if (loading) {
     return (
-      <main className="page startup-edit-page">
+      <AdRailsScaffold>
         <div className="startup-edit-shell">
           <TopNav context="inner" showPostPitch={false} />
           <section className="startup-profile-loading">Loading founder edit panel...</section>
         </div>
-      </main>
+      </AdRailsScaffold>
     );
   }
 
   return (
-    <main className="page startup-edit-page">
+    <AdRailsScaffold>
       <div className="startup-edit-shell">
         <TopNav context="inner" showPostPitch={false} />
 
@@ -315,6 +316,6 @@ export default function StartupEditClient() {
 
         <SiteFooter />
       </div>
-    </main>
+    </AdRailsScaffold>
   );
 }
