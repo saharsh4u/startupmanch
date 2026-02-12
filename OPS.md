@@ -264,3 +264,8 @@ npm run dev
    - Require video upload, block empty startups, add retry upload button in admin.
 5. **Analytics**
    - Track views, watch time, and conversion metrics.
+
+# Automatic History Loading
+Before completing any prompt that involves code changes, reading files,
+or task planning, first load the project history and integrate that context.
+Remember decisions, code, and prior outputs when producing new responses.

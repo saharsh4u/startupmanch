@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, TouchEvent } from "react";
 import { useMemo, useState } from "react";
 import AdPurchaseModal from "@/components/AdPurchaseModal";
 import type { AdItem, AdSlot } from "@/data/ads";
@@ -59,6 +59,11 @@ const AdFace = ({
         className={`${className} ad-face-button`}
         style={style}
         onClick={onAdvertiseClick}
+        onTouchEnd={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onAdvertiseClick();
+        }}
         aria-label="Advertise on StartupManch"
         tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
