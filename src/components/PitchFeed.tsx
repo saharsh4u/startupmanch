@@ -61,11 +61,6 @@ type FeedPitch = PitchShow & {
   founderStory: string | null;
 };
 
-type PitchFeedProps = {
-  selectedCategory?: string | null;
-  onCategoriesDiscovered?: (categories: string[]) => void;
-};
-
 type SlotFilter = "all" | "approved" | "open";
 type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: string };
 
@@ -248,10 +243,7 @@ const relativeTime = (iso: string | null | undefined) => {
   return `${days}d ago`;
 };
 
-export default function PitchFeed({
-  selectedCategory = null,
-  onCategoriesDiscovered,
-}: PitchFeedProps) {
+export default function PitchFeed() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
@@ -274,6 +266,8 @@ export default function PitchFeed({
   const [shuffleCountdown, setShuffleCountdown] = useState(SHUFFLE_WINDOW_SECONDS);
   const [nextShuffleAtMs, setNextShuffleAtMs] = useState<number | null>(null);
   const [liveToast, setLiveToast] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -435,7 +429,15 @@ export default function PitchFeed({
             .filter((item) => item.length > 0)
         )
       ).sort((left, right) => left.localeCompare(right));
-      onCategoriesDiscovered?.(discoveredCategories);
+      setAvailableCategories((current) => {
+        const merged = Array.from(
+          new Set([...current, ...discoveredCategories].map((item) => item.trim()).filter(Boolean))
+        ).sort((left, right) => left.localeCompare(right));
+        if (merged.length === current.length && merged.every((item, index) => item === current[index])) {
+          return current;
+        }
+        return merged;
+      });
 
       const mappedWeek = weekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
       const filteredWeek = mappedWeek.filter((item) => matchesCategory(item, selectedCategory));
@@ -480,7 +482,7 @@ export default function PitchFeed({
         }
       }
     },
-    [filteredFallback, mapPitch, onCategoriesDiscovered, selectedCategory]
+    [filteredFallback, mapPitch, selectedCategory]
   );
 
   useEffect(() => {
@@ -1044,6 +1046,23 @@ export default function PitchFeed({
           <h3>Today&apos;s top 4</h3>
           <p className="pitch-subtext">Featured by votes and freshness.</p>
         </div>
+        <label className="pitch-category-picker">
+          <span>Category</span>
+          <select
+            value={selectedCategory ?? ""}
+            onChange={(event) => {
+              const next = event.target.value.trim();
+              setSelectedCategory(next.length ? next : null);
+            }}
+          >
+            <option value="">All categories</option>
+            {availableCategories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {!hasVisiblePitches && !loadingInitial ? (

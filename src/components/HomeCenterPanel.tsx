@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import CategoriesSection, { fallbackCategories } from "@/components/CategoriesSection";
 import HomeHero from "@/components/HomeHero";
 import PostPitchModal from "@/components/PostPitchModal";
 import PitchFeed from "@/components/PitchFeed";
@@ -13,8 +12,6 @@ import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/
 export default function HomeCenterPanel() {
   const [postPitchOpen, setPostPitchOpen] = useState(false);
   const [postPitchToast, setPostPitchToast] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [categoryOptions, setCategoryOptions] = useState<string[]>(fallbackCategories);
 
   const scrollToCurrentHash = useCallback(() => {
     if (!isMobileViewport()) return;
@@ -59,37 +56,12 @@ export default function HomeCenterPanel() {
     return () => window.clearTimeout(timer);
   }, [postPitchToast]);
 
-  const handleCategoriesDiscovered = useCallback((categories: string[]) => {
-    setCategoryOptions((current) => {
-      const merged = Array.from(
-        new Set(
-          [...fallbackCategories, ...current, ...categories]
-            .map((item) => item.trim())
-            .filter((item) => item.length > 0)
-        )
-      ).sort((left, right) => left.localeCompare(right));
-
-      if (merged.length === current.length && merged.every((item, index) => item === current[index])) {
-        return current;
-      }
-      return merged;
-    });
-  }, []);
-
   return (
     <>
       <TopNav context="home" showPostPitch onPostPitch={() => setPostPitchOpen(true)} />
       <HomeHero onPostPitch={() => setPostPitchOpen(true)} />
-      <CategoriesSection
-        categories={categoryOptions}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-      />
       <div id="top-rated-block" className="anchor-block">
-        <PitchFeed
-          selectedCategory={selectedCategory}
-          onCategoriesDiscovered={handleCategoriesDiscovered}
-        />
+        <PitchFeed />
       </div>
       <div id="leaderboard-block" className="anchor-block">
         <RankingsTable />
