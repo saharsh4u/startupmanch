@@ -1,4 +1,8 @@
-export default function HomeHero() {
+type HomeHeroProps = {
+  onPostPitch?: () => void;
+};
+
+export default function HomeHero({ onPostPitch }: HomeHeroProps) {
   return (
     <section className="hero">
       <div className="hero-brand">
@@ -16,7 +20,18 @@ export default function HomeHero() {
             aria-label="Search pitches"
           />
         </div>
-        <a href="https://www.startupmanch.com/submit" className="hero-btn">
+        <a
+          href="/submit"
+          className="hero-btn"
+          onClick={
+            onPostPitch
+              ? (event) => {
+                  event.preventDefault();
+                  onPostPitch();
+                }
+              : undefined
+          }
+        >
           + Post pitch
         </a>
       </div>

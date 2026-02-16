@@ -7,6 +7,7 @@ import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/
 type TopNavProps = {
   context?: "home" | "inner";
   showPostPitch?: boolean;
+  onPostPitch?: () => void;
 };
 
 const navAnchors = [
@@ -14,7 +15,11 @@ const navAnchors = [
   { id: "leaderboard-block", label: "Leaderboard" },
 ] as const;
 
-export default function TopNav({ context = "home", showPostPitch = true }: TopNavProps) {
+export default function TopNav({
+  context = "home",
+  showPostPitch = true,
+  onPostPitch,
+}: TopNavProps) {
   const prefix = context === "home" ? "" : "/";
   const handleHomeAnchorClick = (event: MouseEvent<HTMLAnchorElement>, anchorId: string) => {
     if (context !== "home") return;
@@ -54,8 +59,19 @@ export default function TopNav({ context = "home", showPostPitch = true }: TopNa
           <input type="text" placeholder="Search startups..." aria-label="Search startups" />
         </div>
         {showPostPitch ? (
-          <Link href="/submit" className="site-nav-cta">
-            Post pitch
+          <Link
+            href="/submit"
+            className="site-nav-cta"
+            onClick={
+              onPostPitch
+                ? (event) => {
+                    event.preventDefault();
+                    onPostPitch();
+                  }
+                : undefined
+            }
+          >
+            Post a Pitch
           </Link>
         ) : null}
       </div>

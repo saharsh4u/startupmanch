@@ -86,6 +86,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [activeVideoSrc, setActiveVideoSrc] = useState<string | null>(null);
   const [videoUnavailable, setVideoUnavailable] = useState(false);
+  const [founderStoryExpanded, setFounderStoryExpanded] = useState(false);
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
@@ -153,6 +154,10 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   useEffect(() => {
     setVideoUnavailable(false);
   }, [pitchId, videoSrc]);
+
+  useEffect(() => {
+    setFounderStoryExpanded(false);
+  }, [pitchId]);
 
   useEffect(() => {
     fallbackAttemptedRef.current = false;
@@ -294,6 +299,14 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const startupName = detail?.startup.name?.trim() || pitch.name || "Startup";
   const startupProfileId = detail?.startup.id ?? pitch.startupId ?? null;
   const startupOneLiner = detail?.startup.one_liner?.trim() || pitch.tagline || null;
+  const startupCategory = detail?.startup.category?.trim() || pitch.category || null;
+  const founderStory = detail?.startup.founder_story?.trim() || null;
+  const founderStoryNeedsToggle = Boolean(founderStory && founderStory.length > 200);
+  const founderStoryText = founderStory
+    ? founderStoryExpanded || !founderStoryNeedsToggle
+      ? founderStory
+      : `${founderStory.slice(0, 200).trim()}...`
+    : null;
 
   const foundedDisplay = useMemo(() => {
     if (!detail?.pitch.created_at) return "—";
@@ -312,12 +325,16 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const metricRank = "—";
   const metricMrr = revenue?.metrics.mrr ?? detail?.startup.monthly_revenue ?? "—";
   const metricActiveSubs = revenue?.metrics.active_subscriptions ?? "—";
-  const verificationSource =
-    detail?.startup.monthly_revenue
-      ? "Self reported by founder"
-      : revenue?.provider && revenue?.status === "active"
-        ? `Connected via ${revenue.provider === "stripe" ? "Stripe" : "Razorpay"}`
-        : "No revenue source connected";
+  const hasVerifiedRevenue = Boolean(revenue?.provider && revenue.status === "active");
+  const verificationBadgeText = hasVerifiedRevenue ? "Verified revenue" : "Self-reported revenue";
+  const verificationBadgeClassName = hasVerifiedRevenue
+    ? "trust-verify-badge is-verified"
+    : "trust-verify-badge is-self-reported";
+  const verificationSource = hasVerifiedRevenue
+    ? `Connected via ${revenue?.provider === "stripe" ? "Stripe" : "Razorpay"} (read-only)`
+    : detail?.startup.monthly_revenue
+      ? "Reported by founder. Not third-party verified."
+      : "No verification source connected";
   const metricAllTime = revenue?.metrics.all_time_revenue ?? null;
 
   const handleShare = async () => {
@@ -436,6 +453,11 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               ) : (
                 <h3 className="expand-startup-name">{startupName}</h3>
               )}
+              {startupCategory ? (
+                <div className="expand-startup-category">
+                  <span>{startupCategory}</span>
+                </div>
+              ) : null}
               {startupOneLiner ? <p className="expand-startup-tagline">{startupOneLiner}</p> : null}
             </div>
 
@@ -507,8 +529,24 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               </div>
             </div>
 
+            {founderStoryText ? (
+              <div className="trust-founder-story">
+                <p className="metric-label">Founder story</p>
+                <p className="metric-value">{founderStoryText}</p>
+                {founderStoryNeedsToggle ? (
+                  <button
+                    type="button"
+                    className="trust-story-toggle"
+                    onClick={() => setFounderStoryExpanded((current) => !current)}
+                  >
+                    {founderStoryExpanded ? "Show less" : "Show more"}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="trust-verify">
-              <div className="trust-verify-badge">Revenue source</div>
+              <div className={verificationBadgeClassName}>{verificationBadgeText}</div>
               <p className="metric-value">{verificationSource}</p>
               <p className="metric-label">Last updated {lastUpdatedDisplay}</p>
             </div>

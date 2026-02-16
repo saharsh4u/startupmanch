@@ -11,6 +11,22 @@ const sanitizeMessage = (value: string | null) => {
   return trimmed ? trimmed : null;
 };
 
+const sanitizeNextPath = (value: string | null) => {
+  if (!value) return "/submit";
+  if (value.startsWith("/")) return value;
+
+  try {
+    const url = new URL(value);
+    if (typeof window !== "undefined" && url.origin === window.location.origin) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+  } catch {
+    return "/submit";
+  }
+
+  return "/submit";
+};
+
 export default function AuthCallbackClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,6 +37,10 @@ export default function AuthCallbackClient() {
   const providerError = useMemo(() => sanitizeMessage(searchParams.get("error")), [searchParams]);
   const providerErrorDescription = useMemo(
     () => sanitizeMessage(searchParams.get("error_description")),
+    [searchParams]
+  );
+  const destination = useMemo(
+    () => sanitizeNextPath(sanitizeMessage(searchParams.get("next"))),
     [searchParams]
   );
 
@@ -45,7 +65,7 @@ export default function AuthCallbackClient() {
           setErrorText(error.message ?? "Unable to complete sign-in. Please try again.");
           return;
         }
-        router.replace("/submit");
+        router.replace(destination);
         return;
       }
 
@@ -71,7 +91,7 @@ export default function AuthCallbackClient() {
           setErrorText(error.message ?? "Unable to complete sign-in. Please try again.");
           return;
         }
-        router.replace("/submit");
+        router.replace(destination);
         return;
       }
 
@@ -85,7 +105,7 @@ export default function AuthCallbackClient() {
       setStatus("error");
       setErrorText(message);
     });
-  }, [code, providerError, providerErrorDescription, router]);
+  }, [code, destination, providerError, providerErrorDescription, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
