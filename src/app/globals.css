@@ -729,6 +729,24 @@ button:disabled {
   color: rgba(235, 235, 235, 0.9);
 }
 
+.admin-actions button.danger {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+}
+
+.admin-actions button.danger-ghost {
+  background: rgba(180, 35, 24, 0.12);
+  border: 1px solid rgba(180, 35, 24, 0.34);
+  color: #b42318;
+}
+
+.admin-section-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(235, 235, 235, 0.62);
+}
+
 .admin-empty {
   font-size: 0.85rem;
   color: rgba(235, 235, 235, 0.6);
@@ -772,18 +790,27 @@ button:disabled {
 }
 
 .pitch-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 18px;
   gap: 12px;
-  flex-wrap: wrap;
+}
+
+.pitch-header-spacer {
+  width: 100%;
+}
+
+.pitch-header-copy {
+  text-align: center;
+  justify-self: center;
 }
 
 .pitch-category-picker {
   display: grid;
   gap: 6px;
   min-width: 210px;
+  justify-self: end;
 }
 
 .pitch-category-picker span {
@@ -833,9 +860,22 @@ button:disabled {
 }
 
 @media (max-width: 768px) {
+  .pitch-header {
+    grid-template-columns: 1fr;
+  }
+
+  .pitch-header-spacer {
+    display: none;
+  }
+
+  .pitch-header-copy {
+    text-align: center;
+  }
+
   .pitch-category-picker {
     width: 100%;
     min-width: 0;
+    justify-self: stretch;
   }
 }
 
@@ -2864,6 +2904,10 @@ button:disabled {
 .admin-info p,
 .admin-email,
 .admin-empty {
+  color: var(--muted);
+}
+
+.admin-section-note {
   color: var(--muted);
 }
 

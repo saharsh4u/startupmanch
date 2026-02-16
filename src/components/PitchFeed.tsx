@@ -1041,7 +1041,8 @@ export default function PitchFeed() {
   return (
     <section className="pitch-section" ref={sectionRef}>
       <div className="pitch-header">
-        <div>
+        <div className="pitch-header-spacer" aria-hidden="true" />
+        <div className="pitch-header-copy">
           <p className="pitch-kicker">Hot Pitches</p>
           <h3>Today&apos;s top 4</h3>
           <p className="pitch-subtext">Featured by votes and freshness.</p>
