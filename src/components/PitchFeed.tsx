@@ -72,7 +72,6 @@ type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: stri
 const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
 const FEED_PAGE_SIZE = 50;
-const MAX_FEED_PAGE_FETCHES = 40;
 const ROW_SIZE = 5;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
@@ -345,8 +344,10 @@ export default function PitchFeed({
       const fetchFeedPages = async () => {
         const feedData: ApiPitch[] = [];
         let nextShuffleAt: string | null = null;
+        const seenPageKeys = new Set<string>();
+        let pageIndex = 0;
 
-        for (let pageIndex = 0; pageIndex < MAX_FEED_PAGE_FETCHES; pageIndex += 1) {
+        while (true) {
           const offset = pageIndex * FEED_PAGE_SIZE;
           const feedPath = buildPitchFeedPath({
             mode: "feed",
@@ -377,7 +378,16 @@ export default function PitchFeed({
             break;
           }
 
+          const pageKey = page.map((item) => item.pitch_id).join(",");
+          if (pageKey && seenPageKeys.has(pageKey)) {
+            break;
+          }
+          if (pageKey) {
+            seenPageKeys.add(pageKey);
+          }
+
           feedData.push(...page);
+          pageIndex += 1;
 
           if (page.length < FEED_PAGE_SIZE) {
             break;
