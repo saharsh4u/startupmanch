@@ -15,10 +15,9 @@ const isConfigError = (message: string) =>
   message.includes("CASHFREE_") || message.includes("NEXT_PUBLIC_SITE_URL");
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^[0-9]{10,15}$/;
+const OWNER_PAYMENT_PHONE = "9491724829";
 
 const normalizeEmail = (value: unknown) => String(value ?? "").trim().toLowerCase();
-const normalizePhone = (value: unknown) => String(value ?? "").replace(/\D+/g, "");
 
 const buildOrderId = () => `ad_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -36,16 +35,12 @@ export async function POST(request: Request) {
 
     const payload = (await request.json().catch(() => ({}))) as {
       email?: string;
-      phone?: string;
     };
     const billingEmail = normalizeEmail(payload.email);
-    const billingPhone = normalizePhone(payload.phone);
+    const billingPhone = OWNER_PAYMENT_PHONE;
 
     if (!EMAIL_PATTERN.test(billingEmail)) {
       return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
-    }
-    if (!PHONE_PATTERN.test(billingPhone)) {
-      return NextResponse.json({ error: "Valid phone number is required." }, { status: 400 });
     }
 
     const plan = getAdPlanConfig();

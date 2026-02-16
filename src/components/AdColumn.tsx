@@ -29,6 +29,7 @@ type CashfreeWindow = Window & {
 };
 
 const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
+const OWNER_PAYMENT_PHONE = "9491724829";
 
 const loadCashfreeFactory = async () => {
   if (typeof window === "undefined") {
@@ -75,10 +76,9 @@ const loadCashfreeFactory = async () => {
 
 const buildQuickCheckoutContact = () => {
   const now = Date.now();
-  const phoneSeed = String(now).slice(-9).padStart(9, "0");
   return {
     email: `ads+${now}@startupmanch.com`,
-    phone: `9${phoneSeed}`,
+    phone: OWNER_PAYMENT_PHONE,
   };
 };
 
