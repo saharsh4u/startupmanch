@@ -29,7 +29,7 @@ type CashfreeWindow = Window & {
 };
 
 const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
-const OWNER_PAYMENT_PHONE = "9491724829";
+const CHECKOUT_PHONE_STORAGE_KEY = "startupmanch_ad_checkout_phone";
 
 const loadCashfreeFactory = async () => {
   if (typeof window === "undefined") {
@@ -78,9 +78,10 @@ const buildQuickCheckoutContact = () => {
   const now = Date.now();
   return {
     email: `ads+${now}@startupmanch.com`,
-    phone: OWNER_PAYMENT_PHONE,
   };
 };
+
+const normalizePhone = (value: string) => value.replace(/\D+/g, "");
 
 const faceClickHref = (item: AdItem, side: "left" | "right" | undefined, face: "front" | "back") => {
   if (isCampaignItem(item) && item.campaignId) {
@@ -213,6 +214,25 @@ export default function AdColumn({
   const handleAdvertiseCheckout = async () => {
     if (checkoutLoading) return;
 
+    const previousPhone =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(CHECKOUT_PHONE_STORAGE_KEY) ?? ""
+        : "";
+    const enteredPhone =
+      typeof window !== "undefined"
+        ? window.prompt("Enter your phone number for payment (10-15 digits):", previousPhone)
+        : null;
+    if (enteredPhone === null) return;
+
+    const phone = normalizePhone(enteredPhone);
+    if (!/^[0-9]{10,15}$/.test(phone)) {
+      setCheckoutError("Enter a valid phone number (10-15 digits).");
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CHECKOUT_PHONE_STORAGE_KEY, phone);
+    }
+
     setCheckoutLoading(true);
     setCheckoutError(null);
     try {
@@ -222,7 +242,7 @@ export default function AdColumn({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: contact.email,
-          phone: contact.phone,
+          phone,
           source: `rail_${side ?? "unknown"}`,
         }),
       });
