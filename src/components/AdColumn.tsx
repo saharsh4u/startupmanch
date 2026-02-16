@@ -1,10 +1,86 @@
 "use client";
 
-import type { CSSProperties, TouchEvent } from "react";
 import { useMemo, useState } from "react";
-import AdPurchaseModal from "@/components/AdPurchaseModal";
+import type { CSSProperties } from "react";
 import type { AdItem, AdSlot } from "@/data/ads";
-import { isAdvertiseItem, isCampaignItem } from "@/lib/ads";
+import { isCampaignItem } from "@/lib/ads";
+
+type CashfreeMode = "sandbox" | "production";
+
+type CheckoutResponse = {
+  provider?: "cashfree";
+  mode?: CashfreeMode;
+  url?: string;
+  paymentSessionId?: string;
+  error?: string;
+};
+
+type CashfreeCheckoutInstance = {
+  checkout: (options: {
+    paymentSessionId: string;
+    redirectTarget?: "_self" | "_blank";
+  }) => Promise<unknown> | unknown;
+};
+
+type CashfreeFactory = (options: { mode: CashfreeMode }) => CashfreeCheckoutInstance;
+
+type CashfreeWindow = Window & {
+  Cashfree?: CashfreeFactory;
+};
+
+const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
+
+const loadCashfreeFactory = async () => {
+  if (typeof window === "undefined") {
+    throw new Error("Cashfree checkout is only available in the browser.");
+  }
+
+  const cashfreeWindow = window as CashfreeWindow;
+  if (cashfreeWindow.Cashfree) {
+    return cashfreeWindow.Cashfree;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
+    if (existing) {
+      let attempts = 0;
+      const waitForSdk = () => {
+        if ((window as CashfreeWindow).Cashfree) {
+          resolve();
+        } else if (attempts > 120) {
+          reject(new Error("Cashfree checkout SDK did not initialize."));
+        } else {
+          attempts += 1;
+          setTimeout(waitForSdk, 50);
+        }
+      };
+      waitForSdk();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = CASHFREE_SDK_URL;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load Cashfree checkout SDK."));
+    document.head.appendChild(script);
+  });
+
+  if (!cashfreeWindow.Cashfree) {
+    throw new Error("Cashfree checkout SDK is unavailable.");
+  }
+
+  return cashfreeWindow.Cashfree;
+};
+
+const buildQuickCheckoutContact = () => {
+  const now = Date.now();
+  const phoneSeed = String(now).slice(-9).padStart(9, "0");
+  return {
+    email: `ads+${now}@startupmanch.com`,
+    phone: `9${phoneSeed}`,
+  };
+};
 
 const faceClickHref = (item: AdItem, side: "left" | "right" | undefined, face: "front" | "back") => {
   if (isCampaignItem(item) && item.campaignId) {
@@ -23,15 +99,38 @@ const faceClickHref = (item: AdItem, side: "left" | "right" | undefined, face: "
   return null;
 };
 
-const AdFaceContent = ({ item }: { item: AdItem }) => (
-  <>
-    <div className="ad-icon">{item.badge ?? "AD"}</div>
-    <div>
-      <h4>{item.name}</h4>
-      <p>{item.tagline}</p>
-    </div>
-  </>
-);
+const placeholderCopy = (isBack: boolean, item: AdItem) => {
+  const hasSpotsText = /spots left/i.test(item.tagline);
+  if (isBack) {
+    return {
+      badge: "AD",
+      name: "Advertise",
+      tagline: hasSpotsText ? item.tagline : "Click to start Cashfree checkout",
+    };
+  }
+  return {
+    badge: "SM",
+    name: "StartupManch",
+    tagline: "Click to advertise on StartupManch",
+  };
+};
+
+const AdFaceContent = ({ item, isBack = false }: { item: AdItem; isBack?: boolean }) => {
+  const campaign = isCampaignItem(item);
+  const copy = campaign
+    ? { badge: item.badge ?? "AD", name: item.name, tagline: item.tagline }
+    : placeholderCopy(isBack, item);
+
+  return (
+    <>
+      <div className="ad-icon">{copy.badge}</div>
+      <div>
+        <h4>{copy.name}</h4>
+        <p>{copy.tagline}</p>
+      </div>
+    </>
+  );
+};
 
 const AdFace = ({
   item,
@@ -46,13 +145,12 @@ const AdFace = ({
   suppressKeyboardFocus?: boolean;
   onAdvertiseClick: () => void;
 }) => {
-  const className = `ad-face${isBack ? " back" : ""}${
-    isAdvertiseItem(item) ? " advertise" : ""
-  }`;
+  const campaign = isCampaignItem(item);
+  const className = `ad-face${isBack ? " back" : ""}${campaign ? "" : " advertise"}`;
 
   const style = { "--ad-accent": item.accent } as CSSProperties;
 
-  if (isAdvertiseItem(item)) {
+  if (!campaign) {
     return (
       <button
         type="button"
@@ -67,7 +165,7 @@ const AdFace = ({
         aria-label="Advertise on StartupManch"
         tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
-        <AdFaceContent item={item} />
+        <AdFaceContent item={item} isBack={isBack} />
       </button>
     );
   }
@@ -86,14 +184,14 @@ const AdFace = ({
         aria-label={`Visit ${item.name}`}
         tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
-        <AdFaceContent item={item} />
+        <AdFaceContent item={item} isBack={isBack} />
       </a>
     );
   }
 
   return (
     <div className={`${className} ad-face-static`} style={style}>
-      <AdFaceContent item={item} />
+      <AdFaceContent item={item} isBack={isBack} />
     </div>
   );
 };
@@ -107,9 +205,59 @@ export default function AdColumn({
   side?: "left" | "right";
   activeFlipIndexes?: number[];
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const activeFlipSet = useMemo(() => new Set(activeFlipIndexes), [activeFlipIndexes]);
   const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}`;
+
+  const handleAdvertiseCheckout = async () => {
+    if (checkoutLoading) return;
+
+    setCheckoutLoading(true);
+    setCheckoutError(null);
+    try {
+      const contact = buildQuickCheckoutContact();
+      const response = await fetch("/api/ads/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: contact.email,
+          phone: contact.phone,
+          source: `rail_${side ?? "unknown"}`,
+        }),
+      });
+
+      const payload = (await response.json()) as CheckoutResponse;
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to start checkout.");
+      }
+
+      if (payload.provider === "cashfree" && payload.paymentSessionId) {
+        const factory = await loadCashfreeFactory();
+        const instance = factory({
+          mode: payload.mode === "sandbox" ? "sandbox" : "production",
+        });
+        await instance.checkout({
+          paymentSessionId: payload.paymentSessionId,
+          redirectTarget: "_self",
+        });
+        return;
+      }
+
+      if (payload.url) {
+        window.location.href = payload.url;
+        return;
+      }
+
+      throw new Error(payload.error ?? "Unable to start checkout.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to open Cashfree checkout right now.";
+      setCheckoutError(message);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   const renderSlot = (slot: AdSlot, index: number, isClone = false) => {
     const isFlipped = activeFlipSet.has(index);
@@ -127,14 +275,14 @@ export default function AdColumn({
             item={slot.front}
             side={side}
             suppressKeyboardFocus={isClone}
-            onAdvertiseClick={() => setModalOpen(true)}
+            onAdvertiseClick={() => void handleAdvertiseCheckout()}
           />
           <AdFace
             item={slot.back}
             isBack
             side={side}
             suppressKeyboardFocus={isClone}
-            onAdvertiseClick={() => setModalOpen(true)}
+            onAdvertiseClick={() => void handleAdvertiseCheckout()}
           />
         </div>
       </div>
@@ -142,14 +290,13 @@ export default function AdColumn({
   };
 
   return (
-    <>
-      <aside className={columnClass}>
-        <div className="ad-track">
-          {slots.map((slot, index) => renderSlot(slot, index))}
-          {slots.map((slot, index) => renderSlot(slot, index, true))}
-        </div>
-      </aside>
-      <AdPurchaseModal open={modalOpen} onClose={() => setModalOpen(false)} />
-    </>
+    <aside className={columnClass}>
+      <div className="ad-track">
+        {slots.map((slot, index) => renderSlot(slot, index))}
+        {slots.map((slot, index) => renderSlot(slot, index, true))}
+      </div>
+      {checkoutLoading ? <p className="ad-rail-status">Opening Cashfree checkout...</p> : null}
+      {checkoutError ? <p className="ad-rail-status error">{checkoutError}</p> : null}
+    </aside>
   );
 }

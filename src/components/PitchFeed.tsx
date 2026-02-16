@@ -875,7 +875,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
       <>
         <div className="pitch-slot-open-badge">Slot open</div>
         <h4>Be the next approved pitch</h4>
-        <p>This space fills as soon as admin approves a submission.</p>
+        <p>This space fills as soon as a founder submits a new pitch.</p>
         <span className="pitch-slot-open-action">Upload your pitch</span>
         {SLOT_UPGRADE_ENABLED ? (
           <span className="pitch-slot-countdown">Next shuffle in {formatCountdown(shuffleCountdown)}</span>

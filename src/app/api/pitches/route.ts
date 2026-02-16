@@ -386,7 +386,8 @@ export async function POST(request: Request) {
       ask: typeof ask === "string" ? ask : null,
       equity: typeof equity === "string" ? equity : null,
       valuation: typeof valuation === "string" ? valuation : null,
-      status: "pending",
+      status: "approved",
+      approved_at: new Date().toISOString(),
     })
     .select("id, startup_id, type, status, created_at")
     .single();

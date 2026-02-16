@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     self_reported_all_time_revenue: values.self_reported_all_time_revenue,
     self_reported_mrr: values.self_reported_mrr,
     self_reported_active_subscriptions: values.self_reported_active_subscriptions,
-    status: "pending",
+    status: "approved",
   };
 
   const { data, error } = await supabaseAdmin
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       monthly_revenue: values.monthly_revenue,
       social_links: values.social_links,
       is_d2c: values.is_d2c,
-      status: "pending",
+      status: "approved",
     })
       .select(startupSelectLegacy)
       .single();

@@ -4718,6 +4718,16 @@ html[data-theme="light"] .theme-toggle-thumb {
   outline-offset: 2px;
 }
 
+.ad-rail-status {
+  margin: 8px 4px 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.ad-rail-status.error {
+  color: #d92d20;
+}
+
 .ad-purchase-modal {
   position: fixed;
   inset: 0;

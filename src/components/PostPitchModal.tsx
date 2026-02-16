@@ -37,7 +37,7 @@ const DRAFT_STORAGE_KEY = "post_pitch_modal_draft_v1";
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const MAX_FOUNDER_PHOTO_BYTES = 8 * 1024 * 1024;
 const AUTH_UNAVAILABLE_MESSAGE = "Sign-in is temporarily unavailable. Please try again shortly.";
-const SUCCESS_MESSAGE = "Your pitch is under review. Approval in 24 hours.";
+const SUCCESS_MESSAGE = "Pitch submitted. It should appear in the feed shortly.";
 const RAZORPAY_KEYS_URL = "https://dashboard.razorpay.com/app/keys";
 
 const isValidHttpUrl = (value: string) => {

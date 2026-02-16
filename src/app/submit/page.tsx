@@ -524,7 +524,7 @@ export default function SubmitPage() {
       }
 
       setSubmitStatus("done");
-      setSubmitMessage("Your pitch is under review. Approval in 24 hours.");
+      setSubmitMessage("Pitch submitted. It should appear in the feed shortly.");
     } catch (error: any) {
       setSubmitStatus("error");
       setSubmitMessage(error.message ?? "Something went wrong.");
@@ -541,7 +541,7 @@ export default function SubmitPage() {
             <span>StartupManch</span>
           </Link>
           <h1>Post your pitch</h1>
-          <p>Founders only. 60s pitch. Approval in 24 hours.</p>
+          <p>Founders only. 60s pitch. New submissions appear in the feed automatically.</p>
           <Link href="/" className="back-home">
             ← Back to homepage
           </Link>
