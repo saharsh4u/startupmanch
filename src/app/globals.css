@@ -1544,26 +1544,38 @@ button:disabled {
 
 .pitch-row {
   position: relative;
+  overflow: hidden;
+  padding: 0 6px 6px;
+}
+
+.pitch-row-track {
+  display: flex;
+  width: max-content;
+  transform: translate3d(0px, 0px, 0px);
+  will-change: transform;
+}
+
+.pitch-row-segment {
   display: flex;
   gap: 14px;
-  overflow-x: auto;
-  padding: 0 6px 6px;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  padding-right: 14px;
+}
+
+.pitch-row-segment.is-clone {
+  pointer-events: none;
 }
 
 .pitch-row::before,
 .pitch-row::after {
   content: "";
-  position: sticky;
+  position: absolute;
   top: 0;
+  bottom: 0;
   width: 36px;
-  height: 100%;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
-  z-index: 1;
+  z-index: 2;
 }
 
 .pitch-row::before {
@@ -2258,7 +2270,8 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .pitch-row {
+  .pitch-row-segment,
+  .pitch-row.is-loading {
     gap: 10px;
   }
 }
@@ -2278,7 +2291,8 @@ button:disabled {
     gap: 18px;
   }
 
-  .pitch-row {
+  .pitch-row-segment,
+  .pitch-row.is-loading {
     gap: 12px;
   }
 
@@ -2301,7 +2315,8 @@ button:disabled {
     gap: 10px;
   }
 
-  .pitch-row {
+  .pitch-row-segment,
+  .pitch-row.is-loading {
     gap: 10px;
   }
 
@@ -3206,7 +3221,8 @@ button:disabled {
     height: 90px;
   }
 
-  .pitch-row {
+  .pitch-row-segment,
+  .pitch-row.is-loading {
     gap: 8px;
   }
 }
@@ -5142,6 +5158,8 @@ html[data-theme="light"] .theme-toggle-thumb {
 }
 
 .pitch-row.is-loading {
+  display: flex;
+  gap: 14px;
   pointer-events: none;
 }
 

@@ -60,6 +60,7 @@ type PitchFeedProps = {
 };
 
 type SlotFilter = "all" | "approved" | "open";
+type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: string };
 
 const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
@@ -70,6 +71,10 @@ const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
 const SHUFFLE_WINDOW_SECONDS = 5 * 60;
+const SLOT_REORDER_MIN_MS = 14_000;
+const SLOT_REORDER_MAX_MS = 28_000;
+const ROW_LOOP_BASE_SPEED_PX_PER_SECOND = 20;
+const ROW_LOOP_SPEED_STEP_PX_PER_SECOND = 2.5;
 
 const accentPalette = [
   "#42d6ff",
@@ -116,6 +121,24 @@ const chunkBySize = <T,>(items: T[], size: number) => {
     chunks.push(items.slice(index, index + size));
   }
   return chunks;
+};
+
+const createSeededRandom = (seed: number) => {
+  let value = seed >>> 0;
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return value / 4294967296;
+  };
+};
+
+const shuffleItems = <T,>(items: T[], seed: number) => {
+  const next = [...items];
+  const random = createSeededRandom(seed || 1);
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(random() * (index + 1));
+    [next[index], next[randomIndex]] = [next[randomIndex], next[index]];
+  }
+  return next;
 };
 
 const hashString = (input: string) => {
@@ -189,6 +212,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
   const shuffleRefreshLockRef = useRef(false);
+  const rowTrackRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -209,6 +233,9 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
   const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [slotShuffleSeed, setSlotShuffleSeed] = useState(
+    () => Math.floor(Math.random() * 1_000_000_000)
+  );
 
   const [hoveredPreviewPitchId, setHoveredPreviewPitchId] = useState<string | null>(null);
   const [focusedPreviewPitchId, setFocusedPreviewPitchId] = useState<string | null>(null);
@@ -443,6 +470,109 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
+  const setRowTrackRef = useCallback((rowIndex: number, node: HTMLDivElement | null) => {
+    rowTrackRefs.current[rowIndex] = node;
+  }, []);
+
+  useEffect(() => {
+    if (loadingInitial) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let timeoutId = 0;
+    let cancelled = false;
+
+    const scheduleNext = () => {
+      const waitMs =
+        SLOT_REORDER_MIN_MS + Math.floor(Math.random() * (SLOT_REORDER_MAX_MS - SLOT_REORDER_MIN_MS + 1));
+      timeoutId = window.setTimeout(() => {
+        if (cancelled) return;
+        setSlotShuffleSeed((current) => current + 1);
+        scheduleNext();
+      }, waitMs);
+    };
+
+    scheduleNext();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [loadingInitial]);
+
+  useEffect(() => {
+    if (loadingInitial) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      rowTrackRefs.current.forEach((track) => {
+        if (!track) return;
+        track.style.transform = "translate3d(0px, 0px, 0px)";
+      });
+      return;
+    }
+
+    const widths = new Array(rowTrackRefs.current.length).fill(0);
+    const offsets = new Array(rowTrackRefs.current.length).fill(0);
+
+    const measure = () => {
+      rowTrackRefs.current.forEach((track, rowIndex) => {
+        if (!track) return;
+        const segment = track.querySelector<HTMLElement>('[data-row-segment="primary"]');
+        const width = segment?.offsetWidth ?? 0;
+        if (width <= 0) return;
+        widths[rowIndex] = width;
+
+        const currentOffset = offsets[rowIndex];
+        if (!Number.isFinite(currentOffset) || currentOffset > 0 || currentOffset < -width) {
+          offsets[rowIndex] = -Math.random() * width;
+          return;
+        }
+        offsets[rowIndex] = Math.max(-width, Math.min(0, currentOffset));
+      });
+    };
+
+    measure();
+
+    let rafId = 0;
+    let previousTime = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = Math.min(64, now - previousTime);
+      previousTime = now;
+
+      rowTrackRefs.current.forEach((track, rowIndex) => {
+        if (!track) return;
+
+        const rowWidth = widths[rowIndex];
+        if (!rowWidth) return;
+
+        const direction = rowIndex % 2 === 0 ? 1 : -1;
+        const rowSpeed =
+          ROW_LOOP_BASE_SPEED_PX_PER_SECOND + (rowIndex % 3) * ROW_LOOP_SPEED_STEP_PX_PER_SECOND;
+        let nextOffset =
+          offsets[rowIndex] + (direction * rowSpeed * elapsed) / 1000;
+
+        if (direction === 1 && nextOffset > 0) {
+          nextOffset -= rowWidth;
+        } else if (direction === -1 && nextOffset < -rowWidth) {
+          nextOffset += rowWidth;
+        }
+
+        offsets[rowIndex] = nextOffset;
+        track.style.transform = `translate3d(${nextOffset}px, 0px, 0px)`;
+      });
+
+      rafId = window.requestAnimationFrame(animate);
+    };
+
+    rafId = window.requestAnimationFrame(animate);
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [loadingInitial]);
+
   const filteredWeekPicks = useMemo(
     () => weekPicks.filter((item) => matchesCategory(item, selectedCategory)),
     [weekPicks, selectedCategory]
@@ -489,14 +619,16 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     const taken = approvedSlots.length;
     const openCount = Math.max(0, MORE_SECTION_SLOTS - taken);
 
-    return [
+    const slots: RowSlot[] = [
       ...approvedSlots.map((pitch) => ({ type: "approved" as const, pitch })),
       ...Array.from({ length: openCount }, (_, index) => ({
         type: "open" as const,
         id: `placeholder-${index + 1}`,
       })),
     ];
-  }, [approvedVisible, slotFilter]);
+
+    return shuffleItems(slots, slotShuffleSeed);
+  }, [approvedVisible, slotFilter, slotShuffleSeed]);
 
   const rowGroups = useMemo(() => chunkBySize(rowSlots, ROW_SIZE), [rowSlots]);
 
@@ -657,6 +789,126 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
     }
   };
 
+  const renderRowSlot = (
+    slot: RowSlot,
+    rowIndex: number,
+    slotIndex: number,
+    copy: "primary" | "clone"
+  ) => {
+    const isClone = copy === "clone";
+
+    if (slot.type === "approved") {
+      const shouldPreview =
+        !isClone &&
+        (!SLOT_UPGRADE_ENABLED ||
+          hoveredPreviewPitchId === slot.pitch.id ||
+          focusedPreviewPitchId === slot.pitch.id ||
+          visiblePreviewPitchIds.has(slot.pitch.id));
+
+      const displayPitch: FeedPitch = {
+        ...slot.pitch,
+        video: shouldPreview ? slot.pitch.video : null,
+      };
+
+      const accent = accentForKey(slot.pitch.id);
+      const founderLabel = (slot.pitch.founderName ?? slot.pitch.name ?? "F").trim();
+
+      return (
+        <div
+          key={`${slot.pitch.id}-row-${rowIndex}-${copy}-${slotIndex}`}
+          className={`pitch-slot-approved${isClone ? " is-clone" : ""}`}
+          data-preview-pitch-id={isClone ? undefined : slot.pitch.id}
+          style={{ ["--slot-accent" as string]: accent }}
+          onMouseEnter={isClone ? undefined : () => setHoveredPreviewPitchId(slot.pitch.id)}
+          onMouseLeave={
+            isClone
+              ? undefined
+              : () => setHoveredPreviewPitchId((current) => (current === slot.pitch.id ? null : current))
+          }
+          onFocusCapture={isClone ? undefined : () => setFocusedPreviewPitchId(slot.pitch.id)}
+          onBlurCapture={
+            isClone
+              ? undefined
+              : () => setFocusedPreviewPitchId((current) => (current === slot.pitch.id ? null : current))
+          }
+          aria-hidden={isClone}
+        >
+          <PitchShowCard
+            pitch={displayPitch}
+            size="row"
+            variant="regular"
+            onExpand={isClone ? undefined : handleExpand}
+            interactive={!isClone}
+          />
+          <div className="pitch-slot-approved-meta">
+            <div className="pitch-slot-founder">
+              {slot.pitch.founderPhotoUrl ? (
+                <span
+                  className="pitch-slot-founder-avatar"
+                  style={{ backgroundImage: `url(${slot.pitch.founderPhotoUrl})` }}
+                  aria-hidden="true"
+                />
+              ) : (
+                <span className="pitch-slot-founder-fallback" aria-hidden="true">
+                  {founderLabel.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span>{slot.pitch.founderName ?? slot.pitch.name}</span>
+            </div>
+            {SLOT_UPGRADE_ENABLED && !isClone ? (
+              <button
+                type="button"
+                className="pitch-slot-share"
+                onClick={(event) => void handleSharePitch(event, slot.pitch)}
+              >
+                Share
+              </button>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
+
+    const accent = accentForKey(slot.id);
+    const cardClassName = `pitch-slot-open-card${isRefreshingApprovals && !isClone ? " is-refreshing" : ""}${isClone ? " is-clone" : ""}`;
+    const cardContent = (
+      <>
+        <div className="pitch-slot-open-badge">Slot open</div>
+        <h4>Be the next approved pitch</h4>
+        <p>This space fills as soon as admin approves a submission.</p>
+        <span className="pitch-slot-open-action">Upload your pitch</span>
+        {SLOT_UPGRADE_ENABLED ? (
+          <span className="pitch-slot-countdown">Next shuffle in {formatCountdown(shuffleCountdown)}</span>
+        ) : null}
+      </>
+    );
+
+    if (isClone) {
+      return (
+        <div
+          key={`${slot.id}-row-${rowIndex}-${copy}-${slotIndex}`}
+          className={cardClassName}
+          style={{ ["--slot-accent" as string]: accent }}
+          aria-hidden="true"
+        >
+          {cardContent}
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={`${slot.id}-row-${rowIndex}-${copy}-${slotIndex}`}
+        href="/submit"
+        className={cardClassName}
+        style={{ ["--slot-accent" as string]: accent }}
+        aria-label="Upload your pitch"
+      >
+        {cardContent}
+      </Link>
+    );
+  };
+
   const statusMessage = loadingInitial
     ? "Loading pitches…"
     : loadError
@@ -735,7 +987,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                     ))}
                   </div>
                   <p className="slot-random-note">
-                    Randomly shuffled every 5 min (independent of engagement).
+                    Positions reshuffle at random intervals, plus a full network shuffle every 5 min.
                   </p>
                 </div>
 
@@ -778,90 +1030,26 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
                     </div>
                   ))
                 : rowGroups.map((group, rowIndex) => (
-                    <div key={`row-group-${rowIndex}`} className="pitch-row">
-                      {group.map((slot) => {
-                        if (slot.type === "approved") {
-                          const shouldPreview =
-                            !SLOT_UPGRADE_ENABLED ||
-                            hoveredPreviewPitchId === slot.pitch.id ||
-                            focusedPreviewPitchId === slot.pitch.id ||
-                            visiblePreviewPitchIds.has(slot.pitch.id);
-
-                          const displayPitch: FeedPitch = {
-                            ...slot.pitch,
-                            video: shouldPreview ? slot.pitch.video : null,
-                          };
-
-                          const accent = accentForKey(slot.pitch.id);
-                          const founderLabel = (slot.pitch.founderName ?? slot.pitch.name ?? "F").trim();
-
-                          return (
-                            <div
-                              key={`${slot.pitch.id}-row-${rowIndex}`}
-                              className="pitch-slot-approved"
-                              data-preview-pitch-id={slot.pitch.id}
-                              style={{ ["--slot-accent" as string]: accent }}
-                              onMouseEnter={() => setHoveredPreviewPitchId(slot.pitch.id)}
-                              onMouseLeave={() => setHoveredPreviewPitchId((current) => (current === slot.pitch.id ? null : current))}
-                              onFocusCapture={() => setFocusedPreviewPitchId(slot.pitch.id)}
-                              onBlurCapture={() => setFocusedPreviewPitchId((current) => (current === slot.pitch.id ? null : current))}
-                            >
-                              <PitchShowCard
-                                pitch={displayPitch}
-                                size="row"
-                                variant="regular"
-                                onExpand={handleExpand}
-                              />
-                              <div className="pitch-slot-approved-meta">
-                                <div className="pitch-slot-founder">
-                                  {slot.pitch.founderPhotoUrl ? (
-                                    <span
-                                      className="pitch-slot-founder-avatar"
-                                      style={{ backgroundImage: `url(${slot.pitch.founderPhotoUrl})` }}
-                                      aria-hidden="true"
-                                    />
-                                  ) : (
-                                    <span className="pitch-slot-founder-fallback" aria-hidden="true">
-                                      {founderLabel.charAt(0).toUpperCase()}
-                                    </span>
-                                  )}
-                                  <span>{slot.pitch.founderName ?? slot.pitch.name}</span>
-                                </div>
-                                {SLOT_UPGRADE_ENABLED ? (
-                                  <button
-                                    type="button"
-                                    className="pitch-slot-share"
-                                    onClick={(event) => void handleSharePitch(event, slot.pitch)}
-                                  >
-                                    Share
-                                  </button>
-                                ) : null}
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const accent = accentForKey(slot.id);
-                        return (
-                          <Link
-                            key={`${slot.id}-row-${rowIndex}`}
-                            href="/submit"
-                            className={`pitch-slot-open-card${isRefreshingApprovals ? " is-refreshing" : ""}`}
-                            style={{ ["--slot-accent" as string]: accent }}
-                            aria-label="Upload your pitch"
-                          >
-                            <div className="pitch-slot-open-badge">Slot open</div>
-                            <h4>Be the next approved pitch</h4>
-                            <p>This space fills as soon as admin approves a submission.</p>
-                            <span className="pitch-slot-open-action">Upload your pitch</span>
-                            {SLOT_UPGRADE_ENABLED ? (
-                              <span className="pitch-slot-countdown">
-                                Next shuffle in {formatCountdown(shuffleCountdown)}
-                              </span>
-                            ) : null}
-                          </Link>
-                        );
-                      })}
+                    <div
+                      key={`row-group-${rowIndex}`}
+                      className={`pitch-row ${rowIndex % 2 === 0 ? "is-forward" : "is-reverse"}`}
+                    >
+                      <div className="pitch-row-track" ref={(node) => setRowTrackRef(rowIndex, node)}>
+                        <div className="pitch-row-segment" data-row-segment="primary">
+                          {group.map((slot, slotIndex) =>
+                            renderRowSlot(slot, rowIndex, slotIndex, "primary")
+                          )}
+                        </div>
+                        <div
+                          className="pitch-row-segment is-clone"
+                          data-row-segment="clone"
+                          aria-hidden="true"
+                        >
+                          {group.map((slot, slotIndex) =>
+                            renderRowSlot(slot, rowIndex, slotIndex, "clone")
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
             </div>

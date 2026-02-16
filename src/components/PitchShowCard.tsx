@@ -24,9 +24,16 @@ type PitchShowCardProps = {
   size: "feature" | "row" | "wide" | "mini";
   variant?: "hot" | "regular";
   onExpand?: (pitch: PitchShow) => void;
+  interactive?: boolean;
 };
 
-export default function PitchShowCard({ pitch, size, variant = "regular", onExpand }: PitchShowCardProps) {
+export default function PitchShowCard({
+  pitch,
+  size,
+  variant = "regular",
+  onExpand,
+  interactive = true,
+}: PitchShowCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
 
@@ -45,12 +52,16 @@ export default function PitchShowCard({ pitch, size, variant = "regular", onExpa
   return (
     <article
       className={`pitch-show-card ${size} ${variant === "hot" ? "is-hot" : "is-regular"}`}
-      tabIndex={0}
+      tabIndex={interactive ? 0 : -1}
       aria-label={label}
-      onClick={() => {
-        if (onExpand) return onExpand(pitch);
-        dialogRef.current?.showModal();
-      }}
+      onClick={
+        interactive
+          ? () => {
+              if (onExpand) return onExpand(pitch);
+              dialogRef.current?.showModal();
+            }
+          : undefined
+      }
     >
       {pitch.video ? (
         <video
