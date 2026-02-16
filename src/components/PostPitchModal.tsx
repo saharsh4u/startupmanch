@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { fallbackCategories } from "@/components/CategoriesSection";
 import { bestDeals, recentlyListed } from "@/data/marketplace";
 import {
   DEFAULT_STARTUP_PROFILE_FORM_VALUES,
@@ -73,7 +74,11 @@ const uploadToSignedUrl = async (signedUrl: string, file: File) => {
 };
 
 const categorySuggestions = Array.from(
-  new Set([...recentlyListed, ...bestDeals].map((item) => item.category.trim()).filter(Boolean))
+  new Set(
+    [...fallbackCategories, ...recentlyListed, ...bestDeals]
+      .map((item) => (typeof item === "string" ? item : item.category).trim())
+      .filter(Boolean)
+  )
 ).sort((left, right) => left.localeCompare(right));
 
 const getOAuthCallbackTarget = (siteUrl: string | undefined) => {

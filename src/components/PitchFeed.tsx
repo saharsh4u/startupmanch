@@ -25,6 +25,12 @@ type ApiPitch = {
   video_url?: string | null;
 };
 
+type FeedResponsePayload = {
+  data?: ApiPitch[];
+  window_id?: number | null;
+  next_shuffle_at?: string | null;
+};
+
 type TeaserApproved = {
   id: string;
   startup_name: string;
@@ -57,6 +63,7 @@ type FeedPitch = PitchShow & {
 
 type PitchFeedProps = {
   selectedCategory?: string | null;
+  onCategoriesDiscovered?: (categories: string[]) => void;
 };
 
 type SlotFilter = "all" | "approved" | "open";
@@ -64,8 +71,8 @@ type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: stri
 
 const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
-const MORE_SECTION_PAGE_SIZE = 50;
-const MORE_SECTION_SLOTS = 50;
+const FEED_PAGE_SIZE = 50;
+const MAX_FEED_PAGE_FETCHES = 40;
 const ROW_SIZE = 5;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
@@ -98,7 +105,7 @@ const matchesCategory = (item: { category: string | null }, selectedCategory: st
   if (!selectedCategory) return true;
   const selected = normalizeCategory(selectedCategory);
   if (!selected.length) return true;
-  return normalizeCategory(item.category).includes(selected);
+  return normalizeCategory(item.category) === selected;
 };
 
 const dedupePitches = (items: FeedPitch[]) => {
@@ -158,6 +165,41 @@ const getErrorMessage = (error: unknown) => {
   return "Unable to load more pitches.";
 };
 
+const buildPitchFeedPath = (options: {
+  mode: "week" | "feed";
+  selectedCategory: string | null | undefined;
+  limit: number;
+  offset?: number;
+  minVotes?: number;
+  shuffle?: boolean;
+}) => {
+  const params = new URLSearchParams();
+  params.set("mode", options.mode);
+  params.set("limit", String(options.limit));
+
+  if (typeof options.offset === "number") {
+    params.set("offset", String(options.offset));
+  }
+
+  if (typeof options.minVotes === "number") {
+    params.set("min_votes", String(options.minVotes));
+  }
+
+  if (options.shuffle) {
+    params.set("shuffle", "true");
+  }
+
+  const category = (options.selectedCategory ?? "").trim();
+  if (category.length) {
+    params.set("tab", "category");
+    params.set("category", category);
+  } else {
+    params.set("tab", "trending");
+  }
+
+  return `/api/pitches?${params.toString()}`;
+};
+
 const buildTopPitches = (
   weekCandidates: FeedPitch[],
   feedCandidates: FeedPitch[],
@@ -207,7 +249,10 @@ const relativeTime = (iso: string | null | undefined) => {
   return `${days}d ago`;
 };
 
-export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
+export default function PitchFeed({
+  selectedCategory = null,
+  onCategoriesDiscovered,
+}: PitchFeedProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
@@ -297,39 +342,90 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
   const loadSectionData = useCallback(
     async (signal: AbortSignal, options?: { refreshOnly?: boolean }) => {
-      const [weekRes, feedRes, teaserRes] = await Promise.all([
-        fetch("/api/pitches?mode=week&limit=4&min_votes=10", {
-          cache: "no-store",
-          signal,
-        }),
+      const fetchFeedPages = async () => {
+        const feedData: ApiPitch[] = [];
+        let nextShuffleAt: string | null = null;
+
+        for (let pageIndex = 0; pageIndex < MAX_FEED_PAGE_FETCHES; pageIndex += 1) {
+          const offset = pageIndex * FEED_PAGE_SIZE;
+          const feedPath = buildPitchFeedPath({
+            mode: "feed",
+            selectedCategory,
+            limit: FEED_PAGE_SIZE,
+            offset,
+            shuffle: true,
+          });
+          const response = await fetch(feedPath, {
+            cache: "no-store",
+            signal,
+          });
+
+          if (!response.ok) {
+            if (pageIndex === 0) {
+              throw new Error("Unable to load pitches.");
+            }
+            break;
+          }
+
+          const payload = (await response.json()) as FeedResponsePayload;
+          const page = (payload.data ?? []) as ApiPitch[];
+          if (typeof payload.next_shuffle_at === "string") {
+            nextShuffleAt = payload.next_shuffle_at;
+          }
+
+          if (!page.length) {
+            break;
+          }
+
+          feedData.push(...page);
+
+          if (page.length < FEED_PAGE_SIZE) {
+            break;
+          }
+        }
+
+        return {
+          data: feedData,
+          nextShuffleAt,
+        };
+      };
+
+      const [weekRes, feedPayload, teaserRes] = await Promise.all([
         fetch(
-          `/api/pitches?mode=feed&tab=trending&limit=${MORE_SECTION_PAGE_SIZE}&offset=0&shuffle=true`,
+          buildPitchFeedPath({
+            mode: "week",
+            selectedCategory,
+            limit: 4,
+            minVotes: 10,
+          }),
           {
             cache: "no-store",
             signal,
           }
         ),
+        fetchFeedPages(),
         SLOT_UPGRADE_ENABLED
           ? fetch("/api/pitches/teasers", { cache: "no-store", signal })
           : Promise.resolve(null),
       ]);
 
-      if (!weekRes.ok && !feedRes.ok) {
+      if (!weekRes.ok && feedPayload.data.length === 0) {
         throw new Error("Unable to load pitches.");
       }
 
-      const weekPayload = weekRes.ok ? await weekRes.json() : null;
-      const feedPayload = (feedRes.ok ? await feedRes.json() : null) as
-        | {
-            data?: ApiPitch[];
-            window_id?: number | null;
-            next_shuffle_at?: string | null;
-          }
-        | null;
+      const weekPayload = (weekRes.ok ? await weekRes.json() : null) as FeedResponsePayload | null;
       const teaserPayload = teaserRes && teaserRes.ok ? await teaserRes.json() : null;
 
       const weekData = (weekPayload?.data ?? []) as ApiPitch[];
-      const feedData = (feedPayload?.data ?? []) as ApiPitch[];
+      const feedData = feedPayload.data;
+      const discoveredCategories = Array.from(
+        new Set(
+          [...weekData, ...feedData]
+            .map((item) => (item.category ?? "").trim())
+            .filter((item) => item.length > 0)
+        )
+      ).sort((left, right) => left.localeCompare(right));
+      onCategoriesDiscovered?.(discoveredCategories);
 
       const mappedWeek = weekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
       const filteredWeek = mappedWeek.filter((item) => matchesCategory(item, selectedCategory));
@@ -340,7 +436,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         mappedFeed
           .filter((item) => matchesCategory(item, selectedCategory))
           .filter((item) => !weekIds.has(item.id))
-      ).slice(0, MORE_SECTION_PAGE_SIZE);
+      );
 
       const initialBaseFeed = filteredFeed.length ? filteredFeed : filteredFallback;
       const initialTopPitches = buildTopPitches(filteredWeek, initialBaseFeed, filteredFallback);
@@ -365,8 +461,8 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
       }
 
-      if (typeof feedPayload?.next_shuffle_at === "string") {
-        const nextAt = Date.parse(feedPayload.next_shuffle_at);
+      if (typeof feedPayload.nextShuffleAt === "string") {
+        const nextAt = Date.parse(feedPayload.nextShuffleAt);
         if (Number.isFinite(nextAt)) {
           setNextShuffleAtMs(nextAt);
           const secondsLeft = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
@@ -374,7 +470,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
         }
       }
     },
-    [filteredFallback, mapPitch, selectedCategory]
+    [filteredFallback, mapPitch, onCategoriesDiscovered, selectedCategory]
   );
 
   useEffect(() => {
@@ -594,7 +690,7 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
   const topIds = useMemo(() => new Set(topPitches.map((item) => item.id)), [topPitches]);
 
   const approvedMorePitches = useMemo(
-    () => dedupePitches(baseFeed.filter((item) => !topIds.has(item.id))).slice(0, MORE_SECTION_SLOTS),
+    () => dedupePitches(baseFeed.filter((item) => !topIds.has(item.id))),
     [baseFeed, topIds]
   );
 
@@ -616,16 +712,27 @@ export default function PitchFeed({ selectedCategory = null }: PitchFeedProps) {
 
   const rowSlots = useMemo(() => {
     const approvedSlots = slotFilter === "open" ? [] : approvedVisible;
-    const taken = approvedSlots.length;
-    const openCount = Math.max(0, MORE_SECTION_SLOTS - taken);
+    const slots: RowSlot[] = approvedSlots.map((pitch) => ({ type: "approved" as const, pitch }));
 
-    const slots: RowSlot[] = [
-      ...approvedSlots.map((pitch) => ({ type: "approved" as const, pitch })),
-      ...Array.from({ length: openCount }, (_, index) => ({
-        type: "open" as const,
-        id: `placeholder-${index + 1}`,
-      })),
-    ];
+    if (SLOT_UPGRADE_ENABLED && slotFilter !== "approved") {
+      const minRows = slotFilter === "open" ? 2 : approvedSlots.length ? 1 : 2;
+      const openCount = ROW_SIZE * minRows;
+      for (let index = 0; index < openCount; index += 1) {
+        slots.push({
+          type: "open" as const,
+          id: `placeholder-${slotFilter}-${index + 1}`,
+        });
+      }
+    }
+
+    if (!slots.length) {
+      for (let index = 0; index < ROW_SIZE; index += 1) {
+        slots.push({
+          type: "open" as const,
+          id: `placeholder-empty-${index + 1}`,
+        });
+      }
+    }
 
     return shuffleItems(slots, slotShuffleSeed);
   }, [approvedVisible, slotFilter, slotShuffleSeed]);

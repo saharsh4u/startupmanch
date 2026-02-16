@@ -5,6 +5,7 @@ export const fallbackCategories = [
   "Fashion",
   "Beauty & Personal Care",
   "Retail",
+  "D2C",
   "D2C Brands",
   "Home & Living",
   "Consumer Goods",
@@ -19,6 +20,10 @@ export const fallbackCategories = [
   "Sports & Fitness",
   "SaaS",
   "AI & ML",
+  "Fintech",
+  "Edtech",
+  "Healthtech",
+  "ClimateTech",
 ];
 
 type CategoriesSectionProps = {

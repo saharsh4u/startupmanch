@@ -107,11 +107,13 @@ const applyDeterministicShuffle = (
   windowId: number,
   categoryFilter: string | null
 ) => {
+  const normalizedCategoryFilter = (categoryFilter ?? "").trim().toLowerCase();
+
   const filtered = items.filter((item) => {
     if (!item.startups || item.startups.status !== "approved") return false;
-    if (!categoryFilter) return true;
-    const category = (item.startups.category ?? "").toLowerCase();
-    return category.includes(categoryFilter.toLowerCase());
+    if (!normalizedCategoryFilter.length) return true;
+    const category = (item.startups.category ?? "").trim().toLowerCase();
+    return category === normalizedCategoryFilter;
   });
 
   return filtered

@@ -31,6 +31,7 @@ export type ParseStartupPayloadResult =
 
 type ParseStartupPayloadOptions = {
   requireName?: boolean;
+  requireCategory?: boolean;
 };
 
 const trimToNull = (value: unknown) => {
@@ -147,6 +148,9 @@ export const parseStartupWritePayload = (
 
   const name = rawName ?? "";
   const category = trimToNull(input.category);
+  if (options.requireCategory && !category) {
+    return { values: null, error: "Category is required." };
+  }
   const city = trimToNull(input.city);
   const one_liner = trimToNull(input.one_liner);
   const website = trimToNull(input.website);

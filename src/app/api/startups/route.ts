@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   const payload = await request.json();
-  const parsed = parseStartupWritePayload(payload, { requireName: true });
+  const parsed = parseStartupWritePayload(payload, { requireName: true, requireCategory: true });
   if (parsed.error || !parsed.values) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
