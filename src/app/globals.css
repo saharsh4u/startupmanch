@@ -6261,6 +6261,25 @@ html[data-theme="light"] .theme-toggle-thumb {
   font-size: 0.72rem;
 }
 
+.post-pitch-key-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.73rem;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--panel-soft);
+}
+
+.post-pitch-key-link:hover,
+.post-pitch-key-link:focus-visible {
+  border-color: var(--focus-ring);
+}
+
 .post-pitch-submit-row {
   display: grid;
   gap: 8px;
@@ -6349,6 +6368,25 @@ html[data-theme="light"] .theme-toggle-thumb {
   background: #ecfdf3;
   border-color: #abefc6;
   color: #027a48;
+}
+
+.rev-key-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: var(--panel-soft);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.74rem;
+}
+
+.rev-key-link:hover,
+.rev-key-link:focus-visible {
+  border-color: var(--focus-ring);
 }
 
 @media (max-width: 960px) {

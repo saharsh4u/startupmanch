@@ -55,6 +55,7 @@ type FieldErrors = Partial<Record<FieldKey, string>>;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const MAX_POSTER_BYTES = 8 * 1024 * 1024;
 const AUTH_UNAVAILABLE_MESSAGE = "Sign-in is temporarily unavailable. Please try again shortly.";
+const RAZORPAY_KEYS_URL = "https://dashboard.razorpay.com/app/keys";
 const DURATION_DEFAULTS: Record<PitchPayload["type"], number> = {
   elevator: 60,
   demo: 240,
@@ -686,8 +687,18 @@ export default function SubmitPage() {
               <p className="form-hint">
                 {revProvider === "stripe"
                   ? "Create a read-only Restricted key (Balance/Charges read). Don’t use your secret key."
-                  : "Paste key_id and key_secret as key_id:key_secret. Read-only permissions only."}
+                  : "Open Razorpay dashboard to fetch your key, then paste key_id:key_secret here (read-only)."}
               </p>
+              {revProvider === "razorpay" ? (
+                <a
+                  className="rev-key-link"
+                  href={RAZORPAY_KEYS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open Razorpay dashboard to fetch key
+                </a>
+              ) : null}
               <div className="rev-actions">
                 <button
                   type="button"

@@ -38,6 +38,7 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const MAX_FOUNDER_PHOTO_BYTES = 8 * 1024 * 1024;
 const AUTH_UNAVAILABLE_MESSAGE = "Sign-in is temporarily unavailable. Please try again shortly.";
 const SUCCESS_MESSAGE = "Your pitch is under review. Approval in 24 hours.";
+const RAZORPAY_KEYS_URL = "https://dashboard.razorpay.com/app/keys";
 
 const isValidHttpUrl = (value: string) => {
   try {
@@ -836,6 +837,14 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 </p>
               ) : (
                 <>
+                  <a
+                    href={RAZORPAY_KEYS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="post-pitch-key-link"
+                  >
+                    Open Razorpay dashboard to fetch key
+                  </a>
                   <label className="post-pitch-input-block">
                     <span>Razorpay key_id:key_secret</span>
                     <input
@@ -849,6 +858,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                         setFormErrors((current) => ({ ...current, razorpayKey: undefined }));
                       }}
                     />
+                    <small>Fetch the key first, then paste it here for read-only verification.</small>
                   </label>
                   {formErrors.razorpayKey ? <p className="form-error">{formErrors.razorpayKey}</p> : null}
                   <div className="post-pitch-inline-actions">
