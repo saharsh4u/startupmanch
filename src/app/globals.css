@@ -6619,10 +6619,13 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 .page-home .hero-action-group-search {
   flex: 1 1 auto;
+  align-items: flex-start;
 }
 
 .page-home .hero-action-group-search .hero-search {
   width: 100%;
+  max-width: 560px;
+  flex: 0 1 auto;
 }
 
 .page-home .hero-action-group-cta {
