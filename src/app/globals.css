@@ -3748,7 +3748,7 @@ html[data-theme="dark"] body {
   }
 }
 
-/* Sticky mobile ad rails + marquee track overrides */
+/* Mobile ad rails (phone-friendly tiles) */
 .ad-track {
   display: flex;
   flex-direction: column;
@@ -3779,60 +3779,64 @@ html[data-theme="dark"] body {
 
 @media (max-width: 768px) {
   .page {
-    padding-top: calc(96px + env(safe-area-inset-top));
-    padding-bottom: calc(98px + env(safe-area-inset-bottom));
+    padding-top: calc(16px + env(safe-area-inset-top));
+    padding-bottom: calc(30px + env(safe-area-inset-bottom));
   }
 
   .ad-column {
-    position: fixed;
-    left: 0;
-    right: 0;
-    z-index: 42;
-    padding: 8px 10px;
-    overflow: hidden;
+    position: static;
+    left: auto;
+    right: auto;
+    z-index: auto;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: max(12px, env(safe-area-inset-left));
+    scroll-padding-right: max(12px, env(safe-area-inset-right));
   }
 
-  .ad-left {
-    top: env(safe-area-inset-top);
-    background: var(--ad-rail-top-gradient);
-  }
-
-  .ad-right {
-    bottom: env(safe-area-inset-bottom);
-    background: var(--ad-rail-bottom-gradient);
+  .ad-column::-webkit-scrollbar {
+    display: none;
   }
 
   .ad-track {
     flex-direction: row;
-    gap: 10px;
+    gap: 12px;
     width: max-content;
-    animation: adRailMarquee 28s linear infinite;
-    will-change: transform;
-  }
-
-  .ad-right .ad-track {
-    animation-duration: 34s;
-    animation-delay: -6s;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
   }
 
   .ad-slot,
   .ad-slot.is-clone {
     display: block;
-    flex: 0 0 214px;
-    width: 214px;
-    height: 76px;
+    flex: 0 0 min(78vw, 260px);
+    width: min(78vw, 260px);
+    height: 92px;
     scroll-snap-align: start;
   }
 
+  .ad-slot.is-clone {
+    display: none;
+  }
+
   .ad-flip {
-    animation-duration: 16s;
+    animation: none !important;
+    transform: none !important;
   }
 
   .ad-face {
     padding: 10px 11px;
     gap: 10px;
     border-radius: 12px;
+  }
+
+  .ad-face.back {
+    display: none;
   }
 
   .ad-icon {
@@ -3859,21 +3863,7 @@ html[data-theme="dark"] body {
 
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
   .ad-track {
-    animation: none;
     transform: none;
-  }
-
-  .ad-column {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .ad-column::-webkit-scrollbar {
-    display: none;
-  }
-
-  .ad-flip {
-    animation: none;
   }
 }
 
@@ -4343,54 +4333,12 @@ html[data-theme="light"] .theme-toggle-thumb {
 /* Mobile layout readability hotfix (additive only) */
 @media (max-width: 768px) {
   .page.page-home {
-    padding-top: 14px;
+    padding-top: calc(14px + env(safe-area-inset-top));
     padding-bottom: calc(26px + env(safe-area-inset-bottom));
   }
 
   .page-home .ad-column {
-    position: static;
-    left: auto;
-    right: auto;
-    z-index: auto;
-    padding: 0;
     background: transparent;
-    overflow: hidden;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: none;
-    scrollbar-width: none;
-    touch-action: pan-y;
-  }
-
-  .page-home .ad-column::-webkit-scrollbar {
-    display: none;
-  }
-
-  .page-home .ad-left,
-  .page-home .ad-right {
-    top: auto;
-    bottom: auto;
-  }
-
-  .page-home .ad-track {
-    display: flex;
-    flex-direction: row;
-    width: max-content;
-    animation: adRailMarquee 28s linear infinite;
-    gap: 10px;
-    will-change: transform;
-  }
-
-  .page-home .ad-slot.is-clone {
-    display: block;
-  }
-
-  .page-home .ad-left .ad-track {
-    animation-duration: 28s;
-  }
-
-  .page-home .ad-right .ad-track {
-    animation-duration: 34s;
-    animation-delay: -6s;
   }
 
   .page-home .ad-flip {
@@ -4400,11 +4348,6 @@ html[data-theme="light"] .theme-toggle-thumb {
 
   .page-home .ad-face.back {
     display: none;
-  }
-
-  .page-home .ad-column:active .ad-track,
-  .page-home .ad-column:focus-within .ad-track {
-    animation-play-state: paused;
   }
 
   .page-home .site-nav {
@@ -4417,21 +4360,6 @@ html[data-theme="light"] .theme-toggle-thumb {
 }
 
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
-  .page-home .ad-track {
-    animation: none !important;
-    transform: none;
-  }
-
-  .page-home .ad-column {
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-  }
-
-  .page-home .ad-slot.is-clone {
-    display: none;
-  }
-
   .page-home .ad-flip {
     animation: none !important;
     transform: none !important;
@@ -4520,8 +4448,8 @@ html[data-theme="light"] .theme-toggle-thumb {
 
   .page-home .ad-column {
     max-width: 100%;
-    overflow-x: hidden;
-    overflow-y: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .page-home .ad-track {
@@ -4539,7 +4467,7 @@ html[data-theme="light"] .theme-toggle-thumb {
     }
 
     .page-home .ad-column {
-      overflow-x: clip;
+      overflow-x: auto;
     }
   }
 }
@@ -6593,6 +6521,9 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 @media (max-width: 1180px) {
   .page-home .ad-slot.is-placeholder {
+    width: auto;
+    max-width: none;
+    flex: 0 0 240px;
     height: 94px;
   }
 
@@ -6619,6 +6550,15 @@ html[data-theme="light"] .theme-toggle-thumb {
   .page-home .ad-face.advertise p {
     font-size: 0.68rem;
     max-width: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-home .ad-slot.is-placeholder {
+    flex: 0 0 min(78vw, 260px);
+    width: min(78vw, 260px);
+    max-width: min(78vw, 260px);
+    height: 92px;
   }
 }
 
