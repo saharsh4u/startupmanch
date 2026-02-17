@@ -307,6 +307,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [focusedPreviewPitchId, setFocusedPreviewPitchId] = useState<string | null>(null);
   const [visiblePreviewPitchIds, setVisiblePreviewPitchIds] = useState<Set<string>>(new Set());
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [moreSectionInView, setMoreSectionInView] = useState(false);
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
     [selectedCategory]
@@ -703,6 +704,25 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   }, []);
 
   useEffect(() => {
+    if (moreSectionInView) return;
+    const node = moreSectionRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setMoreSectionInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [moreSectionInView]);
+
+  useEffect(() => {
     if (loadingInitial) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -968,6 +988,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     copy: "primary" | "clone"
   ) => {
     const isClone = copy === "clone";
+    const revealDelayMs = rowIndex * 120 + slotIndex * 70;
 
     if (slot.type === "approved") {
       const shouldPreview =
@@ -990,7 +1011,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           key={`${slot.pitch.id}-row-${rowIndex}-${copy}-${slotIndex}`}
           className={`pitch-slot-approved${isClone ? " is-clone" : ""}`}
           data-preview-pitch-id={isClone ? undefined : slot.pitch.id}
-          style={{ ["--slot-accent" as string]: accent }}
+          style={
+            isClone
+              ? { ["--slot-accent" as string]: accent }
+              : {
+                  ["--slot-accent" as string]: accent,
+                  ["--reveal-delay" as string]: `${revealDelayMs}ms`,
+                }
+          }
           onMouseEnter={isClone ? undefined : () => setHoveredPreviewPitchId(slot.pitch.id)}
           onMouseLeave={
             isClone
@@ -1061,7 +1089,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         <div
           key={`${slot.id}-row-${rowIndex}-${copy}-${slotIndex}`}
           className={cardClassName}
-          style={{ ["--slot-accent" as string]: accent }}
+          style={
+            isClone
+              ? { ["--slot-accent" as string]: accent }
+              : {
+                  ["--slot-accent" as string]: accent,
+                  ["--reveal-delay" as string]: `${revealDelayMs}ms`,
+                }
+          }
           aria-hidden="true"
         >
           {cardContent}
@@ -1074,7 +1109,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         key={`${slot.id}-row-${rowIndex}-${copy}-${slotIndex}`}
         href={POST_PITCH_FALLBACK_HREF}
         className={cardClassName}
-        style={{ ["--slot-accent" as string]: accent }}
+        style={{
+          ["--slot-accent" as string]: accent,
+          ["--reveal-delay" as string]: `${revealDelayMs}ms`,
+        }}
         aria-label="Submit your pitch"
         onClick={(event) => {
           event.preventDefault();
@@ -1157,7 +1195,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
             <p className="pitch-subtext">Fresh from the community.</p>
           </div>
 
-          <div className={`pitch-mosaic more-band${loaded ? " is-loaded" : ""}`} ref={moreSectionRef}>
+          <div
+            className={`pitch-mosaic more-band${loaded ? " is-loaded" : ""}${moreSectionInView ? " is-visible" : ""}`}
+            ref={moreSectionRef}
+          >
             {SLOT_UPGRADE_ENABLED ? (
               <>
                 <div className="slot-controls">
