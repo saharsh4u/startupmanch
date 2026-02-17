@@ -273,7 +273,7 @@ export default function PitchFeed() {
   const shuffleRefreshLockRef = useRef(false);
   const rowTrackRefs = useRef<Array<HTMLDivElement | null>>([]);
   const pausedRowIndexesRef = useRef<Set<number>>(new Set());
-  const rowResumeTimersRef = useRef<Record<number, ReturnType<typeof window.setTimeout>>>({});
+  const rowResumeTimersRef = useRef<Record<number, number>>({});
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
