@@ -3773,7 +3773,7 @@ html[data-theme="dark"] body {
   }
 
   to {
-    transform: translateX(calc(-50% - 5px));
+    transform: translateX(calc(-50% - 6px));
   }
 }
 
@@ -4346,6 +4346,25 @@ html[data-theme="light"] .theme-toggle-thumb {
     transform: none !important;
   }
 
+  .page-home .ad-track {
+    animation: adRailMarquee 30s linear infinite;
+    will-change: transform;
+  }
+
+  .page-home .ad-right .ad-track {
+    animation-duration: 34s;
+    animation-delay: -6s;
+  }
+
+  .page-home .ad-slot.is-clone {
+    display: block;
+  }
+
+  .page-home .ad-column:active .ad-track,
+  .page-home .ad-column:focus-within .ad-track {
+    animation-play-state: paused;
+  }
+
   .page-home .ad-face.back {
     display: none;
   }
@@ -4360,6 +4379,15 @@ html[data-theme="light"] .theme-toggle-thumb {
 }
 
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .page-home .ad-track {
+    animation: none !important;
+    transform: none;
+  }
+
+  .page-home .ad-slot.is-clone {
+    display: none;
+  }
+
   .page-home .ad-flip {
     animation: none !important;
     transform: none !important;
