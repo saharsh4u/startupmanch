@@ -6512,3 +6512,92 @@ html[data-theme="light"] .theme-toggle-thumb {
     backdrop-filter: none;
   }
 }
+
+/* Final ad-placeholder visual refresh (reference style) */
+.page-home .ad-slot.is-placeholder {
+  height: 206px;
+}
+
+.page-home .ad-face.advertise {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 20px 14px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--ad-placeholder-tone, #313136) 58%, #8a8a8a);
+  background:
+    radial-gradient(circle at 20% 14%, rgba(255, 255, 255, 0.09), transparent 44%),
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--ad-placeholder-tone, #313136) 90%, #000) 0%,
+      color-mix(in srgb, var(--ad-placeholder-tone, #313136) 66%, #090909) 100%
+    );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 14px 28px rgba(0, 0, 0, 0.46);
+}
+
+.page-home .ad-face.advertise::after {
+  opacity: 0;
+}
+
+.page-home .ad-face.advertise .ad-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  color: #2a2a2a;
+  font-size: 0.92rem;
+  letter-spacing: 0.02em;
+}
+
+.page-home .ad-face.advertise h4 {
+  margin: 0;
+  font-size: 1.44rem;
+  line-height: 1.18;
+  color: #f4f4f4;
+  font-weight: 700;
+}
+
+.page-home .ad-face.advertise p {
+  margin: 0;
+  max-width: 20ch;
+  color: rgba(232, 232, 232, 0.78);
+  font-size: 1.02rem;
+  line-height: 1.34;
+}
+
+@media (max-width: 1180px) {
+  .page-home .ad-slot.is-placeholder {
+    height: 94px;
+  }
+
+  .page-home .ad-face.advertise {
+    flex-direction: row;
+    justify-content: flex-start;
+    text-align: left;
+    gap: 10px;
+    padding: 10px 11px;
+    border-radius: 12px;
+  }
+
+  .page-home .ad-face.advertise .ad-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    font-size: 0.58rem;
+  }
+
+  .page-home .ad-face.advertise h4 {
+    font-size: 0.88rem;
+  }
+
+  .page-home .ad-face.advertise p {
+    font-size: 0.68rem;
+    max-width: none;
+  }
+}

@@ -83,6 +83,14 @@ const buildQuickCheckoutContact = () => {
 
 const normalizePhone = (value: string) => value.replace(/\D+/g, "");
 
+const placeholderTonePalette = [
+  "#4a1f24",
+  "#2f2f33",
+  "#493a24",
+  "#4b242b",
+  "#1d3b53",
+] as const;
+
 const faceClickHref = (item: AdItem, side: "left" | "right" | undefined, face: "front" | "back") => {
   if (isCampaignItem(item) && item.campaignId) {
     const params = new URLSearchParams({
@@ -139,17 +147,22 @@ const AdFace = ({
   side,
   suppressKeyboardFocus,
   onAdvertiseClick,
+  placeholderTone,
 }: {
   item: AdItem;
   isBack?: boolean;
   side?: "left" | "right";
   suppressKeyboardFocus?: boolean;
   onAdvertiseClick: () => void;
+  placeholderTone?: string;
 }) => {
   const campaign = isCampaignItem(item);
   const className = `ad-face${isBack ? " back" : ""}${campaign ? "" : " advertise"}`;
 
-  const style = { "--ad-accent": item.accent } as CSSProperties;
+  const style = {
+    "--ad-accent": item.accent,
+    ...(placeholderTone ? { "--ad-placeholder-tone": placeholderTone } : {}),
+  } as CSSProperties;
 
   if (!campaign) {
     return (
@@ -281,11 +294,15 @@ export default function AdColumn({
 
   const renderSlot = (slot: AdSlot, index: number, isClone = false) => {
     const isFlipped = activeFlipSet.has(index);
+    const toneOffset = side === "right" ? 2 : 0;
+    const placeholderTone =
+      placeholderTonePalette[(index + toneOffset) % placeholderTonePalette.length];
+    const isPlaceholderSlot = !isCampaignItem(slot.front) && !isCampaignItem(slot.back);
 
     return (
       <div
         key={`${isClone ? "clone" : "slot"}-${side ?? "rail"}-${index}-${slot.front.name}-${slot.back.name}`}
-        className={`ad-slot${isClone ? " is-clone" : ""}`}
+        className={`ad-slot${isClone ? " is-clone" : ""}${isPlaceholderSlot ? " is-placeholder" : ""}`}
         data-side={side ?? "rail"}
         data-slot-index={index}
         aria-hidden={isClone ? true : undefined}
@@ -296,6 +313,7 @@ export default function AdColumn({
             side={side}
             suppressKeyboardFocus={isClone}
             onAdvertiseClick={() => void handleAdvertiseCheckout()}
+            placeholderTone={placeholderTone}
           />
           <AdFace
             item={slot.back}
@@ -303,6 +321,7 @@ export default function AdColumn({
             side={side}
             suppressKeyboardFocus={isClone}
             onAdvertiseClick={() => void handleAdvertiseCheckout()}
+            placeholderTone={placeholderTone}
           />
         </div>
       </div>
