@@ -16,7 +16,7 @@ const inconsolataBody = Inconsolata({
 });
 
 export const metadata: Metadata = {
-  title: "StartupManch | Startup Marketplace",
+  title: "StartupManch \u2013 India\u2019s Startup Marketplace for Founders & Investors",
   description:
     "India-first startup marketplace for founders and investors."
 };
