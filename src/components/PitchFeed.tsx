@@ -79,6 +79,7 @@ const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 const FEED_PAGE_SIZE = 50;
 const ROW_SIZE = 5;
 const MORE_PITCH_COLUMN_COUNT = 3;
+const MOBILE_MORE_PITCH_ROW_COUNT = 3;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
@@ -151,6 +152,15 @@ const distributeByColumn = <T,>(items: T[], columns: number) => {
     groups[index % count].push(item);
   });
   return groups;
+};
+
+const chunkBySize = <T,>(items: T[], size: number) => {
+  if (size <= 0) return [];
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 };
 
 const createSeededRandom = (seed: number) => {
@@ -824,6 +834,18 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     });
   }, [rowSlots]);
 
+  const mobileRowGroups = useMemo(() => {
+    const totalNeeded = MOBILE_MORE_PITCH_ROW_COUNT * ROW_SIZE;
+    const source = rowSlots.length ? rowSlots : [{ type: "open" as const, id: "placeholder-mobile-1" }];
+    const expanded: RowSlot[] = [];
+
+    for (let index = 0; index < totalNeeded; index += 1) {
+      expanded.push(source[index % source.length] as RowSlot);
+    }
+
+    return chunkBySize(expanded, ROW_SIZE).slice(0, MOBILE_MORE_PITCH_ROW_COUNT);
+  }, [rowSlots]);
+
   const expandedList = useMemo(() => [...topPitches, ...approvedMorePitches], [approvedMorePitches, topPitches]);
   const hasVisiblePitches = topPitches.length > 0 || approvedMorePitches.length > 0;
 
@@ -921,7 +943,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     elements.forEach((element) => observer.observe(element));
 
     return () => observer.disconnect();
-  }, [columnGroups, isMobileViewport]);
+  }, [columnGroups, isMobileViewport, mobileRowGroups]);
 
   useEffect(() => {
     topPitches.forEach((pitch) => {
@@ -1257,45 +1279,88 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               </>
             ) : null}
 
-            <div className="pitch-columns">
+            <div className={`pitch-columns${isMobileViewport ? " is-mobile" : " is-desktop"}`}>
               {loadingInitial
-                ? Array.from({ length: MORE_PITCH_COLUMN_COUNT }, (_, columnIndex) => (
-                    <div
-                      key={`initial-loading-column-${columnIndex}`}
-                      className="pitch-column is-loading"
-                      aria-hidden="true"
-                    >
-                      {Array.from({ length: INITIAL_SKELETON_ROWS + 1 }, (_, cardIndex) => (
-                        <article
-                          key={`initial-loading-card-${columnIndex}-${cardIndex}`}
-                          className="pitch-show-card row skeleton"
-                        />
-                      ))}
-                    </div>
-                  ))
-                : columnGroups.map((group, columnIndex) => (
-                    <div
-                      key={`column-group-${columnIndex}`}
-                      className={`pitch-column ${columnIndex % 2 === 0 ? "is-up" : "is-down"}`}
-                    >
-                      <div className="pitch-column-track">
-                        <div className="pitch-column-segment" data-column-segment="primary">
-                          {group.map((slot, slotIndex) =>
-                            renderRowSlot(slot, columnIndex, slotIndex, "primary")
-                          )}
-                        </div>
-                        <div
-                          className="pitch-column-segment is-clone"
-                          data-column-segment="clone"
-                          aria-hidden="true"
-                        >
-                          {group.map((slot, slotIndex) =>
-                            renderRowSlot(slot, columnIndex, slotIndex, "clone")
-                          )}
+                ? isMobileViewport
+                  ? Array.from({ length: MOBILE_MORE_PITCH_ROW_COUNT }, (_, rowIndex) => (
+                      <div
+                        key={`initial-loading-mobile-row-${rowIndex}`}
+                        className="pitch-mobile-row is-loading"
+                        aria-hidden="true"
+                      >
+                        <div className="pitch-mobile-row-track">
+                          <div className="pitch-mobile-row-segment">
+                            {Array.from({ length: ROW_SIZE }, (_, cardIndex) => (
+                              <article
+                                key={`initial-loading-mobile-card-${rowIndex}-${cardIndex}`}
+                                className="pitch-show-card row skeleton"
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  : Array.from({ length: MORE_PITCH_COLUMN_COUNT }, (_, columnIndex) => (
+                      <div
+                        key={`initial-loading-column-${columnIndex}`}
+                        className="pitch-column is-loading"
+                        aria-hidden="true"
+                      >
+                        {Array.from({ length: INITIAL_SKELETON_ROWS + 1 }, (_, cardIndex) => (
+                          <article
+                            key={`initial-loading-card-${columnIndex}-${cardIndex}`}
+                            className="pitch-show-card row skeleton"
+                          />
+                        ))}
+                      </div>
+                    ))
+                : isMobileViewport
+                  ? mobileRowGroups.map((group, rowIndex) => (
+                      <div
+                        key={`mobile-row-${rowIndex}`}
+                        className={`pitch-mobile-row ${rowIndex % 2 === 0 ? "is-forward" : "is-reverse"}`}
+                      >
+                        <div className="pitch-mobile-row-track">
+                          <div className="pitch-mobile-row-segment" data-row-segment="primary">
+                            {group.map((slot, slotIndex) =>
+                              renderRowSlot(slot, rowIndex, slotIndex, "primary")
+                            )}
+                          </div>
+                          <div
+                            className="pitch-mobile-row-segment is-clone"
+                            data-row-segment="clone"
+                            aria-hidden="true"
+                          >
+                            {group.map((slot, slotIndex) =>
+                              renderRowSlot(slot, rowIndex, slotIndex, "clone")
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  : columnGroups.map((group, columnIndex) => (
+                      <div
+                        key={`column-group-${columnIndex}`}
+                        className={`pitch-column ${columnIndex % 2 === 0 ? "is-up" : "is-down"}`}
+                      >
+                        <div className="pitch-column-track">
+                          <div className="pitch-column-segment" data-column-segment="primary">
+                            {group.map((slot, slotIndex) =>
+                              renderRowSlot(slot, columnIndex, slotIndex, "primary")
+                            )}
+                          </div>
+                          <div
+                            className="pitch-column-segment is-clone"
+                            data-column-segment="clone"
+                            aria-hidden="true"
+                          >
+                            {group.map((slot, slotIndex) =>
+                              renderRowSlot(slot, columnIndex, slotIndex, "clone")
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
             </div>
 
             {statusMessage ? (
