@@ -6515,7 +6515,9 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 /* Final ad-placeholder visual refresh (reference style) */
 .page-home .ad-slot.is-placeholder {
-  height: 206px;
+  height: 170px;
+  max-width: 420px;
+  margin-inline: auto;
 }
 
 .page-home .ad-face.advertise {
@@ -6523,10 +6525,10 @@ html[data-theme="light"] .theme-toggle-thumb {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   text-align: center;
-  padding: 20px 14px;
-  border-radius: 22px;
+  padding: 14px 12px;
+  border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--ad-placeholder-tone, #313136) 58%, #8a8a8a);
   background:
     radial-gradient(circle at 20% 14%, rgba(255, 255, 255, 0.09), transparent 44%),
@@ -6545,30 +6547,34 @@ html[data-theme="light"] .theme-toggle-thumb {
 }
 
 .page-home .ad-face.advertise .ad-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.95);
   color: #2a2a2a;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   letter-spacing: 0.02em;
 }
 
 .page-home .ad-face.advertise h4 {
   margin: 0;
-  font-size: 1.44rem;
-  line-height: 1.18;
+  font-size: 1.16rem;
+  line-height: 1.15;
   color: #f4f4f4;
   font-weight: 700;
 }
 
 .page-home .ad-face.advertise p {
   margin: 0;
-  max-width: 20ch;
+  max-width: 18ch;
   color: rgba(232, 232, 232, 0.78);
-  font-size: 1.02rem;
-  line-height: 1.34;
+  font-size: 0.88rem;
+  line-height: 1.28;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 @media (max-width: 1180px) {
