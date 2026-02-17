@@ -272,6 +272,8 @@ export default function PitchFeed() {
   const initialAbortRef = useRef<AbortController | null>(null);
   const shuffleRefreshLockRef = useRef(false);
   const rowTrackRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const pausedRowIndexesRef = useRef<Set<number>>(new Set());
+  const rowResumeTimersRef = useRef<Record<number, ReturnType<typeof window.setTimeout>>>({});
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -605,6 +607,42 @@ export default function PitchFeed() {
     rowTrackRefs.current[rowIndex] = node;
   }, []);
 
+  const pauseRowLoop = useCallback((rowIndex: number) => {
+    const timer = rowResumeTimersRef.current[rowIndex];
+    if (timer) {
+      window.clearTimeout(timer);
+      delete rowResumeTimersRef.current[rowIndex];
+    }
+    pausedRowIndexesRef.current.add(rowIndex);
+  }, []);
+
+  const resumeRowLoop = useCallback((rowIndex: number) => {
+    pausedRowIndexesRef.current.delete(rowIndex);
+  }, []);
+
+  const resumeRowLoopSoon = useCallback(
+    (rowIndex: number, delayMs = 200) => {
+      const timer = rowResumeTimersRef.current[rowIndex];
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+      rowResumeTimersRef.current[rowIndex] = window.setTimeout(() => {
+        resumeRowLoop(rowIndex);
+        delete rowResumeTimersRef.current[rowIndex];
+      }, delayMs);
+    },
+    [resumeRowLoop]
+  );
+
+  useEffect(
+    () => () => {
+      Object.values(rowResumeTimersRef.current).forEach((timer) => window.clearTimeout(timer));
+      rowResumeTimersRef.current = {};
+      pausedRowIndexesRef.current.clear();
+    },
+    []
+  );
+
   useEffect(() => {
     if (loadingInitial) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -695,6 +733,7 @@ export default function PitchFeed() {
 
       rowTrackRefs.current.forEach((track, rowIndex) => {
         if (!track) return;
+        if (pausedRowIndexesRef.current.has(rowIndex)) return;
 
         const rowWidth = widths[rowIndex];
         if (!rowWidth) return;
@@ -1072,8 +1111,13 @@ export default function PitchFeed() {
         className={cardClassName}
         style={{ ["--slot-accent" as string]: accent }}
         aria-label="Submit your pitch"
+        onPointerDown={() => pauseRowLoop(rowIndex)}
+        onPointerUp={() => resumeRowLoopSoon(rowIndex, 220)}
+        onPointerCancel={() => resumeRowLoopSoon(rowIndex, 120)}
+        onBlur={() => resumeRowLoopSoon(rowIndex, 80)}
         onClick={(event) => {
           event.preventDefault();
+          pauseRowLoop(rowIndex);
           openPostPitchFlow();
         }}
       >
@@ -1224,6 +1268,19 @@ export default function PitchFeed() {
                     <div
                       key={`row-group-${rowIndex}`}
                       className={`pitch-row ${rowIndex % 2 === 0 ? "is-forward" : "is-reverse"}`}
+                      onMouseEnter={() => pauseRowLoop(rowIndex)}
+                      onMouseLeave={() => resumeRowLoopSoon(rowIndex, 120)}
+                      onTouchStart={() => pauseRowLoop(rowIndex)}
+                      onTouchEnd={() => resumeRowLoopSoon(rowIndex, 260)}
+                      onTouchCancel={() => resumeRowLoopSoon(rowIndex, 120)}
+                      onFocusCapture={() => pauseRowLoop(rowIndex)}
+                      onBlurCapture={(event) => {
+                        const relatedTarget = event.relatedTarget;
+                        if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) {
+                          return;
+                        }
+                        resumeRowLoopSoon(rowIndex, 80);
+                      }}
                     >
                       <div className="pitch-row-track" ref={(node) => setRowTrackRef(rowIndex, node)}>
                         <div className="pitch-row-segment" data-row-segment="primary">

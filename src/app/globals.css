@@ -1616,6 +1616,7 @@ button:disabled {
   position: relative;
   overflow: hidden;
   padding: 0 6px 6px;
+  touch-action: pan-y;
 }
 
 .pitch-row-track {
@@ -5410,7 +5411,14 @@ html[data-theme="light"] .theme-toggle-thumb {
   flex-direction: column;
   justify-content: flex-end;
   gap: 10px;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
   transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
+}
+
+.pitch-slot-open-card.is-clone {
+  pointer-events: none;
 }
 
 .pitch-slot-open-card:hover {
