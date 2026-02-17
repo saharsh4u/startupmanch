@@ -192,18 +192,13 @@ export default function PitchShowCard({
           <h4>{pitch.name}</h4>
           <p>{pitch.tagline}</p>
         </div>
-        <div className="pitch-show-meta">
-          <div className="pitch-show-metrics">
-            <span className="pitch-metric-chip">Score: {scoreLabel}</span>
-            <span className="pitch-metric-chip">Upvotes: {upvotes}</span>
-            <span className="pitch-metric-chip">Comments: {comments}</span>
-          </div>
-          {hasRevenue ? (
+        {hasRevenue ? (
+          <div className="pitch-show-meta">
             <div className="pitch-revenue-chip is-self-reported">
               Self reported: {pitch.monthlyRevenue}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         {variant === "hot" ? <div className="pitch-show-playghost">▶</div> : <div className="pitch-show-footer">Pitch Preview</div>}
       </div>
       <ContactModal ref={dialogRef} pitch={pitch} />
