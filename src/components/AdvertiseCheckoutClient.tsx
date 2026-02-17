@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
-type AdPurchaseModalProps = {
-  open: boolean;
-  onClose: () => void;
-};
+import { useSearchParams } from "next/navigation";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
+import SiteFooter from "@/components/SiteFooter";
+import TopNav from "@/components/TopNav";
 
 type PlanResponse = {
   available?: boolean;
@@ -19,11 +19,11 @@ type PlanResponse = {
   error?: string;
 };
 
-type CashfreeMode = "sandbox" | "production";
+type CheckoutMode = "sandbox" | "production";
 
 type CheckoutResponse = {
   provider?: "cashfree";
-  mode?: CashfreeMode;
+  mode?: CheckoutMode;
   url?: string;
   sessionId?: string;
   orderId?: string;
@@ -31,40 +31,54 @@ type CheckoutResponse = {
   error?: string;
 };
 
-type CashfreeCheckoutInstance = {
+type CheckoutInstance = {
   checkout: (options: {
     paymentSessionId: string;
     redirectTarget?: "_self" | "_blank";
   }) => Promise<unknown> | unknown;
 };
 
-type CashfreeFactory = (options: { mode: CashfreeMode }) => CashfreeCheckoutInstance;
+type CheckoutFactory = (options: { mode: CheckoutMode }) => CheckoutInstance;
 
-type CashfreeWindow = Window & {
-  Cashfree?: CashfreeFactory;
+type CheckoutWindow = Window & {
+  Cashfree?: CheckoutFactory;
 };
 
-const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
+const CHECKOUT_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
+const CHECKOUT_PHONE_STORAGE_KEY = "startupmanch_ad_checkout_phone";
+const CHECKOUT_EMAIL_STORAGE_KEY = "startupmanch_ad_checkout_email";
 
-const loadCashfreeFactory = async () => {
+const sanitizeProviderTerms = (value: string) =>
+  value
+    .replace(/cashfree checkout/gi, "secure payment")
+    .replace(/cashfree/gi, "secure payment")
+    .trim();
+
+const toPublicError = (value: unknown, fallback: string) => {
+  const message = sanitizeProviderTerms(String(value ?? "").trim());
+  if (!message.length) return fallback;
+  return message;
+};
+
+const loadCheckoutFactory = async () => {
   if (typeof window === "undefined") {
-    throw new Error("Cashfree checkout is only available in the browser.");
+    throw new Error("Secure payment is only available in the browser.");
   }
 
-  const cashfreeWindow = window as CashfreeWindow;
-  if (cashfreeWindow.Cashfree) {
-    return cashfreeWindow.Cashfree;
+  const checkoutWindow = window as CheckoutWindow;
+  if (checkoutWindow.Cashfree) {
+    return checkoutWindow.Cashfree;
   }
 
   await new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
+    const existing = document.querySelector(`script[src="${CHECKOUT_SDK_URL}"]`);
     if (existing) {
       let attempts = 0;
       const waitForSdk = () => {
-        if ((window as CashfreeWindow).Cashfree) {
+        if ((window as CheckoutWindow).Cashfree) {
           resolve();
         } else if (attempts > 120) {
-          reject(new Error("Cashfree checkout SDK did not initialize."));
+          reject(new Error("Secure payment SDK did not initialize."));
         } else {
           attempts += 1;
           setTimeout(waitForSdk, 50);
@@ -75,21 +89,28 @@ const loadCashfreeFactory = async () => {
     }
 
     const script = document.createElement("script");
-    script.src = CASHFREE_SDK_URL;
+    script.src = CHECKOUT_SDK_URL;
     script.async = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Unable to load Cashfree checkout SDK."));
+    script.onerror = () => reject(new Error("Unable to load secure payment SDK."));
     document.head.appendChild(script);
   });
 
-  if (!cashfreeWindow.Cashfree) {
-    throw new Error("Cashfree checkout SDK is unavailable.");
+  if (!checkoutWindow.Cashfree) {
+    throw new Error("Secure payment SDK is unavailable.");
   }
 
-  return cashfreeWindow.Cashfree;
+  return checkoutWindow.Cashfree;
 };
 
-export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps) {
+const normalizeSource = (value: string | null) => {
+  const candidate = (value ?? "").trim().toLowerCase();
+  if (!candidate.length) return "advertise_page";
+  return /^[a-z0-9_-]{1,40}$/.test(candidate) ? candidate : "advertise_page";
+};
+
+export default function AdvertiseCheckoutClient() {
+  const searchParams = useSearchParams();
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -97,39 +118,28 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [open, onClose]);
+  const source = useMemo(() => normalizeSource(searchParams.get("source")), [searchParams]);
 
   useEffect(() => {
-    if (!open) return;
+    if (typeof window === "undefined") return;
+    const savedEmail = window.localStorage.getItem(CHECKOUT_EMAIL_STORAGE_KEY) ?? "";
+    const savedPhone = window.localStorage.getItem(CHECKOUT_PHONE_STORAGE_KEY) ?? "";
+    if (savedEmail) setEmail(savedEmail);
+    if (savedPhone) setPhone(savedPhone);
+  }, []);
 
+  useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setStatus("loading");
       setErrorText(null);
-
       try {
         const response = await fetch("/api/ads/plan", { cache: "no-store" });
         const payload = (await response.json()) as PlanResponse;
-
         if (cancelled) return;
 
         if (!response.ok || payload.error) {
-          throw new Error(payload.error ?? "Unable to load ad pricing.");
+          throw new Error(payload.error ?? "Unable to load sponsor plan.");
         }
 
         setPlan(payload);
@@ -137,7 +147,7 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
       } catch (error) {
         if (cancelled) return;
         setStatus("error");
-        setErrorText((error as Error).message || "Unable to load ad pricing.");
+        setErrorText(toPublicError((error as Error).message, "Unable to load sponsor plan."));
       }
     };
 
@@ -145,14 +155,15 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, []);
 
   const checkoutLabel = useMemo(() => {
+    if (checkoutLoading) return "Opening secure payment…";
     if (!plan?.displayAmount || !plan?.interval) {
       return "Continue to Secure Payment";
     }
     return `Continue to Secure Payment (${plan.displayAmount}/${plan.interval})`;
-  }, [plan?.displayAmount, plan?.interval]);
+  }, [checkoutLoading, plan?.displayAmount, plan?.interval]);
 
   const startCheckout = async () => {
     const emailValue = email.trim().toLowerCase();
@@ -163,19 +174,23 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
       return;
     }
     if (!/^[0-9]{10,15}$/.test(phoneValue)) {
-      setErrorText("Enter a valid phone number.");
+      setErrorText("Enter a valid phone number (10-15 digits).");
       return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CHECKOUT_EMAIL_STORAGE_KEY, emailValue);
+      window.localStorage.setItem(CHECKOUT_PHONE_STORAGE_KEY, phoneValue);
     }
 
     setCheckoutLoading(true);
     setErrorText(null);
-
     try {
       const response = await fetch("/api/ads/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: "homepage_ad_placeholder",
+          source,
           email: emailValue,
           phone: phoneValue,
         }),
@@ -183,17 +198,16 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
 
       const payload = (await response.json()) as CheckoutResponse;
       if (!response.ok) {
-        throw new Error(payload.error ?? "Unable to start checkout.");
+        throw new Error(payload.error ?? "Unable to start secure payment.");
       }
 
       if (payload.provider === "cashfree" && payload.paymentSessionId) {
-        const factory = await loadCashfreeFactory();
+        const factory = await loadCheckoutFactory();
         const instance = factory({ mode: payload.mode === "sandbox" ? "sandbox" : "production" });
         await instance.checkout({
           paymentSessionId: payload.paymentSessionId,
           redirectTarget: "_self",
         });
-        setCheckoutLoading(false);
         return;
       }
 
@@ -202,40 +216,27 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
         return;
       }
 
-      throw new Error(payload.error ?? "Unable to start checkout.");
+      throw new Error(payload.error ?? "Unable to start secure payment.");
     } catch (error) {
-      setErrorText((error as Error).message || "Unable to start secure payment.");
+      setErrorText(
+        toPublicError((error as Error).message, "Unable to open secure payment right now.")
+      );
       setCheckoutLoading(false);
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      className="ad-purchase-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="ad-purchase-title"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="ad-purchase-panel">
-        <div className="ad-purchase-header">
-          <div>
-            <p className="ad-purchase-kicker">StartupManch Ads</p>
-            <h3 id="ad-purchase-title">Put your startup in our animated rails</h3>
-          </div>
-          <button type="button" className="ad-purchase-close" onClick={onClose}>
-            Close
-          </button>
-        </div>
+    <AdRailsScaffold mainClassName="page page-home inner-rails-page">
+      <TopNav context="inner" />
+      <section className="advertise-success-page advertise-checkout-page">
+        <section className="ad-onboarding-card ad-checkout-card">
+          <header className="ad-onboarding-header">
+            <p className="ad-onboarding-kicker">Sponsor placement</p>
+            <h1>Promote Your Startup</h1>
+            <p>Limited sponsor slots available.</p>
+          </header>
 
-        <div className="ad-purchase-body">
-          {status === "loading" ? <p>Loading monthly plan…</p> : null}
+          {status === "loading" ? <p className="ad-onboarding-state">Loading sponsor plan…</p> : null}
 
           {status === "ready" && plan ? (
             <>
@@ -243,9 +244,9 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
                 <strong>{plan.displayAmount ?? "Monthly plan"}</strong>
                 <span>/{plan.interval ?? "month"}</span>
               </div>
-              <p>
-                Click-through sponsor card in both marquee rails. After payment, you will submit your
-                company name, tagline, URL, color, support email, and logo.
+              <p className="ad-checkout-copy">
+                Your card appears in both animated side rails. After payment, you can publish your logo,
+                website, and tagline.
               </p>
               <div className="ad-purchase-inputs">
                 <label>
@@ -271,16 +272,16 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
               </div>
               {plan.available === false ? (
                 <p className="ad-purchase-error">
-                  {plan.message ?? "Ad checkout is temporarily unavailable."}
+                  Secure payment is temporarily unavailable. Please try again shortly.
                 </p>
               ) : (
                 <button
                   type="button"
                   className="ad-purchase-cta"
-                  onClick={startCheckout}
+                  onClick={() => void startCheckout()}
                   disabled={checkoutLoading}
                 >
-                  {checkoutLoading ? "Redirecting…" : checkoutLabel}
+                  {checkoutLabel}
                 </button>
               )}
             </>
@@ -289,10 +290,14 @@ export default function AdPurchaseModal({ open, onClose }: AdPurchaseModalProps)
           {status === "error" || errorText ? <p className="ad-purchase-error">{errorText}</p> : null}
 
           <p className="ad-purchase-footnote">
-            Campaign goes live right after detail submission.
+            Checkout happens here on this secure page, not on the homepage.
           </p>
-        </div>
-      </div>
-    </div>
+          <div className="ad-onboarding-actions">
+            <Link href="/">Back to homepage</Link>
+          </div>
+        </section>
+      </section>
+      <SiteFooter />
+    </AdRailsScaffold>
   );
 }

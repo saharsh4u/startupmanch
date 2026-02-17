@@ -5035,6 +5035,19 @@ html[data-theme="light"] .theme-toggle-thumb {
   text-underline-offset: 3px;
 }
 
+.advertise-checkout-page {
+  margin-top: 4px;
+}
+
+.ad-checkout-card {
+  gap: 12px;
+}
+
+.ad-checkout-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
 @media (max-width: 768px) {
   .ad-purchase-modal {
     padding: 10px;

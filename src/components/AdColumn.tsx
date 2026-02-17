@@ -1,87 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { AdItem, AdSlot } from "@/data/ads";
 import { isCampaignItem } from "@/lib/ads";
-
-type CashfreeMode = "sandbox" | "production";
-
-type CheckoutResponse = {
-  provider?: "cashfree";
-  mode?: CashfreeMode;
-  url?: string;
-  paymentSessionId?: string;
-  error?: string;
-};
-
-type CashfreeCheckoutInstance = {
-  checkout: (options: {
-    paymentSessionId: string;
-    redirectTarget?: "_self" | "_blank";
-  }) => Promise<unknown> | unknown;
-};
-
-type CashfreeFactory = (options: { mode: CashfreeMode }) => CashfreeCheckoutInstance;
-
-type CashfreeWindow = Window & {
-  Cashfree?: CashfreeFactory;
-};
-
-const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
-const CHECKOUT_PHONE_STORAGE_KEY = "startupmanch_ad_checkout_phone";
-
-const loadCashfreeFactory = async () => {
-  if (typeof window === "undefined") {
-    throw new Error("Cashfree checkout is only available in the browser.");
-  }
-
-  const cashfreeWindow = window as CashfreeWindow;
-  if (cashfreeWindow.Cashfree) {
-    return cashfreeWindow.Cashfree;
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
-    if (existing) {
-      let attempts = 0;
-      const waitForSdk = () => {
-        if ((window as CashfreeWindow).Cashfree) {
-          resolve();
-        } else if (attempts > 120) {
-          reject(new Error("Cashfree checkout SDK did not initialize."));
-        } else {
-          attempts += 1;
-          setTimeout(waitForSdk, 50);
-        }
-      };
-      waitForSdk();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = CASHFREE_SDK_URL;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Unable to load Cashfree checkout SDK."));
-    document.head.appendChild(script);
-  });
-
-  if (!cashfreeWindow.Cashfree) {
-    throw new Error("Cashfree checkout SDK is unavailable.");
-  }
-
-  return cashfreeWindow.Cashfree;
-};
-
-const buildQuickCheckoutContact = () => {
-  const now = Date.now();
-  return {
-    email: `ads+${now}@startupmanch.com`,
-  };
-};
-
-const normalizePhone = (value: string) => value.replace(/\D+/g, "");
 
 const placeholderTonePalette = [
   "#4a1f24",
@@ -108,19 +30,18 @@ const faceClickHref = (item: AdItem, side: "left" | "right" | undefined, face: "
   return null;
 };
 
-const placeholderCopy = (isBack: boolean, item: AdItem) => {
-  const hasSpotsText = /spots left/i.test(item.tagline);
+const placeholderCopy = (isBack: boolean) => {
   if (isBack) {
     return {
       badge: "AD",
       name: "Advertise",
-      tagline: hasSpotsText ? item.tagline : "Click to start Cashfree checkout",
+      tagline: "Limited sponsor slots available.",
     };
   }
   return {
     badge: "SM",
     name: "StartupManch",
-    tagline: "Click to advertise on StartupManch",
+    tagline: "Promote Your Startup",
   };
 };
 
@@ -128,7 +49,7 @@ const AdFaceContent = ({ item, isBack = false }: { item: AdItem; isBack?: boolea
   const campaign = isCampaignItem(item);
   const copy = campaign
     ? { badge: item.badge ?? "AD", name: item.name, tagline: item.tagline }
-    : placeholderCopy(isBack, item);
+    : placeholderCopy(isBack);
 
   return (
     <>
@@ -219,77 +140,14 @@ export default function AdColumn({
   side?: "left" | "right";
   activeFlipIndexes?: number[];
 }) {
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const activeFlipSet = useMemo(() => new Set(activeFlipIndexes), [activeFlipIndexes]);
   const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}`;
 
-  const handleAdvertiseCheckout = async () => {
-    if (checkoutLoading) return;
-
-    const previousPhone =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(CHECKOUT_PHONE_STORAGE_KEY) ?? ""
-        : "";
-    const enteredPhone =
-      typeof window !== "undefined"
-        ? window.prompt("Enter your phone number for payment (10-15 digits):", previousPhone)
-        : null;
-    if (enteredPhone === null) return;
-
-    const phone = normalizePhone(enteredPhone);
-    if (!/^[0-9]{10,15}$/.test(phone)) {
-      setCheckoutError("Enter a valid phone number (10-15 digits).");
-      return;
-    }
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(CHECKOUT_PHONE_STORAGE_KEY, phone);
-    }
-
-    setCheckoutLoading(true);
-    setCheckoutError(null);
-    try {
-      const contact = buildQuickCheckoutContact();
-      const response = await fetch("/api/ads/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: contact.email,
-          phone,
-          source: `rail_${side ?? "unknown"}`,
-        }),
-      });
-
-      const payload = (await response.json()) as CheckoutResponse;
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Unable to start checkout.");
-      }
-
-      if (payload.provider === "cashfree" && payload.paymentSessionId) {
-        const factory = await loadCashfreeFactory();
-        const instance = factory({
-          mode: payload.mode === "sandbox" ? "sandbox" : "production",
-        });
-        await instance.checkout({
-          paymentSessionId: payload.paymentSessionId,
-          redirectTarget: "_self",
-        });
-        return;
-      }
-
-      if (payload.url) {
-        window.location.href = payload.url;
-        return;
-      }
-
-      throw new Error(payload.error ?? "Unable to start checkout.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to open Cashfree checkout right now.";
-      setCheckoutError(message);
-    } finally {
-      setCheckoutLoading(false);
-    }
+  const handleAdvertiseClick = () => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    params.set("source", `rail_${side ?? "unknown"}`);
+    window.location.href = `/advertise?${params.toString()}`;
   };
 
   const renderSlot = (slot: AdSlot, index: number, isClone = false) => {
@@ -312,7 +170,7 @@ export default function AdColumn({
             item={slot.front}
             side={side}
             suppressKeyboardFocus={isClone}
-            onAdvertiseClick={() => void handleAdvertiseCheckout()}
+            onAdvertiseClick={handleAdvertiseClick}
             placeholderTone={placeholderTone}
           />
           <AdFace
@@ -320,7 +178,7 @@ export default function AdColumn({
             isBack
             side={side}
             suppressKeyboardFocus={isClone}
-            onAdvertiseClick={() => void handleAdvertiseCheckout()}
+            onAdvertiseClick={handleAdvertiseClick}
             placeholderTone={placeholderTone}
           />
         </div>
@@ -334,8 +192,6 @@ export default function AdColumn({
         {slots.map((slot, index) => renderSlot(slot, index))}
         {slots.map((slot, index) => renderSlot(slot, index, true))}
       </div>
-      {checkoutLoading ? <p className="ad-rail-status">Opening Cashfree checkout...</p> : null}
-      {checkoutError ? <p className="ad-rail-status error">{checkoutError}</p> : null}
     </aside>
   );
 }
