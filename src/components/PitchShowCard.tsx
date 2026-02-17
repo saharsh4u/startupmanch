@@ -151,6 +151,7 @@ export default function PitchShowCard({
         </div>
         <div className="pitch-show-text">
           <h4>{pitch.name}</h4>
+          <p>{pitch.tagline}</p>
           <div className="pitch-engagement-inline" aria-label="Engagement controls">
             <button
               type="button"
@@ -193,7 +194,6 @@ export default function PitchShowCard({
               <span className="pitch-engage-count">{comments}</span>
             </button>
           </div>
-          <p>{pitch.tagline}</p>
         </div>
         {hasRevenue ? (
           <div className="pitch-show-meta">

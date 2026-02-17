@@ -4803,25 +4803,25 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 .pitch-engagement-inline {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-  width: fit-content;
+  flex-direction: row;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .pitch-engage-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 160px;
-  padding: 10px 14px;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(0, 0, 0, 0.28);
   color: #fdf8ec;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   backdrop-filter: blur(10px);
@@ -4832,7 +4832,7 @@ html[data-theme="light"] .theme-toggle-thumb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
+  width: 14px;
   opacity: 0.95;
 }
 
