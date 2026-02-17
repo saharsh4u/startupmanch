@@ -14,8 +14,26 @@ const getBearerToken = (request: Request) => {
   return token ?? null;
 };
 
-const adminEmail = "saharashsharma3@gmail.com";
+const ownerFallbackEmail = "saharashsharma3@gmail.com";
 const normalizeEmail = (value: string | null | undefined) => value?.trim().toLowerCase() ?? "";
+
+const parseAllowedOperatorEmails = () => {
+  const raw = process.env.ALLOWED_OPERATOR_EMAILS?.trim();
+  const configured = raw
+    ? raw
+        .split(",")
+        .map((item) => normalizeEmail(item))
+        .filter(Boolean)
+    : [];
+  if (!configured.length) {
+    configured.push(ownerFallbackEmail);
+  }
+  return new Set(configured);
+};
+
+const allowedOperatorEmails = parseAllowedOperatorEmails();
+
+const isAllowedOperatorEmail = (email: string) => allowedOperatorEmails.has(email);
 
 export const getAuthContext = async (request: Request): Promise<AuthContext | null> => {
   const token = getBearerToken(request);
@@ -24,6 +42,10 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) return null;
   const normalizedEmail = normalizeEmail(data.user.email);
+  if (!normalizedEmail || !isAllowedOperatorEmail(normalizedEmail)) {
+    return null;
+  }
+
   const displayName =
     typeof data.user.user_metadata?.full_name === "string"
       ? data.user.user_metadata.full_name
@@ -38,14 +60,13 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
     .single();
 
   if (profileError || !profile) {
-    const role = normalizedEmail === adminEmail ? "admin" : "founder";
     const { data: created, error: createError } = await supabaseAdmin
       .from("profiles")
       .upsert(
         {
           id: data.user.id,
           email: normalizedEmail || null,
-          role,
+          role: "admin",
           display_name: displayName,
         },
         { onConflict: "id" }
@@ -60,16 +81,17 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
     return {
       userId: created.id,
       email: created.email ?? normalizedEmail,
-      role: created.role,
+      role: "admin",
     };
   }
 
   const normalizedProfileEmail = normalizeEmail(profile.email);
-  if (normalizedProfileEmail !== normalizedEmail) {
+  if (normalizedProfileEmail !== normalizedEmail || profile.role !== "admin") {
     await supabaseAdmin
       .from("profiles")
       .update({
         email: normalizedEmail || null,
+        role: "admin",
         display_name: displayName,
       })
       .eq("id", profile.id);
@@ -78,7 +100,7 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
   return {
     userId: profile.id,
     email: normalizedProfileEmail || normalizedEmail,
-    role: profile.role,
+    role: "admin",
   };
 };
 
