@@ -88,6 +88,24 @@ const accentPalette = [
   "#8ad1ff",
 ] as const;
 
+const slotOpenCopyVariants = [
+  {
+    title: "Your startup could be here.",
+    description: "Pitch in 60 seconds. Get discovered.",
+    cta: "Submit Your Pitch",
+  },
+  {
+    title: "Next big idea goes here.",
+    description: "Investors are watching.",
+    cta: "Pitch Now",
+  },
+  {
+    title: "Don't scroll. Pitch.",
+    description: "Pitch in 60 seconds. Get discovered.",
+    cta: "Pitch Now",
+  },
+] as const;
+
 const normalizeCategory = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
 
 const asNumber = (value: unknown) => {
@@ -989,13 +1007,14 @@ export default function PitchFeed() {
     }
 
     const accent = accentForKey(slot.id);
+    const slotCopy = slotOpenCopyVariants[hashString(slot.id) % slotOpenCopyVariants.length];
     const cardClassName = `pitch-slot-open-card${isRefreshingApprovals && !isClone ? " is-refreshing" : ""}${isClone ? " is-clone" : ""}`;
     const cardContent = (
       <>
         <div className="pitch-slot-open-badge">Slot open</div>
-        <h4>Be the next approved pitch</h4>
-        <p>This space fills as soon as a founder submits a new pitch.</p>
-        <span className="pitch-slot-open-action">Upload your pitch</span>
+        <h4>{slotCopy.title}</h4>
+        <p>{slotCopy.description}</p>
+        <span className="pitch-slot-open-action">{slotCopy.cta}</span>
         {SLOT_UPGRADE_ENABLED ? (
           <span className="pitch-slot-countdown">Next shuffle in {formatCountdown(shuffleCountdown)}</span>
         ) : null}
@@ -1021,7 +1040,7 @@ export default function PitchFeed() {
         href="/submit"
         className={cardClassName}
         style={{ ["--slot-accent" as string]: accent }}
-        aria-label="Upload your pitch"
+        aria-label="Submit your pitch"
       >
         {cardContent}
       </Link>
