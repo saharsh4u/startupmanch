@@ -74,8 +74,13 @@ const PENDING_SLOT_MAX = 12;
 const SHUFFLE_WINDOW_SECONDS = 5 * 60;
 const SLOT_REORDER_MIN_MS = 8_000;
 const SLOT_REORDER_MAX_MS = 16_000;
-const ROW_LOOP_BASE_SPEED_PX_PER_SECOND = 24;
-const ROW_LOOP_SPEED_STEP_PX_PER_SECOND = 2.5;
+const ROW_LOOP_DESKTOP_BASE_VELOCITY = 34;
+const ROW_LOOP_DESKTOP_VELOCITY_STEP = 4;
+const ROW_LOOP_MOBILE_BASE_VELOCITY = 26;
+const ROW_LOOP_MOBILE_VELOCITY_STEP = 3;
+const ROW_LOOP_SCROLL_VELOCITY_NORMALIZER = 1400;
+const ROW_LOOP_SCROLL_BOOST_FACTOR = 0.35;
+const ROW_LOOP_SCROLL_BOOST_MAX = 1.4;
 
 const accentPalette = [
   "#42d6ff",
@@ -637,6 +642,10 @@ export default function PitchFeed() {
 
     const widths = new Array(rowTrackRefs.current.length).fill(0);
     const offsets = new Array(rowTrackRefs.current.length).fill(0);
+    const baseVelocity = isMobileViewport ? ROW_LOOP_MOBILE_BASE_VELOCITY : ROW_LOOP_DESKTOP_BASE_VELOCITY;
+    const velocityStep = isMobileViewport
+      ? ROW_LOOP_MOBILE_VELOCITY_STEP
+      : ROW_LOOP_DESKTOP_VELOCITY_STEP;
 
     const measure = () => {
       rowTrackRefs.current.forEach((track, rowIndex) => {
@@ -659,10 +668,30 @@ export default function PitchFeed() {
 
     let rafId = 0;
     let previousTime = performance.now();
+    let lastScrollY = window.scrollY;
+    let lastScrollTime = previousTime;
+    let scrollVelocityPxPerSecond = 0;
+
+    const onScroll = () => {
+      const now = performance.now();
+      const elapsed = Math.max(16, now - lastScrollTime);
+      const nextScrollY = window.scrollY;
+      scrollVelocityPxPerSecond = ((nextScrollY - lastScrollY) / elapsed) * 1000;
+      lastScrollY = nextScrollY;
+      lastScrollTime = now;
+    };
 
     const animate = (now: number) => {
       const elapsed = Math.min(64, now - previousTime);
       previousTime = now;
+      scrollVelocityPxPerSecond *= 0.9;
+
+      const scrollBoost =
+        Math.min(
+          ROW_LOOP_SCROLL_BOOST_MAX,
+          Math.abs(scrollVelocityPxPerSecond) / ROW_LOOP_SCROLL_VELOCITY_NORMALIZER
+        ) * ROW_LOOP_SCROLL_BOOST_FACTOR;
+      const velocityMultiplier = 1 + scrollBoost;
 
       rowTrackRefs.current.forEach((track, rowIndex) => {
         if (!track) return;
@@ -672,7 +701,7 @@ export default function PitchFeed() {
 
         const direction = rowIndex % 2 === 0 ? 1 : -1;
         const rowSpeed =
-          ROW_LOOP_BASE_SPEED_PX_PER_SECOND + (rowIndex % 3) * ROW_LOOP_SPEED_STEP_PX_PER_SECOND;
+          (baseVelocity + (rowIndex % 3) * velocityStep) * velocityMultiplier;
         let nextOffset =
           offsets[rowIndex] + (direction * rowSpeed * elapsed) / 1000;
 
@@ -691,13 +720,15 @@ export default function PitchFeed() {
 
     rafId = window.requestAnimationFrame(animate);
     const onResize = () => measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
 
     return () => {
       window.cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
     };
-  }, [loadingInitial]);
+  }, [isMobileViewport, loadingInitial]);
 
   const filteredWeekPicks = useMemo(
     () => weekPicks.filter((item) => matchesCategory(item, selectedCategory)),
