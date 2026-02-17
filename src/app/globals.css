@@ -6658,3 +6658,49 @@ html[data-theme="light"] .theme-toggle-thumb {
     padding-left: 4px;
   }
 }
+
+@media (min-width: 1500px) {
+  .page {
+    padding-inline: clamp(20px, 2.4vw, 64px);
+  }
+
+  .layout-grid {
+    max-width: min(100%, 2200px);
+    grid-template-columns:
+      minmax(250px, clamp(250px, 15vw, 360px))
+      minmax(0, clamp(960px, 52vw, 1380px))
+      minmax(250px, clamp(250px, 15vw, 360px));
+    gap: clamp(18px, 1.6vw, 36px);
+  }
+
+  .center-panel {
+    gap: clamp(18px, 1.4vw, 28px);
+  }
+
+  .ad-column {
+    gap: 16px;
+  }
+
+  .page-home .pitch-top-grid {
+    gap: clamp(12px, 1vw, 20px);
+  }
+
+  .page-home .pitch-slot-approved,
+  .page-home .pitch-slot-open-card,
+  .page-home .pitch-slot-pending-card {
+    min-width: clamp(220px, 17vw, 320px);
+    width: clamp(220px, 17vw, 320px);
+  }
+
+  .page-home .pitch-slot-open-card,
+  .page-home .pitch-slot-pending-card {
+    min-height: clamp(270px, 24vw, 390px);
+  }
+}
+
+@media (min-width: 2200px) {
+  .layout-grid {
+    max-width: min(100%, 2600px);
+    grid-template-columns: minmax(280px, 390px) minmax(0, 1600px) minmax(280px, 390px);
+  }
+}
