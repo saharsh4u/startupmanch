@@ -80,6 +80,7 @@ export default function RankingsTable() {
           View All →
         </button>
       </div>
+      <p className="rankings-microcopy">Compete for the top spot.</p>
 
       {status === "loading" && !rows.length ? <p className="rankings-state">Loading rankings...</p> : null}
 
