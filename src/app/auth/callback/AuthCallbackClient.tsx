@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { POST_PITCH_FALLBACK_HREF } from "@/lib/post-pitch";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 const sanitizeMessage = (value: string | null) => {
@@ -12,7 +13,7 @@ const sanitizeMessage = (value: string | null) => {
 };
 
 const sanitizeNextPath = (value: string | null) => {
-  if (!value) return "/submit";
+  if (!value) return POST_PITCH_FALLBACK_HREF;
   if (value.startsWith("/")) return value;
 
   try {
@@ -21,10 +22,10 @@ const sanitizeNextPath = (value: string | null) => {
       return `${url.pathname}${url.search}${url.hash}`;
     }
   } catch {
-    return "/submit";
+    return POST_PITCH_FALLBACK_HREF;
   }
 
-  return "/submit";
+  return POST_PITCH_FALLBACK_HREF;
 };
 
 export default function AuthCallbackClient() {
@@ -133,8 +134,8 @@ export default function AuthCallbackClient() {
       </div>
       <p className="submit-error">{errorText ?? "Authentication failed."}</p>
       <div className="submit-actions">
-        <Link href="/submit" className="ghost">
-          Back to submit
+        <Link href={POST_PITCH_FALLBACK_HREF} className="ghost">
+          Back to post pitch
         </Link>
       </div>
     </section>

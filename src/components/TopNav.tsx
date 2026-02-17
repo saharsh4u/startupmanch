@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MouseEvent } from "react";
 import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
+import { POST_PITCH_FALLBACK_HREF, openPostPitchFlow } from "@/lib/post-pitch";
 
 type TopNavProps = {
   context?: "home" | "inner";
@@ -60,16 +61,16 @@ export default function TopNav({
         </div>
         {showPostPitch ? (
           <Link
-            href="/submit"
+            href={POST_PITCH_FALLBACK_HREF}
             className="site-nav-cta"
-            onClick={
-              onPostPitch
-                ? (event) => {
-                    event.preventDefault();
-                    onPostPitch();
-                  }
-                : undefined
-            }
+            onClick={(event) => {
+              event.preventDefault();
+              if (onPostPitch) {
+                onPostPitch();
+                return;
+              }
+              openPostPitchFlow();
+            }}
           >
             Post a Pitch
           </Link>

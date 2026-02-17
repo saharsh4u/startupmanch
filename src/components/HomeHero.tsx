@@ -1,3 +1,5 @@
+import { POST_PITCH_FALLBACK_HREF, openPostPitchFlow } from "@/lib/post-pitch";
+
 type HomeHeroProps = {
   onPostPitch?: () => void;
 };
@@ -25,16 +27,16 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
         </div>
         <div className="hero-action-group hero-action-group-cta">
           <a
-            href="/submit"
+            href={POST_PITCH_FALLBACK_HREF}
             className="hero-btn"
-            onClick={
-              onPostPitch
-                ? (event) => {
-                    event.preventDefault();
-                    onPostPitch();
-                  }
-                : undefined
-            }
+            onClick={(event) => {
+              event.preventDefault();
+              if (onPostPitch) {
+                onPostPitch();
+                return;
+              }
+              openPostPitchFlow();
+            }}
           >
             Post a Pitch
           </a>

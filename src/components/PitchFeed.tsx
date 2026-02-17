@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
 import { pitches as fallbackPitches } from "@/data/pitches";
+import { POST_PITCH_FALLBACK_HREF, openPostPitchFlow } from "@/lib/post-pitch";
 
 type ApiPitch = {
   pitch_id: string;
@@ -1066,15 +1066,19 @@ export default function PitchFeed() {
     }
 
     return (
-      <Link
+      <a
         key={`${slot.id}-row-${rowIndex}-${copy}-${slotIndex}`}
-        href="/submit"
+        href={POST_PITCH_FALLBACK_HREF}
         className={cardClassName}
         style={{ ["--slot-accent" as string]: accent }}
         aria-label="Submit your pitch"
+        onClick={(event) => {
+          event.preventDefault();
+          openPostPitchFlow();
+        }}
       >
         {cardContent}
-      </Link>
+      </a>
     );
   };
 

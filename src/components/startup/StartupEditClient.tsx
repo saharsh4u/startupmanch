@@ -6,6 +6,7 @@ import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import StartupProfileFormFields, { type StartupProfileFieldKey } from "@/components/StartupProfileFormFields";
 import TopNav from "@/components/TopNav";
+import { POST_PITCH_FALLBACK_HREF } from "@/lib/post-pitch";
 import {
   fromStartupRecordToFormValues,
   type StartupProfileFormValues,
@@ -250,8 +251,8 @@ export default function StartupEditClient() {
           <section className="startup-profile-error">
             <h2>Cannot load your startup profiles</h2>
             <p>{error}</p>
-            <Link href="/submit" className="trust-action ghost">
-              Go to submit
+            <Link href={POST_PITCH_FALLBACK_HREF} className="trust-action ghost">
+              Open post pitch form
             </Link>
           </section>
         ) : null}
@@ -260,8 +261,8 @@ export default function StartupEditClient() {
           <section className="startup-profile-error">
             <h2>No startup found for this account</h2>
             <p>Create your first startup by posting a pitch.</p>
-            <Link href="/submit" className="trust-action primary">
-              Post pitch
+            <Link href={POST_PITCH_FALLBACK_HREF} className="trust-action primary">
+              Post a pitch
             </Link>
           </section>
         ) : null}

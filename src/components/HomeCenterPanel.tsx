@@ -8,6 +8,7 @@ import RankingsTable from "@/components/RankingsTable";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
 import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
+import { POST_PITCH_OPEN_EVENT } from "@/lib/post-pitch";
 
 export default function HomeCenterPanel() {
   const [postPitchOpen, setPostPitchOpen] = useState(false);
@@ -48,6 +49,15 @@ export default function HomeCenterPanel() {
     const query = nextParams.toString();
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState(window.history.state, "", nextUrl);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenPostPitch = () => {
+      setPostPitchOpen(true);
+    };
+
+    window.addEventListener(POST_PITCH_OPEN_EVENT, handleOpenPostPitch);
+    return () => window.removeEventListener(POST_PITCH_OPEN_EVENT, handleOpenPostPitch);
   }, []);
 
   useEffect(() => {
