@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { getAuthContext, requireRole } from "@/lib/supabase/auth";
+import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
@@ -32,7 +32,7 @@ const isMissingVideoProcessingColumnError = (message: string | null | undefined)
 };
 
 export async function GET(request: Request) {
-  const authContext = await getAuthContext(request);
+  const authContext = await getOperatorAuthContext(request);
   if (!authContext || !requireRole(authContext, ["admin"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

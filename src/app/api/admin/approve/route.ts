@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getAuthContext, requireRole } from "@/lib/supabase/auth";
+import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 import { approvePitchWithTranscodeGate } from "@/lib/video/mux/approval";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const authContext = await getAuthContext(request);
+  const authContext = await getOperatorAuthContext(request);
   if (!authContext || !requireRole(authContext, ["admin"])) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

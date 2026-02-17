@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ContactModal from "./ContactModal";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 export type PitchShow = {
   id: string;
@@ -36,18 +37,73 @@ export default function PitchShowCard({
 }: PitchShowCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const [localUpvotes, setLocalUpvotes] = useState(0);
+  const [localDownvotes, setLocalDownvotes] = useState(0);
+  const [localComments, setLocalComments] = useState(0);
+  const [engagementBusy, setEngagementBusy] = useState(false);
 
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.muted = true;
   }, [pitch.video]);
 
+  useEffect(() => {
+    setLocalUpvotes(Number.isFinite(Number(pitch.upvotes)) ? Number(pitch.upvotes) : 0);
+    setLocalDownvotes(Number.isFinite(Number(pitch.downvotes)) ? Number(pitch.downvotes) : 0);
+    setLocalComments(Number.isFinite(Number(pitch.comments)) ? Number(pitch.comments) : 0);
+  }, [pitch.comments, pitch.downvotes, pitch.id, pitch.upvotes]);
+
   const label = `Pitch: ${pitch.name}, 60s`;
   const score = Number.isFinite(Number(pitch.score)) ? Number(pitch.score) : 0;
-  const upvotes = Number.isFinite(Number(pitch.upvotes)) ? Number(pitch.upvotes) : 0;
-  const comments = Number.isFinite(Number(pitch.comments)) ? Number(pitch.comments) : 0;
+  const upvotes = localUpvotes;
+  const comments = localComments;
   const hasRevenue = Boolean((pitch.monthlyRevenue ?? "").trim().length);
   const scoreLabel = Number.isInteger(score) ? `${score}` : score.toFixed(1);
+
+  const fetchLatestStats = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/pitches/${pitch.id}/detail`, { cache: "no-store" });
+      if (!res.ok) return;
+      const payload = (await res.json()) as { stats?: { in_count?: number; out_count?: number; comment_count?: number } };
+      const stats = payload?.stats;
+      if (!stats) return;
+      if (typeof stats.in_count === "number") setLocalUpvotes(stats.in_count);
+      if (typeof stats.out_count === "number") setLocalDownvotes(stats.out_count);
+      if (typeof stats.comment_count === "number") setLocalComments(stats.comment_count);
+    } catch {
+      // Non-fatal; leave stale.
+    }
+  }, [pitch.id]);
+
+  const handleVote = useCallback(
+    async (vote: "in" | "out") => {
+      if (engagementBusy) return;
+      setEngagementBusy(true);
+      try {
+        const { data } = await supabaseBrowser.auth.getSession();
+        const token = data.session?.access_token ?? null;
+        if (!token) {
+          // No dedicated login screen yet; opening the overlay nudges them into the app flow.
+          onExpand?.(pitch);
+          return;
+        }
+        const res = await fetch(`/api/pitches/${pitch.id}/vote`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ vote }),
+        });
+        if (res.ok) {
+          await fetchLatestStats();
+        }
+      } finally {
+        setEngagementBusy(false);
+      }
+    },
+    [engagementBusy, fetchLatestStats, onExpand, pitch]
+  );
 
   return (
     <article
@@ -63,6 +119,45 @@ export default function PitchShowCard({
           : undefined
       }
     >
+      <div className="pitch-engagement-rail" aria-label="Engagement controls">
+        <button
+          type="button"
+          className="pitch-engage-btn"
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleVote("in");
+          }}
+          aria-label="Upvote"
+          disabled={!interactive || engagementBusy}
+        >
+          ▲ <span>{upvotes}</span>
+        </button>
+        <button
+          type="button"
+          className="pitch-engage-btn"
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleVote("out");
+          }}
+          aria-label="Downvote"
+          disabled={!interactive || engagementBusy}
+        >
+          ▼ <span>{localDownvotes}</span>
+        </button>
+        <button
+          type="button"
+          className="pitch-engage-btn"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (onExpand) onExpand(pitch);
+            else dialogRef.current?.showModal();
+          }}
+          aria-label="Comments"
+          disabled={!interactive}
+        >
+          💬 <span>{comments}</span>
+        </button>
+      </div>
       {pitch.video ? (
         <video
           ref={videoRef}

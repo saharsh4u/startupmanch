@@ -1101,6 +1101,104 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.expand-engagement {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.expand-engage-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fdf8ec;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.expand-engage-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.expand-engage-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.expand-comments {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.expand-comments-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.expand-comments-header h5 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.expand-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.expand-comment {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.24);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.expand-comment-body {
+  margin: 0;
+  color: #fdf8ec;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.expand-comment-meta {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: rgba(253, 248, 236, 0.65);
+}
+
+.expand-comments-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.expand-comments-form textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fdf8ec;
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+}
+
 .expand-startup {
   display: flex;
   flex-direction: column;
@@ -4701,6 +4799,57 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 .pitch-revenue-chip.is-self-reported {
   color: inherit;
+}
+
+.pitch-engagement-rail {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 4;
+}
+
+.pitch-engage-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 86px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fdf8ec;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.pitch-show-card.is-regular .pitch-engage-btn {
+  border-color: rgba(34, 34, 34, 0.16);
+  background: rgba(239, 230, 222, 0.22);
+  color: rgba(10, 10, 10, 0.92);
+}
+
+.pitch-engage-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pitch-engage-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(0, 0, 0, 0.34);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.pitch-show-card.is-regular .pitch-engage-btn:hover:not(:disabled) {
+  background: rgba(239, 230, 222, 0.3);
+  border-color: rgba(34, 34, 34, 0.22);
 }
 
 @media (max-width: 640px) {

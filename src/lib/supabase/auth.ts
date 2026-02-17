@@ -6,6 +6,8 @@ export type AuthContext = {
   role: "founder" | "investor" | "admin";
 };
 
+const VALID_ROLES = new Set<AuthContext["role"]>(["founder", "investor", "admin"]);
+
 const getBearerToken = (request: Request) => {
   const header = request.headers.get("authorization");
   if (!header) return null;
@@ -35,6 +37,15 @@ const allowedOperatorEmails = parseAllowedOperatorEmails();
 
 const isAllowedOperatorEmail = (email: string) => allowedOperatorEmails.has(email);
 
+const normalizeRole = (value: unknown): AuthContext["role"] => {
+  if (typeof value !== "string") return "founder";
+  const normalized = value.trim().toLowerCase();
+  if (VALID_ROLES.has(normalized as AuthContext["role"])) {
+    return normalized as AuthContext["role"];
+  }
+  return "founder";
+};
+
 export const getAuthContext = async (request: Request): Promise<AuthContext | null> => {
   const token = getBearerToken(request);
   if (!token) return null;
@@ -42,9 +53,7 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) return null;
   const normalizedEmail = normalizeEmail(data.user.email);
-  if (!normalizedEmail || !isAllowedOperatorEmail(normalizedEmail)) {
-    return null;
-  }
+  if (!normalizedEmail) return null;
 
   const displayName =
     typeof data.user.user_metadata?.full_name === "string"
@@ -66,7 +75,7 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
         {
           id: data.user.id,
           email: normalizedEmail || null,
-          role: "admin",
+          role: "founder",
           display_name: displayName,
         },
         { onConflict: "id" }
@@ -81,17 +90,16 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
     return {
       userId: created.id,
       email: created.email ?? normalizedEmail,
-      role: "admin",
+      role: normalizeRole(created.role),
     };
   }
 
   const normalizedProfileEmail = normalizeEmail(profile.email);
-  if (normalizedProfileEmail !== normalizedEmail || profile.role !== "admin") {
+  if (normalizedProfileEmail !== normalizedEmail) {
     await supabaseAdmin
       .from("profiles")
       .update({
         email: normalizedEmail || null,
-        role: "admin",
         display_name: displayName,
       })
       .eq("id", profile.id);
@@ -100,6 +108,25 @@ export const getAuthContext = async (request: Request): Promise<AuthContext | nu
   return {
     userId: profile.id,
     email: normalizedProfileEmail || normalizedEmail,
+    role: normalizeRole(profile.role),
+  };
+};
+
+export const getOperatorAuthContext = async (request: Request): Promise<AuthContext | null> => {
+  const context = await getAuthContext(request);
+  if (!context) return null;
+  const normalizedEmail = normalizeEmail(context.email);
+  if (!normalizedEmail || !isAllowedOperatorEmail(normalizedEmail)) return null;
+
+  if (context.role !== "admin") {
+    await supabaseAdmin
+      .from("profiles")
+      .update({ role: "admin" })
+      .eq("id", context.userId);
+  }
+
+  return {
+    ...context,
     role: "admin",
   };
 };

@@ -5,12 +5,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelEvent } from "react";
 import type { PitchShow } from "./PitchShowCard";
 import RevenueSparkline from "./RevenueSparkline";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Props = {
   pitches: PitchShow[];
   index: number;
   setIndex: (idx: number) => void;
   onClose: () => void;
+};
+
+type PitchComment = {
+  id: string;
+  body: string;
+  parent_id: string | null;
+  created_at: string;
+  user_id: string;
 };
 
 type SocialLinks = {
@@ -89,6 +98,29 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [founderStoryExpanded, setFounderStoryExpanded] = useState(false);
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [engagementError, setEngagementError] = useState<string | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [comments, setComments] = useState<PitchComment[]>([]);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+  const getAccessToken = useCallback(async () => {
+    const { data } = await supabaseBrowser.auth.getSession();
+    return data.session?.access_token ?? null;
+  }, []);
+
+  const refreshDetail = useCallback(async () => {
+    if (!canFetchPitchDetails) return;
+    try {
+      const res = await fetch(`/api/pitches/${pitchId}/detail`, { cache: "no-store" });
+      if (!res.ok) return;
+      const payload = (await res.json()) as PitchDetail;
+      setDetail(payload);
+    } catch {
+      // Keep existing stats if refresh fails.
+    }
+  }, [canFetchPitchDetails, pitchId]);
 
   const pauseCurrentVideo = () => {
     const video = videoRef.current;
@@ -161,6 +193,10 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   useEffect(() => {
     fallbackAttemptedRef.current = false;
+    setEngagementError(null);
+    setCommentsOpen(false);
+    setComments([]);
+    setCommentDraft("");
     setActiveVideoSrc(feedVideoSrc ?? null);
   }, [pitchId, feedVideoSrc]);
 
@@ -234,6 +270,40 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       revenueAbort.abort();
     };
   }, [canFetchPitchDetails, pitchId]);
+
+  useEffect(() => {
+    if (!commentsOpen) return;
+    if (!canFetchPitchDetails) return;
+    const abort = new AbortController();
+    let active = true;
+
+    const loadComments = async () => {
+      setCommentsLoading(true);
+      try {
+        const res = await fetch(`/api/pitches/${pitchId}/comments`, {
+          cache: "no-store",
+          signal: abort.signal,
+        });
+        if (!res.ok) throw new Error("Unable to load comments");
+        const payload = (await res.json()) as { comments?: PitchComment[] };
+        if (!active) return;
+        setComments(Array.isArray(payload.comments) ? payload.comments : []);
+      } catch (err) {
+        if (!active) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setComments([]);
+      } finally {
+        if (!active) return;
+        setCommentsLoading(false);
+      }
+    };
+
+    loadComments();
+    return () => {
+      active = false;
+      abort.abort();
+    };
+  }, [canFetchPitchDetails, commentsOpen, pitchId]);
 
   useEffect(() => {
     if (activeVideoSrc) return;
@@ -336,6 +406,9 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       ? "Reported by founder. Not third-party verified."
       : "No verification source connected";
   const metricAllTime = revenue?.metrics.all_time_revenue ?? null;
+  const inCount = detail?.stats.in_count ?? (Number(pitch.upvotes ?? 0) || 0);
+  const outCount = detail?.stats.out_count ?? (Number(pitch.downvotes ?? 0) || 0);
+  const commentCount = detail?.stats.comment_count ?? (Number(pitch.comments ?? 0) || 0);
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
@@ -361,6 +434,75 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     if (!normalizedWebsite) return;
     window.open(normalizedWebsite, "_blank", "noopener,noreferrer");
   };
+
+  const handleVote = useCallback(
+    async (vote: "in" | "out") => {
+      setEngagementError(null);
+      if (!canFetchPitchDetails) return;
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          setEngagementError("Sign in to vote.");
+          return;
+        }
+        const res = await fetch(`/api/pitches/${pitchId}/vote`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ vote }),
+        });
+        if (!res.ok) {
+          setEngagementError("Unable to vote.");
+          return;
+        }
+        await refreshDetail();
+      } catch {
+        setEngagementError("Unable to vote.");
+      }
+    },
+    [canFetchPitchDetails, getAccessToken, pitchId, refreshDetail]
+  );
+
+  const handleSubmitComment = useCallback(async () => {
+    setEngagementError(null);
+    if (!canFetchPitchDetails) return;
+    const body = commentDraft.trim();
+    if (body.length < 2) return;
+
+    try {
+      setCommentSubmitting(true);
+      const token = await getAccessToken();
+      if (!token) {
+        setEngagementError("Sign in to comment.");
+        return;
+      }
+      const res = await fetch(`/api/pitches/${pitchId}/comments`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ body }),
+      });
+      if (!res.ok) {
+        setEngagementError("Unable to post comment.");
+        return;
+      }
+      const payload = (await res.json()) as { comment?: PitchComment };
+      if (payload?.comment) {
+        setComments((prev) => [...prev, payload.comment as PitchComment]);
+      }
+      setCommentDraft("");
+      setCommentsOpen(true);
+      await refreshDetail();
+    } catch {
+      setEngagementError("Unable to post comment.");
+    } finally {
+      setCommentSubmitting(false);
+    }
+  }, [canFetchPitchDetails, commentDraft, getAccessToken, pitchId, refreshDetail]);
 
   const showVideoFallback = !videoSrc || videoUnavailable;
 
@@ -475,6 +617,77 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               </button>
               {shareFeedback ? <span className="trust-action-feedback">{shareFeedback}</span> : null}
             </div>
+
+            <div className="expand-engagement" aria-label="Pitch engagement">
+              <button
+                type="button"
+                className="expand-engage-btn"
+                onClick={() => void handleVote("in")}
+                disabled={!canFetchPitchDetails}
+                aria-label="Upvote pitch"
+              >
+                ▲ <span>{inCount}</span>
+              </button>
+              <button
+                type="button"
+                className="expand-engage-btn"
+                onClick={() => void handleVote("out")}
+                disabled={!canFetchPitchDetails}
+                aria-label="Downvote pitch"
+              >
+                ▼ <span>{outCount}</span>
+              </button>
+              <button
+                type="button"
+                className="expand-engage-btn"
+                onClick={() => setCommentsOpen((current) => !current)}
+                disabled={!canFetchPitchDetails}
+                aria-label="Toggle comments"
+              >
+                💬 <span>{commentCount}</span>
+              </button>
+            </div>
+
+            {engagementError ? <p className="trust-note error">{engagementError}</p> : null}
+
+            {commentsOpen ? (
+              <div className="expand-comments" aria-label="Comments">
+                <div className="expand-comments-header">
+                  <h5>Comments</h5>
+                  {commentsLoading ? <span className="trust-note">Loading…</span> : null}
+                </div>
+                <div className="expand-comments-list">
+                  {!commentsLoading && comments.length === 0 ? (
+                    <p className="trust-note">No comments yet.</p>
+                  ) : null}
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="expand-comment">
+                      <p className="expand-comment-body">{comment.body}</p>
+                      <p className="expand-comment-meta">
+                        {new Date(comment.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="expand-comments-form">
+                  <textarea
+                    value={commentDraft}
+                    onChange={(e) => setCommentDraft(e.target.value)}
+                    placeholder="Write a comment…"
+                    aria-label="Write a comment"
+                    rows={3}
+                  />
+                  <button
+                    type="button"
+                    className="trust-action secondary"
+                    onClick={() => void handleSubmitComment()}
+                    disabled={commentSubmitting || commentDraft.trim().length < 2}
+                  >
+                    {commentSubmitting ? "Posting…" : "Post comment"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="trust-metric-grid">
               {[
