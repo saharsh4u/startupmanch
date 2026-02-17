@@ -5414,6 +5414,7 @@ html[data-theme="light"] .theme-toggle-thumb {
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
+  user-select: none;
   transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
 }
 

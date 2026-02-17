@@ -266,7 +266,7 @@ const relativeTime = (iso: string | null | undefined) => {
   return `${days}d ago`;
 };
 
-export default function PitchFeed() {
+export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
@@ -1118,6 +1118,10 @@ export default function PitchFeed() {
         onClick={(event) => {
           event.preventDefault();
           pauseRowLoop(rowIndex);
+          if (onPostPitch) {
+            onPostPitch();
+            return;
+          }
           openPostPitchFlow();
         }}
       >

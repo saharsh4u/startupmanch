@@ -71,7 +71,7 @@ export default function HomeCenterPanel() {
       <TopNav context="home" showPostPitch onPostPitch={() => setPostPitchOpen(true)} />
       <HomeHero onPostPitch={() => setPostPitchOpen(true)} />
       <div id="top-rated-block" className="anchor-block">
-        <PitchFeed />
+        <PitchFeed onPostPitch={() => setPostPitchOpen(true)} />
       </div>
       <div id="leaderboard-block" className="anchor-block">
         <RankingsTable />
