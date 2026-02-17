@@ -6661,48 +6661,58 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 /* Global responsive guardrails (final authority) */
 @media (min-width: 1181px) {
-  .page {
-    padding-inline: clamp(10px, 1.3vw, 26px);
+  .page.page-home {
+    padding-inline: clamp(10px, 1.1vw, 24px);
   }
 
-  .layout-grid {
-    width: min(100%, 1880px);
+  .page-home .layout-grid {
+    width: min(100%, 1720px);
+    max-width: none;
     margin-inline: auto;
-    grid-template-columns: minmax(210px, 300px) minmax(0, 1160px) minmax(210px, 300px);
+    grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) minmax(150px, 210px);
     justify-content: center;
-    gap: clamp(12px, 0.95vw, 22px);
+    gap: clamp(10px, 1vw, 18px);
   }
 
-  .center-panel {
+  .page-home .layout-grid > * {
+    min-width: 0;
+  }
+
+  .page-home .center-panel {
     width: 100%;
-    max-width: 1160px;
+    max-width: none;
     margin-inline: auto;
     gap: 20px;
   }
 
-  .ad-column {
-    gap: 14px;
+  .page-home .ad-column {
+    gap: 12px;
+  }
+
+  .page-home .ad-slot {
+    height: clamp(96px, 7.2vw, 114px);
   }
 }
 
-@media (min-width: 1700px) {
-  .layout-grid {
-    width: min(100%, 2080px);
-    grid-template-columns: minmax(220px, 330px) minmax(0, 1220px) minmax(220px, 330px);
+@media (min-width: 1500px) {
+  .page-home .layout-grid {
+    width: min(100%, 1940px);
+    grid-template-columns: minmax(170px, 250px) minmax(0, 1fr) minmax(170px, 250px);
+    gap: clamp(12px, 1.1vw, 22px);
   }
 
-  .center-panel {
-    max-width: 1220px;
+  .page-home .ad-slot {
+    height: clamp(100px, 6.4vw, 116px);
   }
 }
 
-@media (min-width: 2400px) {
-  .layout-grid {
-    width: min(100%, 2320px);
-    grid-template-columns: minmax(230px, 360px) minmax(0, 1280px) minmax(230px, 360px);
+@media (min-width: 2100px) {
+  .page-home .layout-grid {
+    width: min(100%, 2260px);
+    grid-template-columns: minmax(190px, 280px) minmax(0, 1fr) minmax(190px, 280px);
   }
 
-  .center-panel {
-    max-width: 1280px;
+  .page-home .center-panel {
+    max-width: 1480px;
   }
 }

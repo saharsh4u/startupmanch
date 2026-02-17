@@ -61,6 +61,16 @@ type FeedPitch = PitchShow & {
   founderStory: string | null;
 };
 
+type FeedCacheSnapshot = {
+  version: 1;
+  savedAt: number;
+  items: FeedPitch[];
+  weekPicks: FeedPitch[];
+  fixedTopPitches: FeedPitch[] | null;
+  availableCategories: string[];
+  nextShuffleAtMs: number | null;
+};
+
 type SlotFilter = "all" | "approved" | "open";
 type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: string };
 
@@ -71,6 +81,8 @@ const ROW_SIZE = 5;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
+const FEED_CACHE_TTL_MS = 15 * 60 * 1000;
+const FEED_CACHE_KEY_PREFIX = "pitch-feed-cache-v1";
 const SHUFFLE_WINDOW_SECONDS = 5 * 60;
 const SLOT_REORDER_MIN_MS = 8_000;
 const SLOT_REORDER_MAX_MS = 16_000;
@@ -304,6 +316,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [focusedPreviewPitchId, setFocusedPreviewPitchId] = useState<string | null>(null);
   const [visiblePreviewPitchIds, setVisiblePreviewPitchIds] = useState<Set<string>>(new Set());
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const cacheKey = useMemo(
+    () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
+    [selectedCategory]
+  );
 
   const fallback = useMemo<FeedPitch[]>(
     () =>
@@ -360,92 +376,58 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
   const loadSectionData = useCallback(
     async (signal: AbortSignal, options?: { refreshOnly?: boolean }) => {
-      const fetchFeedPages = async () => {
-        const feedData: ApiPitch[] = [];
-        let nextShuffleAt: string | null = null;
-        const seenPageKeys = new Set<string>();
-        let pageIndex = 0;
+      const fetchInitialFeedPage = async () => {
+        const feedPath = buildPitchFeedPath({
+          mode: "feed",
+          selectedCategory,
+          limit: FEED_PAGE_SIZE,
+          offset: 0,
+          shuffle: true,
+        });
 
-        while (true) {
-          const offset = pageIndex * FEED_PAGE_SIZE;
-          const feedPath = buildPitchFeedPath({
-            mode: "feed",
-            selectedCategory,
-            limit: FEED_PAGE_SIZE,
-            offset,
-            shuffle: true,
-          });
-          const response = await fetch(feedPath, {
-            cache: "no-store",
-            signal,
-          });
+        const response = await fetch(feedPath, {
+          cache: "no-store",
+          signal,
+        });
 
-          if (!response.ok) {
-            if (pageIndex === 0) {
-              throw new Error("Unable to load pitches.");
-            }
-            break;
-          }
-
-          const payload = (await response.json()) as FeedResponsePayload;
-          const page = (payload.data ?? []) as ApiPitch[];
-          if (typeof payload.next_shuffle_at === "string") {
-            nextShuffleAt = payload.next_shuffle_at;
-          }
-
-          if (!page.length) {
-            break;
-          }
-
-          const pageKey = page.map((item) => item.pitch_id).join(",");
-          if (pageKey && seenPageKeys.has(pageKey)) {
-            break;
-          }
-          if (pageKey) {
-            seenPageKeys.add(pageKey);
-          }
-
-          feedData.push(...page);
-          pageIndex += 1;
-
-          if (page.length < FEED_PAGE_SIZE) {
-            break;
-          }
+        if (!response.ok) {
+          throw new Error("Unable to load pitches.");
         }
 
+        const payload = (await response.json()) as FeedResponsePayload;
+
         return {
-          data: feedData,
-          nextShuffleAt,
+          data: (payload.data ?? []) as ApiPitch[],
+          nextShuffleAt:
+            typeof payload.next_shuffle_at === "string" ? payload.next_shuffle_at : null,
         };
       };
 
-      const [weekRes, feedPayload, teaserRes] = await Promise.all([
-        fetch(
-          buildPitchFeedPath({
-            mode: "week",
-            selectedCategory,
-            limit: 4,
-            minVotes: 10,
-          }),
-          {
-            cache: "no-store",
-            signal,
-          }
-        ),
-        fetchFeedPages(),
-        SLOT_UPGRADE_ENABLED
-          ? fetch("/api/pitches/teasers", { cache: "no-store", signal })
-          : Promise.resolve(null),
-      ]);
+      const weekPromise = fetch(
+        buildPitchFeedPath({
+          mode: "week",
+          selectedCategory,
+          limit: 4,
+          minVotes: 10,
+        }),
+        {
+          cache: "no-store",
+          signal,
+        }
+      )
+        .then(async (response) => {
+          if (!response.ok) return null;
+          return (await response.json()) as FeedResponsePayload;
+        })
+        .catch(() => null);
 
-      if (!weekRes.ok && feedPayload.data.length === 0) {
-        throw new Error("Unable to load pitches.");
+      const feedPayload = await fetchInitialFeedPage();
+
+      if (!feedPayload.data.length) {
+        setWeekPicks([]);
       }
 
-      const weekPayload = (weekRes.ok ? await weekRes.json() : null) as FeedResponsePayload | null;
-      const teaserPayload = teaserRes && teaserRes.ok ? await teaserRes.json() : null;
-
-      const weekData = (weekPayload?.data ?? []) as ApiPitch[];
+      const weekData: ApiPitch[] = [];
       const feedData = feedPayload.data;
       const discoveredCategories = Array.from(
         new Set(
@@ -484,18 +466,74 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         setFixedTopPitches(initialTopPitches);
       }
 
-      if (SLOT_UPGRADE_ENABLED && teaserPayload) {
-        const approved = ((teaserPayload.approved ?? []) as TeaserApproved[])
-          .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
-          .slice(0, 8);
+      void weekPromise.then((weekPayload) => {
+        if (!weekPayload || signal.aborted) return;
 
-        const pending = ((teaserPayload.pending ?? []) as TeaserPending[])
-          .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
-          .slice(0, PENDING_SLOT_MAX);
+        const asyncWeekData = (weekPayload.data ?? []) as ApiPitch[];
+        const asyncDiscoveredCategories = Array.from(
+          new Set(
+            asyncWeekData
+              .map((item) => (item.category ?? "").trim())
+              .filter((item) => item.length > 0)
+          )
+        ).sort((left, right) => left.localeCompare(right));
 
-        setApprovedTeasers(approved);
-        setPendingTeasers(pending);
+        if (asyncDiscoveredCategories.length) {
+          setAvailableCategories((current) => {
+            const merged = Array.from(
+              new Set([...current, ...asyncDiscoveredCategories].map((item) => item.trim()).filter(Boolean))
+            ).sort((left, right) => left.localeCompare(right));
+            if (
+              merged.length === current.length &&
+              merged.every((item, index) => item === current[index])
+            ) {
+              return current;
+            }
+            return merged;
+          });
+        }
 
+        const asyncMappedWeek = asyncWeekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
+        const asyncFilteredWeek = asyncMappedWeek.filter((item) => matchesCategory(item, selectedCategory));
+        const asyncWeekIds = new Set(asyncFilteredWeek.map((item) => item.id));
+        const asyncFilteredFeed = dedupePitches(
+          mappedFeed
+            .filter((item) => matchesCategory(item, selectedCategory))
+            .filter((item) => !asyncWeekIds.has(item.id))
+        );
+        const asyncBaseFeed = asyncFilteredFeed.length ? asyncFilteredFeed : filteredFallback;
+        const asyncTopPitches = buildTopPitches(asyncFilteredWeek, asyncBaseFeed, filteredFallback);
+
+        setWeekPicks(asyncFilteredWeek);
+        setItems(asyncFilteredFeed);
+        if (!options?.refreshOnly) {
+          setFixedTopPitches(asyncTopPitches);
+        }
+      });
+
+      if (SLOT_UPGRADE_ENABLED) {
+        void fetch("/api/pitches/teasers", { cache: "no-store", signal })
+          .then(async (response) => {
+            if (!response.ok) return null;
+            return response.json();
+          })
+          .then((teaserPayload) => {
+            if (!teaserPayload || signal.aborted) return;
+
+            const approved = ((teaserPayload.approved ?? []) as TeaserApproved[])
+              .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
+              .slice(0, 8);
+
+            const pending = ((teaserPayload.pending ?? []) as TeaserPending[])
+              .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
+              .slice(0, PENDING_SLOT_MAX);
+
+            setApprovedTeasers(approved);
+            setPendingTeasers(pending);
+          })
+          .catch(() => {
+            // Keep existing teasers on transient failures.
+          });
       }
 
       if (typeof feedPayload.nextShuffleAt === "string") {
@@ -512,19 +550,64 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
   useEffect(() => {
     let active = true;
+    let hydratedFromCache = false;
 
     initialAbortRef.current?.abort();
     const controller = new AbortController();
     initialAbortRef.current = controller;
 
-    setLoaded(false);
     setLoadError(null);
-    setLoadingInitial(true);
-    setItems([]);
-    setWeekPicks([]);
-    setFixedTopPitches(null);
     setOverlayPitches([]);
     setExpandedIndex(null);
+
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.sessionStorage.getItem(cacheKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<FeedCacheSnapshot>;
+          const isFresh =
+            typeof parsed.savedAt === "number" && Date.now() - parsed.savedAt < FEED_CACHE_TTL_MS;
+          const hasFeedArrays = Array.isArray(parsed.items) && Array.isArray(parsed.weekPicks);
+
+          if (isFresh && hasFeedArrays) {
+            hydratedFromCache = true;
+            setItems(parsed.items as FeedPitch[]);
+            setWeekPicks(parsed.weekPicks as FeedPitch[]);
+            setFixedTopPitches(
+              Array.isArray(parsed.fixedTopPitches) ? (parsed.fixedTopPitches as FeedPitch[]) : null
+            );
+            setAvailableCategories(
+              Array.isArray(parsed.availableCategories)
+                ? parsed.availableCategories.filter(
+                    (item): item is string => typeof item === "string" && item.trim().length > 0
+                  )
+                : []
+            );
+
+            const cachedNextShuffleAtMs =
+              typeof parsed.nextShuffleAtMs === "number" ? parsed.nextShuffleAtMs : null;
+            setNextShuffleAtMs(cachedNextShuffleAtMs);
+            if (cachedNextShuffleAtMs) {
+              setShuffleCountdown(Math.max(0, Math.ceil((cachedNextShuffleAtMs - Date.now()) / 1000)));
+            }
+            setLoaded(true);
+            setLoadingInitial(false);
+          } else {
+            window.sessionStorage.removeItem(cacheKey);
+          }
+        }
+      } catch {
+        // Ignore cache parsing/storage errors.
+      }
+    }
+
+    if (!hydratedFromCache) {
+      setLoaded(false);
+      setLoadingInitial(true);
+      setItems([]);
+      setWeekPicks([]);
+      setFixedTopPitches(null);
+    }
 
     const loadInitialData = async () => {
       try {
@@ -532,6 +615,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       } catch (error) {
         const message = getErrorMessage(error);
         if (!active || !message) return;
+        if (hydratedFromCache) {
+          setLoadError(message);
+          return;
+        }
 
         const fallbackTopPitches = buildTopPitches([], filteredFallback, filteredFallback);
         setWeekPicks([]);
@@ -551,7 +638,28 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       active = false;
       controller.abort();
     };
-  }, [filteredFallback, loadSectionData]);
+  }, [cacheKey, filteredFallback, loadSectionData]);
+
+  useEffect(() => {
+    if (loadingInitial) return;
+    if (typeof window === "undefined") return;
+
+    const snapshot: FeedCacheSnapshot = {
+      version: 1,
+      savedAt: Date.now(),
+      items,
+      weekPicks,
+      fixedTopPitches,
+      availableCategories,
+      nextShuffleAtMs,
+    };
+
+    try {
+      window.sessionStorage.setItem(cacheKey, JSON.stringify(snapshot));
+    } catch {
+      // Ignore storage quota/privacy failures.
+    }
+  }, [availableCategories, cacheKey, fixedTopPitches, items, loadingInitial, nextShuffleAtMs, weekPicks]);
 
   useEffect(() => {
     if (!SLOT_UPGRADE_ENABLED || loadingInitial || !nextShuffleAtMs) return;
