@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
+import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
 
 export const runtime = "nodejs";
@@ -346,7 +347,15 @@ export async function GET(request: Request) {
   });
 
   if (shuffleWindow) {
-    response.headers.set("Cache-Control", "public, s-maxage=240, stale-while-revalidate=30");
+    applyPublicEdgeCache(response, {
+      sMaxAgeSeconds: 240,
+      staleWhileRevalidateSeconds: 30,
+    });
+  } else {
+    applyPublicEdgeCache(response, {
+      sMaxAgeSeconds: 60,
+      staleWhileRevalidateSeconds: 300,
+    });
   }
 
   return response;

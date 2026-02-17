@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
 
 export const runtime = "nodejs";
@@ -153,9 +154,14 @@ export async function GET() {
     })
   );
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     approved,
     pending,
     server_time: new Date().toISOString(),
   });
+  applyPublicEdgeCache(response, {
+    sMaxAgeSeconds: 45,
+    staleWhileRevalidateSeconds: 180,
+  });
+  return response;
 }
