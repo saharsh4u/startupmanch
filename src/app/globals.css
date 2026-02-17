@@ -5370,10 +5370,97 @@ html[data-theme="light"] .theme-toggle-thumb {
   pointer-events: none;
 }
 
-.pitch-row.is-loading {
+.pitch-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pitch-column {
+  position: relative;
+  height: clamp(420px, 64vh, 760px);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 6%, #000 94%, transparent 100%);
+}
+
+.pitch-column-track {
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+  will-change: transform;
+  animation: pitchColumnScrollUp 34s linear infinite;
+}
+
+.pitch-column.is-down .pitch-column-track {
+  animation-name: pitchColumnScrollDown;
+}
+
+.pitch-column:hover .pitch-column-track,
+.pitch-column:focus-within .pitch-column-track {
+  animation-play-state: paused;
+}
+
+.pitch-column-segment {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pitch-column.is-loading {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   pointer-events: none;
+}
+
+@keyframes pitchColumnScrollUp {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+@keyframes pitchColumnScrollDown {
+  from {
+    transform: translate3d(0, -50%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (max-width: 1120px) {
+  .pitch-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .pitch-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .pitch-column {
+    height: auto;
+    mask-image: none;
+  }
+
+  .pitch-column-track {
+    animation: none;
+  }
+
+  .pitch-column-segment.is-clone {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pitch-column-track {
+    animation: none;
+    transform: none !important;
+  }
 }
 
 .slot-controls {
@@ -5480,6 +5567,13 @@ html[data-theme="light"] .theme-toggle-thumb {
   font-size: 0.73rem;
   color: var(--muted);
   line-height: 1.35;
+}
+
+.pitch-columns .pitch-slot-approved,
+.pitch-columns .pitch-slot-open-card,
+.pitch-columns .pitch-slot-pending-card {
+  min-width: 0;
+  width: 100%;
 }
 
 .pitch-slot-approved {

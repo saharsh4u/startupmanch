@@ -78,6 +78,7 @@ const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
 const FEED_PAGE_SIZE = 50;
 const ROW_SIZE = 5;
+const MORE_PITCH_COLUMN_COUNT = 3;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
@@ -86,13 +87,6 @@ const FEED_CACHE_KEY_PREFIX = "pitch-feed-cache-v1";
 const SHUFFLE_WINDOW_SECONDS = 5 * 60;
 const SLOT_REORDER_MIN_MS = 8_000;
 const SLOT_REORDER_MAX_MS = 16_000;
-const ROW_LOOP_DESKTOP_BASE_VELOCITY = 34;
-const ROW_LOOP_DESKTOP_VELOCITY_STEP = 4;
-const ROW_LOOP_MOBILE_BASE_VELOCITY = 26;
-const ROW_LOOP_MOBILE_VELOCITY_STEP = 3;
-const ROW_LOOP_SCROLL_VELOCITY_NORMALIZER = 1400;
-const ROW_LOOP_SCROLL_BOOST_FACTOR = 0.35;
-const ROW_LOOP_SCROLL_BOOST_MAX = 1.4;
 
 const accentPalette = [
   "#42d6ff",
@@ -150,13 +144,13 @@ const dedupePitches = (items: FeedPitch[]) => {
   return deduped;
 };
 
-const chunkBySize = <T,>(items: T[], size: number) => {
-  if (size <= 0) return [];
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
+const distributeByColumn = <T,>(items: T[], columns: number) => {
+  const count = Math.max(1, columns);
+  const groups = Array.from({ length: count }, () => [] as T[]);
+  items.forEach((item, index) => {
+    groups[index % count].push(item);
+  });
+  return groups;
 };
 
 const createSeededRandom = (seed: number) => {
@@ -283,9 +277,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
   const shuffleRefreshLockRef = useRef(false);
-  const rowTrackRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const pausedRowIndexesRef = useRef<Set<number>>(new Set());
-  const rowResumeTimersRef = useRef<Record<number, number>>({});
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -711,46 +702,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
-  const setRowTrackRef = useCallback((rowIndex: number, node: HTMLDivElement | null) => {
-    rowTrackRefs.current[rowIndex] = node;
-  }, []);
-
-  const pauseRowLoop = useCallback((rowIndex: number) => {
-    const timer = rowResumeTimersRef.current[rowIndex];
-    if (timer) {
-      window.clearTimeout(timer);
-      delete rowResumeTimersRef.current[rowIndex];
-    }
-    pausedRowIndexesRef.current.add(rowIndex);
-  }, []);
-
-  const resumeRowLoop = useCallback((rowIndex: number) => {
-    pausedRowIndexesRef.current.delete(rowIndex);
-  }, []);
-
-  const resumeRowLoopSoon = useCallback(
-    (rowIndex: number, delayMs = 200) => {
-      const timer = rowResumeTimersRef.current[rowIndex];
-      if (timer) {
-        window.clearTimeout(timer);
-      }
-      rowResumeTimersRef.current[rowIndex] = window.setTimeout(() => {
-        resumeRowLoop(rowIndex);
-        delete rowResumeTimersRef.current[rowIndex];
-      }, delayMs);
-    },
-    [resumeRowLoop]
-  );
-
-  useEffect(
-    () => () => {
-      Object.values(rowResumeTimersRef.current).forEach((timer) => window.clearTimeout(timer));
-      rowResumeTimersRef.current = {};
-      pausedRowIndexesRef.current.clear();
-    },
-    []
-  );
-
   useEffect(() => {
     if (loadingInitial) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -776,106 +727,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     };
   }, [loadingInitial]);
 
-  useEffect(() => {
-    if (loadingInitial) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      rowTrackRefs.current.forEach((track) => {
-        if (!track) return;
-        track.style.transform = "translate3d(0px, 0px, 0px)";
-      });
-      return;
-    }
-
-    const widths = new Array(rowTrackRefs.current.length).fill(0);
-    const offsets = new Array(rowTrackRefs.current.length).fill(0);
-    const baseVelocity = isMobileViewport ? ROW_LOOP_MOBILE_BASE_VELOCITY : ROW_LOOP_DESKTOP_BASE_VELOCITY;
-    const velocityStep = isMobileViewport
-      ? ROW_LOOP_MOBILE_VELOCITY_STEP
-      : ROW_LOOP_DESKTOP_VELOCITY_STEP;
-
-    const measure = () => {
-      rowTrackRefs.current.forEach((track, rowIndex) => {
-        if (!track) return;
-        const segment = track.querySelector<HTMLElement>('[data-row-segment="primary"]');
-        const width = segment?.offsetWidth ?? 0;
-        if (width <= 0) return;
-        widths[rowIndex] = width;
-
-        const currentOffset = offsets[rowIndex];
-        if (!Number.isFinite(currentOffset) || currentOffset > 0 || currentOffset < -width) {
-          offsets[rowIndex] = -Math.random() * width;
-          return;
-        }
-        offsets[rowIndex] = Math.max(-width, Math.min(0, currentOffset));
-      });
-    };
-
-    measure();
-
-    let rafId = 0;
-    let previousTime = performance.now();
-    let lastScrollY = window.scrollY;
-    let lastScrollTime = previousTime;
-    let scrollVelocityPxPerSecond = 0;
-
-    const onScroll = () => {
-      const now = performance.now();
-      const elapsed = Math.max(16, now - lastScrollTime);
-      const nextScrollY = window.scrollY;
-      scrollVelocityPxPerSecond = ((nextScrollY - lastScrollY) / elapsed) * 1000;
-      lastScrollY = nextScrollY;
-      lastScrollTime = now;
-    };
-
-    const animate = (now: number) => {
-      const elapsed = Math.min(64, now - previousTime);
-      previousTime = now;
-      scrollVelocityPxPerSecond *= 0.9;
-
-      const scrollBoost =
-        Math.min(
-          ROW_LOOP_SCROLL_BOOST_MAX,
-          Math.abs(scrollVelocityPxPerSecond) / ROW_LOOP_SCROLL_VELOCITY_NORMALIZER
-        ) * ROW_LOOP_SCROLL_BOOST_FACTOR;
-      const velocityMultiplier = 1 + scrollBoost;
-
-      rowTrackRefs.current.forEach((track, rowIndex) => {
-        if (!track) return;
-        if (pausedRowIndexesRef.current.has(rowIndex)) return;
-
-        const rowWidth = widths[rowIndex];
-        if (!rowWidth) return;
-
-        const direction = rowIndex % 2 === 0 ? 1 : -1;
-        const rowSpeed =
-          (baseVelocity + (rowIndex % 3) * velocityStep) * velocityMultiplier;
-        let nextOffset =
-          offsets[rowIndex] + (direction * rowSpeed * elapsed) / 1000;
-
-        if (direction === 1 && nextOffset > 0) {
-          nextOffset -= rowWidth;
-        } else if (direction === -1 && nextOffset < -rowWidth) {
-          nextOffset += rowWidth;
-        }
-
-        offsets[rowIndex] = nextOffset;
-        track.style.transform = `translate3d(${nextOffset}px, 0px, 0px)`;
-      });
-
-      rafId = window.requestAnimationFrame(animate);
-    };
-
-    rafId = window.requestAnimationFrame(animate);
-    const onResize = () => measure();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [isMobileViewport, loadingInitial]);
 
   const filteredWeekPicks = useMemo(
     () => weekPicks.filter((item) => matchesCategory(item, selectedCategory)),
@@ -945,7 +796,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     return shuffleItems(slots, slotShuffleSeed);
   }, [approvedVisible, slotFilter, slotShuffleSeed]);
 
-  const rowGroups = useMemo(() => chunkBySize(rowSlots, ROW_SIZE), [rowSlots]);
+  const columnGroups = useMemo(() => {
+    const distributed = distributeByColumn(rowSlots, MORE_PITCH_COLUMN_COUNT);
+    return distributed.map((column, columnIndex) => {
+      if (column.length) return column;
+      return [{ type: "open" as const, id: `placeholder-column-${columnIndex + 1}` }];
+    });
+  }, [rowSlots]);
 
   const expandedList = useMemo(() => [...topPitches, ...approvedMorePitches], [approvedMorePitches, topPitches]);
   const hasVisiblePitches = topPitches.length > 0 || approvedMorePitches.length > 0;
@@ -1044,7 +901,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     elements.forEach((element) => observer.observe(element));
 
     return () => observer.disconnect();
-  }, [isMobileViewport, rowGroups]);
+  }, [columnGroups, isMobileViewport]);
 
   useEffect(() => {
     topPitches.forEach((pitch) => {
@@ -1219,13 +1076,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         className={cardClassName}
         style={{ ["--slot-accent" as string]: accent }}
         aria-label="Submit your pitch"
-        onPointerDown={() => pauseRowLoop(rowIndex)}
-        onPointerUp={() => resumeRowLoopSoon(rowIndex, 220)}
-        onPointerCancel={() => resumeRowLoopSoon(rowIndex, 120)}
-        onBlur={() => resumeRowLoopSoon(rowIndex, 80)}
         onClick={(event) => {
           event.preventDefault();
-          pauseRowLoop(rowIndex);
           if (onPostPitch) {
             onPostPitch();
             return;
@@ -1364,49 +1216,40 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               </>
             ) : null}
 
-            <div className="pitch-rows">
+            <div className="pitch-columns">
               {loadingInitial
-                ? Array.from({ length: INITIAL_SKELETON_ROWS }, (_, rowIndex) => (
-                    <div key={`initial-loading-row-${rowIndex}`} className="pitch-row is-loading" aria-hidden="true">
-                      {Array.from({ length: ROW_SIZE }, (_, cardIndex) => (
+                ? Array.from({ length: MORE_PITCH_COLUMN_COUNT }, (_, columnIndex) => (
+                    <div
+                      key={`initial-loading-column-${columnIndex}`}
+                      className="pitch-column is-loading"
+                      aria-hidden="true"
+                    >
+                      {Array.from({ length: INITIAL_SKELETON_ROWS + 1 }, (_, cardIndex) => (
                         <article
-                          key={`initial-loading-card-${rowIndex}-${cardIndex}`}
+                          key={`initial-loading-card-${columnIndex}-${cardIndex}`}
                           className="pitch-show-card row skeleton"
                         />
                       ))}
                     </div>
                   ))
-                : rowGroups.map((group, rowIndex) => (
+                : columnGroups.map((group, columnIndex) => (
                     <div
-                      key={`row-group-${rowIndex}`}
-                      className={`pitch-row ${rowIndex % 2 === 0 ? "is-forward" : "is-reverse"}`}
-                      onMouseEnter={() => pauseRowLoop(rowIndex)}
-                      onMouseLeave={() => resumeRowLoopSoon(rowIndex, 120)}
-                      onTouchStart={() => pauseRowLoop(rowIndex)}
-                      onTouchEnd={() => resumeRowLoopSoon(rowIndex, 260)}
-                      onTouchCancel={() => resumeRowLoopSoon(rowIndex, 120)}
-                      onFocusCapture={() => pauseRowLoop(rowIndex)}
-                      onBlurCapture={(event) => {
-                        const relatedTarget = event.relatedTarget;
-                        if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) {
-                          return;
-                        }
-                        resumeRowLoopSoon(rowIndex, 80);
-                      }}
+                      key={`column-group-${columnIndex}`}
+                      className={`pitch-column ${columnIndex % 2 === 0 ? "is-up" : "is-down"}`}
                     >
-                      <div className="pitch-row-track" ref={(node) => setRowTrackRef(rowIndex, node)}>
-                        <div className="pitch-row-segment" data-row-segment="primary">
+                      <div className="pitch-column-track">
+                        <div className="pitch-column-segment" data-column-segment="primary">
                           {group.map((slot, slotIndex) =>
-                            renderRowSlot(slot, rowIndex, slotIndex, "primary")
+                            renderRowSlot(slot, columnIndex, slotIndex, "primary")
                           )}
                         </div>
                         <div
-                          className="pitch-row-segment is-clone"
-                          data-row-segment="clone"
+                          className="pitch-column-segment is-clone"
+                          data-column-segment="clone"
                           aria-hidden="true"
                         >
                           {group.map((slot, slotIndex) =>
-                            renderRowSlot(slot, rowIndex, slotIndex, "clone")
+                            renderRowSlot(slot, columnIndex, slotIndex, "clone")
                           )}
                         </div>
                       </div>
