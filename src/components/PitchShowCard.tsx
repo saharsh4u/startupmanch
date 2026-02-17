@@ -119,45 +119,6 @@ export default function PitchShowCard({
           : undefined
       }
     >
-      <div className="pitch-engagement-rail" aria-label="Engagement controls">
-        <button
-          type="button"
-          className="pitch-engage-btn"
-          onClick={(event) => {
-            event.stopPropagation();
-            void handleVote("in");
-          }}
-          aria-label="Upvote"
-          disabled={!interactive || engagementBusy}
-        >
-          ▲ <span>{upvotes}</span>
-        </button>
-        <button
-          type="button"
-          className="pitch-engage-btn"
-          onClick={(event) => {
-            event.stopPropagation();
-            void handleVote("out");
-          }}
-          aria-label="Downvote"
-          disabled={!interactive || engagementBusy}
-        >
-          ▼ <span>{localDownvotes}</span>
-        </button>
-        <button
-          type="button"
-          className="pitch-engage-btn"
-          onClick={(event) => {
-            event.stopPropagation();
-            if (onExpand) onExpand(pitch);
-            else dialogRef.current?.showModal();
-          }}
-          aria-label="Comments"
-          disabled={!interactive}
-        >
-          💬 <span>{comments}</span>
-        </button>
-      </div>
       {pitch.video ? (
         <video
           ref={videoRef}
@@ -190,6 +151,48 @@ export default function PitchShowCard({
         </div>
         <div className="pitch-show-text">
           <h4>{pitch.name}</h4>
+          <div className="pitch-engagement-inline" aria-label="Engagement controls">
+            <button
+              type="button"
+              className="pitch-engage-btn"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleVote("in");
+              }}
+              aria-label="Upvote"
+              disabled={!interactive || engagementBusy}
+            >
+              <span className="pitch-engage-icon">▲</span>
+              <span className="pitch-engage-count">{upvotes}</span>
+            </button>
+            <button
+              type="button"
+              className="pitch-engage-btn"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleVote("out");
+              }}
+              aria-label="Downvote"
+              disabled={!interactive || engagementBusy}
+            >
+              <span className="pitch-engage-icon">▼</span>
+              <span className="pitch-engage-count">{localDownvotes}</span>
+            </button>
+            <button
+              type="button"
+              className="pitch-engage-btn"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (onExpand) onExpand(pitch);
+                else dialogRef.current?.showModal();
+              }}
+              aria-label="Comments"
+              disabled={!interactive}
+            >
+              <span className="pitch-engage-icon">💬</span>
+              <span className="pitch-engage-count">{comments}</span>
+            </button>
+          </div>
           <p>{pitch.tagline}</p>
         </div>
         {hasRevenue ? (

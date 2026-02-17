@@ -4801,14 +4801,12 @@ html[data-theme="light"] .theme-toggle-thumb {
   color: inherit;
 }
 
-.pitch-engagement-rail {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+.pitch-engagement-inline {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  z-index: 4;
+  gap: 10px;
+  margin-top: 12px;
+  width: fit-content;
 }
 
 .pitch-engage-btn {
@@ -4816,18 +4814,30 @@ html[data-theme="light"] .theme-toggle-thumb {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 86px;
-  padding: 8px 10px;
+  width: 160px;
+  padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(0, 0, 0, 0.28);
   color: #fdf8ec;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   backdrop-filter: blur(10px);
   transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.pitch-engage-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  opacity: 0.95;
+}
+
+.pitch-engage-count {
+  font-variant-numeric: tabular-nums;
 }
 
 .pitch-show-card.is-regular .pitch-engage-btn {
