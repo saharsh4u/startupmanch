@@ -11,7 +11,7 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
         <span className="brand-star">✦</span>
         <span>StartupManch</span>
       </div>
-      <h1>Find Next Startup Through Real Pitches</h1>
+      <h1>India&apos;s Startup Marketplace for Founders &amp; Investors</h1>
       <p className="hero-subline">Without a Pitch, It&apos;s Just an Idea</p>
       <div className="hero-actions">
         <div className="hero-action-group hero-action-group-search">
