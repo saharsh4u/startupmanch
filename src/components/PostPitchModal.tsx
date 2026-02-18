@@ -8,6 +8,7 @@ import {
   toStartupApiPayload,
   type StartupProfileFormValues,
 } from "@/lib/startups/form";
+import { trackEvent } from "@/lib/analytics/events";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type PostPitchModalProps = {
@@ -214,6 +215,11 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   useEffect(() => {
     if (!open) return;
     loadDraft();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    trackEvent("post_pitch_open", { source: "modal" });
   }, [open]);
 
   useEffect(() => {
@@ -449,6 +455,9 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
 
   const handleSubmit = async () => {
     setSubmitMessage(null);
+    trackEvent("post_pitch_submit_attempt", {
+      revenue_mode: revenueMode,
+    });
     if (!isAuthed) {
       setSubmitStatus("error");
       setSubmitMessage("Sign in to submit your pitch.");
@@ -598,6 +607,9 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
       setDraftReady(false);
       setSubmitStatus("done");
       setSubmitMessage(SUCCESS_MESSAGE);
+      trackEvent("post_pitch_submit_success", {
+        revenue_mode: revenueMode,
+      });
       resetForm();
       onSuccess?.(SUCCESS_MESSAGE);
       onClose();

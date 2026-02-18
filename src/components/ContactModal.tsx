@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useState } from "react";
+import { trackEvent } from "@/lib/analytics/events";
 import type { PitchShow } from "./PitchShowCard";
 
 type ContactModalProps = {
@@ -49,6 +50,10 @@ const ContactModal = forwardRef<HTMLDialogElement, ContactModalProps>(function C
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Failed to send");
       setSent(true);
+      trackEvent("founder_contact_submit", {
+        source: "pitch_contact_modal",
+        pitch_id: pitch.id,
+      });
       setForm({ name: "", email: "", message: "", offer: "" });
     } catch (err) {
       setError((err as Error).message);

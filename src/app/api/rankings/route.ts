@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -307,7 +308,7 @@ export async function GET(request: Request) {
     if (isMissingRankingsRpc(error.message)) {
       try {
         const fallback = await loadFallbackRankings(window, limit, offset);
-        return NextResponse.json({
+        const response = NextResponse.json({
           window,
           simulated: false,
           limit,
@@ -316,6 +317,11 @@ export async function GET(request: Request) {
           data: fallback.rows,
           source: "fallback",
         });
+        applyPublicEdgeCache(response, {
+          sMaxAgeSeconds: 120,
+          staleWhileRevalidateSeconds: 300,
+        });
+        return response;
       } catch (fallbackError) {
         const message =
           fallbackError instanceof Error
@@ -348,7 +354,7 @@ export async function GET(request: Request) {
 
   const total = mapped[0]?.total_count ?? 0;
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     window,
     simulated: false,
     limit,
@@ -357,4 +363,9 @@ export async function GET(request: Request) {
     data: mapped,
     source: "rpc",
   });
+  applyPublicEdgeCache(response, {
+    sMaxAgeSeconds: 120,
+    staleWhileRevalidateSeconds: 300,
+  });
+  return response;
 }

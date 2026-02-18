@@ -1,12 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const DEFAULT_SITE_URL = "https://www.startupmanch.com";
-
-const resolveSiteUrl = () => {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!configured) return DEFAULT_SITE_URL;
-  return configured.replace(/\/+$/, "");
-};
+import { resolveSiteUrl } from "@/lib/site";
 
 export default function robots(): MetadataRoute.Robots {
   const siteUrl = resolveSiteUrl();
@@ -22,4 +15,3 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: `${siteUrl}/sitemap.xml`,
   };
 }
-

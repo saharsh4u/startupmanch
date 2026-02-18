@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ArenaPitch = {
   id: string;
@@ -27,12 +27,34 @@ export default function PitchArenaCard({
   onHover,
   onLeave,
 }: PitchArenaCardProps) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const shouldLazyVideo = variant === "mini";
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(!shouldLazyVideo);
 
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.muted = true;
   }, [pitch.video]);
+
+  useEffect(() => {
+    if (!shouldLazyVideo) return;
+    const node = cardRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadVideo(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.35 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shouldLazyVideo, pitch.id]);
 
   const handleTimeUpdate = () => {
     if (variant !== "mini") return;
@@ -44,6 +66,7 @@ export default function PitchArenaCard({
   };
 
   const handleEnter = () => {
+    setShouldLoadVideo(true);
     if (onHover) onHover(pitch);
     const video = videoRef.current;
     if (video) {
@@ -71,12 +94,13 @@ export default function PitchArenaCard({
 
   return (
     <div
+      ref={cardRef}
       className={className}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
       onClick={variant === "mini" ? handleEnter : undefined}
     >
-      {pitch.video ? (
+      {pitch.video && shouldLoadVideo ? (
         <video
           ref={videoRef}
           className="arena-video"
@@ -86,7 +110,7 @@ export default function PitchArenaCard({
           playsInline
           autoPlay
           loop={variant !== "mini"}
-          preload="metadata"
+          preload={shouldLazyVideo ? "none" : "metadata"}
           onTimeUpdate={handleTimeUpdate}
         />
       ) : (

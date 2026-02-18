@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inconsolata } from "next/font/google";
+import AnalyticsBootstrap from "@/components/AnalyticsBootstrap";
+import { resolveSiteUrl } from "@/lib/site";
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
@@ -16,9 +18,28 @@ const inconsolataBody = Inconsolata({
 });
 
 export const metadata: Metadata = {
-  title: "StartupManch \u2013 India\u2019s Startup Marketplace for Founders & Investors",
+  metadataBase: new URL(resolveSiteUrl()),
+  title: "StartupManch – India’s Startup Marketplace for Founders & Investors",
   description:
-    "India-first startup marketplace for founders and investors."
+    "India-first startup marketplace for founders and investors.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "StartupManch – India’s Startup Marketplace for Founders & Investors",
+    description: "India-first startup marketplace for founders and investors.",
+    url: "/",
+    siteName: "StartupManch",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "StartupManch – India’s Startup Marketplace for Founders & Investors",
+    description: "India-first startup marketplace for founders and investors.",
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION?.trim() || undefined,
+  },
 };
 
 export default function RootLayout({
@@ -46,6 +67,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
       </head>
       <body className={`${inconsolataDisplay.variable} ${inconsolataBody.variable}`}>
+        <AnalyticsBootstrap />
         {children}
       </body>
     </html>

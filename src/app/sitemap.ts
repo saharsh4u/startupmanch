@@ -1,17 +1,12 @@
 import type { MetadataRoute } from "next";
+import { getAllPostsMeta } from "@/lib/blog";
+import { resolveSiteUrl } from "@/lib/site";
 import { hasServerSupabaseEnv, supabaseAdmin } from "@/lib/supabase/server";
-
-const DEFAULT_SITE_URL = "https://www.startupmanch.com";
-
-const resolveSiteUrl = () => {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!configured) return DEFAULT_SITE_URL;
-  return configured.replace(/\/+$/, "");
-};
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = resolveSiteUrl();
   const now = new Date();
+  const blogPosts = getAllPostsMeta();
 
   const staticUrls: MetadataRoute.Sitemap = [
     {
@@ -32,10 +27,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.5,
     },
+    {
+      url: `${siteUrl}/blog`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
+      url: `${siteUrl}/feed.xml`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.4,
+    },
   ];
 
+  const blogUrls: MetadataRoute.Sitemap = blogPosts.map((post) => ({
+    url: `${siteUrl}/blog/${post.slug}`,
+    lastModified: new Date(post.publishedAt),
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
   if (!hasServerSupabaseEnv) {
-    return staticUrls;
+    return [...staticUrls, ...blogUrls];
   }
 
   // Only publish approved startups in the sitemap.
@@ -47,7 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .limit(50000);
 
   if (error) {
-    return staticUrls;
+    return [...staticUrls, ...blogUrls];
   }
 
   const dynamicUrls: MetadataRoute.Sitemap = (startups ?? [])
@@ -59,5 +73,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
     .filter((entry) => Boolean(entry.url));
 
-  return [...staticUrls, ...dynamicUrls];
+  return [...staticUrls, ...blogUrls, ...dynamicUrls];
 }

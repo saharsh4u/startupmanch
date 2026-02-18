@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ContactModal from "./ContactModal";
+import { trackEvent } from "@/lib/analytics/events";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 export type PitchShow = {
@@ -35,17 +36,39 @@ export default function PitchShowCard({
   onExpand,
   interactive = true,
 }: PitchShowCardProps) {
+  const articleRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [localUpvotes, setLocalUpvotes] = useState(0);
   const [localDownvotes, setLocalDownvotes] = useState(0);
   const [localComments, setLocalComments] = useState(0);
   const [engagementBusy, setEngagementBusy] = useState(false);
+  const shouldLazyVideo = size === "row" || size === "mini";
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(!shouldLazyVideo);
 
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.muted = true;
   }, [pitch.video]);
+
+  useEffect(() => {
+    if (!shouldLazyVideo) return;
+    const node = articleRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadVideo(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.35 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shouldLazyVideo, pitch.id]);
 
   useEffect(() => {
     setLocalUpvotes(Number.isFinite(Number(pitch.upvotes)) ? Number(pitch.upvotes) : 0);
@@ -107,9 +130,12 @@ export default function PitchShowCard({
 
   return (
     <article
+      ref={articleRef}
       className={`pitch-show-card ${size} ${variant === "hot" ? "is-hot" : "is-regular"}`}
       tabIndex={interactive ? 0 : -1}
       aria-label={label}
+      onMouseEnter={() => setShouldLoadVideo(true)}
+      onFocusCapture={() => setShouldLoadVideo(true)}
       onClick={
         interactive
           ? () => {
@@ -119,7 +145,7 @@ export default function PitchShowCard({
           : undefined
       }
     >
-      {pitch.video ? (
+      {pitch.video && shouldLoadVideo ? (
         <video
           ref={videoRef}
           className="pitch-show-media"
@@ -129,7 +155,7 @@ export default function PitchShowCard({
           playsInline
           autoPlay
           loop
-          preload="metadata"
+          preload={shouldLazyVideo ? "none" : "metadata"}
         />
       ) : (
         <div
@@ -158,6 +184,10 @@ export default function PitchShowCard({
               className="pitch-engage-btn"
               onClick={(event) => {
                 event.stopPropagation();
+                trackEvent("pitch_upvote", {
+                  pitch_id: pitch.id,
+                  size,
+                });
                 void handleVote("in");
               }}
               aria-label="Upvote"
@@ -171,6 +201,10 @@ export default function PitchShowCard({
               className="pitch-engage-btn"
               onClick={(event) => {
                 event.stopPropagation();
+                trackEvent("pitch_downvote", {
+                  pitch_id: pitch.id,
+                  size,
+                });
                 void handleVote("out");
               }}
               aria-label="Downvote"
@@ -184,6 +218,10 @@ export default function PitchShowCard({
               className="pitch-engage-btn"
               onClick={(event) => {
                 event.stopPropagation();
+                trackEvent("pitch_comments_open", {
+                  pitch_id: pitch.id,
+                  size,
+                });
                 if (onExpand) onExpand(pitch);
                 else dialogRef.current?.showModal();
               }}

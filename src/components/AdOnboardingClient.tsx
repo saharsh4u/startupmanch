@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import AdRailsScaffold from "@/components/AdRailsScaffold";
+import { trackEvent } from "@/lib/analytics/events";
 
 type CampaignResponse = {
   campaign?: {
@@ -147,6 +148,9 @@ export default function AdOnboardingClient({ sessionId, onboardingToken }: AdOnb
       setCampaignStatus(result.campaign.status);
       setLogoUrl(result.campaign.logo_url);
       setSaved(true);
+      trackEvent("sponsor_onboarding_submit_success", {
+        campaign_status: result.campaign.status,
+      });
     } catch (error) {
       setErrorText((error as Error).message || "Unable to save ad details.");
     } finally {

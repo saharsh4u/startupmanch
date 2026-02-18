@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { trackEvent } from "@/lib/analytics/events";
 
 type StartupContactModalProps = {
   open: boolean;
@@ -80,6 +81,10 @@ export default function StartupContactModal({
 
       setForm({ name: "", email: "", message: "", offer: "" });
       setSent(true);
+      trackEvent("founder_contact_submit", {
+        source: "startup_contact_modal",
+        startup_id: startupId,
+      });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to submit request.");
     } finally {

@@ -1,9 +1,28 @@
+import type { Metadata } from "next";
 import AdOnboardingClient from "@/components/AdOnboardingClient";
+import { toAbsoluteSiteUrl } from "@/lib/site";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type AdvertiseSuccessPageProps = {
   searchParams?: Promise<SearchParams> | SearchParams;
+};
+
+export const metadata: Metadata = {
+  title: "Sponsor Onboarding | StartupManch",
+  description: "Complete sponsor campaign details after checkout.",
+  alternates: {
+    canonical: "/advertise/success",
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
+  openGraph: {
+    title: "Sponsor Onboarding | StartupManch",
+    description: "Complete sponsor campaign details after checkout.",
+    url: toAbsoluteSiteUrl("/advertise/success"),
+  },
 };
 
 function firstValue(value: string | string[] | undefined): string {

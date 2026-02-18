@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
+import { trackEvent } from "@/lib/analytics/events";
 
 type PlanResponse = {
   available?: boolean;
@@ -185,6 +186,9 @@ export default function AdvertiseCheckoutClient() {
 
     setCheckoutLoading(true);
     setErrorText(null);
+    trackEvent("sponsor_checkout_start", {
+      source,
+    });
     try {
       const response = await fetch("/api/ads/checkout", {
         method: "POST",
