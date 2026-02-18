@@ -834,9 +834,18 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     });
   }, [rowSlots]);
 
+  const mobileVideoSlots = useMemo(
+    () => approvedVisible.map((pitch) => ({ type: "approved" as const, pitch })),
+    [approvedVisible]
+  );
+
   const mobileRowGroups = useMemo(() => {
     const totalNeeded = MOBILE_MORE_PITCH_ROW_COUNT * ROW_SIZE;
-    const source = rowSlots.length ? rowSlots : [{ type: "open" as const, id: "placeholder-mobile-1" }];
+    const source = mobileVideoSlots.length
+      ? mobileVideoSlots
+      : rowSlots.length
+        ? rowSlots
+        : [{ type: "open" as const, id: "placeholder-mobile-1" }];
     const expanded: RowSlot[] = [];
 
     for (let index = 0; index < totalNeeded; index += 1) {
@@ -844,7 +853,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     }
 
     return chunkBySize(expanded, ROW_SIZE).slice(0, MOBILE_MORE_PITCH_ROW_COUNT);
-  }, [rowSlots]);
+  }, [mobileVideoSlots, rowSlots]);
 
   const expandedList = useMemo(() => [...topPitches, ...approvedMorePitches], [approvedMorePitches, topPitches]);
   const hasVisiblePitches = topPitches.length > 0 || approvedMorePitches.length > 0;
