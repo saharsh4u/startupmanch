@@ -45,26 +45,35 @@ export default function BlogIndexPage() {
         </header>
 
         <section className="blog-list" aria-label="Blog posts">
-          {posts.map((post) => (
-            <article key={post.slug} className="blog-card">
-              <p className="blog-card-meta">
-                <span>{post.publishedAt}</span>
-                <span>·</span>
-                <span>{post.author}</span>
+          {posts.length ? (
+            posts.map((post) => (
+              <article key={post.slug} className="blog-card">
+                <p className="blog-card-meta">
+                  <span>{post.publishedAt}</span>
+                  <span>·</span>
+                  <span>{post.author}</span>
+                </p>
+                <h2>
+                  <Link href={`/blog/${post.slug}`}>{post.title}</Link>
+                </h2>
+                <p>{post.excerpt}</p>
+                {post.tags.length ? (
+                  <div className="blog-tags" aria-label="Tags">
+                    {post.tags.map((tag) => (
+                      <span key={`${post.slug}-${tag}`}>{tag}</span>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))
+          ) : (
+            <article className="blog-card">
+              <h2>New articles coming soon</h2>
+              <p>
+                We are preparing audience-first startup stories and insights. Please check back soon.
               </p>
-              <h2>
-                <Link href={`/blog/${post.slug}`}>{post.title}</Link>
-              </h2>
-              <p>{post.excerpt}</p>
-              {post.tags.length ? (
-                <div className="blog-tags" aria-label="Tags">
-                  {post.tags.map((tag) => (
-                    <span key={`${post.slug}-${tag}`}>{tag}</span>
-                  ))}
-                </div>
-              ) : null}
             </article>
-          ))}
+          )}
         </section>
 
         <LeadCaptureForm
