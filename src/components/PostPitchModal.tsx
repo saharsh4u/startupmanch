@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fallbackCategories } from "@/components/CategoriesSection";
-import { bestDeals, recentlyListed } from "@/data/marketplace";
 import {
   DEFAULT_STARTUP_PROFILE_FORM_VALUES,
   toStartupApiPayload,
@@ -21,35 +19,19 @@ type AuthStatus = "idle" | "loading" | "authed" | "error";
 type RevenueMode = "self_reported" | "razorpay";
 
 type FormErrors = Partial<
-  Record<
-    "startupName" | "startupCategory" | "startupOneLiner" | "startupWebsite" | "founderPhoto" | "pitchVideo" | "razorpayKey",
-    string
-  >
+  Record<"startupName" | "startupOneLiner" | "pitchVideo" | "razorpayKey", string>
 >;
 
 type DraftPayload = {
-  startup: Pick<
-    StartupProfileFormValues,
-    "name" | "category" | "one_liner" | "website" | "founder_photo_url" | "founder_story"
-  >;
+  startup: Pick<StartupProfileFormValues, "name" | "one_liner">;
   revenueMode: RevenueMode;
 };
 
 const DRAFT_STORAGE_KEY = "post_pitch_modal_draft_v1";
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
-const MAX_FOUNDER_PHOTO_BYTES = 8 * 1024 * 1024;
 const AUTH_UNAVAILABLE_MESSAGE = "Sign-in is temporarily unavailable. Please try again shortly.";
 const SUCCESS_MESSAGE = "Pitch submitted. It should appear in the feed shortly.";
 const RAZORPAY_KEYS_URL = "https://dashboard.razorpay.com/app/keys";
-
-const isValidHttpUrl = (value: string) => {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-};
 
 const readErrorMessage = async (response: Response, fallbackMessage: string) => {
   try {
@@ -74,14 +56,6 @@ const uploadToSignedUrl = async (signedUrl: string, file: File) => {
   }
 };
 
-const categorySuggestions = Array.from(
-  new Set(
-    [...fallbackCategories, ...recentlyListed, ...bestDeals]
-      .map((item) => (typeof item === "string" ? item : item.category).trim())
-      .filter(Boolean)
-  )
-).sort((left, right) => left.localeCompare(right));
-
 const getOAuthCallbackTarget = (siteUrl: string | undefined) => {
   if (typeof window === "undefined") return undefined;
 
@@ -102,7 +76,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
   const [authError, setAuthError] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
@@ -110,8 +83,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   const [startup, setStartup] = useState<StartupProfileFormValues>({
     ...DEFAULT_STARTUP_PROFILE_FORM_VALUES,
   });
-  const [founderPhotoFile, setFounderPhotoFile] = useState<File | null>(null);
-  const [founderPhotoPreviewUrl, setFounderPhotoPreviewUrl] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [revenueMode, setRevenueMode] = useState<RevenueMode>("self_reported");
@@ -124,10 +95,9 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED !== "false";
-  const linkedinEnabled = process.env.NEXT_PUBLIC_LINKEDIN_AUTH_ENABLED !== "false";
 
   const isAuthed = authStatus === "authed";
-  const authBusy = authStatus === "loading" || googleLoading || linkedinLoading;
+  const authBusy = authStatus === "loading" || googleLoading;
 
   const authHelperText = useMemo(() => {
     if (isAuthed && sessionEmail) return `Signed in as ${sessionEmail}`;
@@ -135,12 +105,9 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
     return "Sign in to post your pitch.";
   }, [authStatus, isAuthed, sessionEmail]);
 
-  const founderPhotoUrlValue = startup.founder_photo_url.trim();
-  const founderPhotoPreview = founderPhotoPreviewUrl || founderPhotoUrlValue || null;
-
   const videoHint = videoFile
     ? `${videoFile.name} (${(videoFile.size / (1024 * 1024)).toFixed(1)}MB)`
-    : "MP4 up to 50MB";
+    : "Video up to 50MB";
 
   const saveDraft = (nextStartup: StartupProfileFormValues, nextRevenueMode: RevenueMode) => {
     if (typeof window === "undefined") return;
@@ -148,11 +115,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
     const payload: DraftPayload = {
       startup: {
         name: nextStartup.name,
-        category: nextStartup.category,
         one_liner: nextStartup.one_liner,
-        website: nextStartup.website,
-        founder_photo_url: nextStartup.founder_photo_url,
-        founder_story: nextStartup.founder_story,
       },
       revenueMode: nextRevenueMode,
     };
@@ -190,7 +153,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
 
   const resetForm = () => {
     setStartup({ ...DEFAULT_STARTUP_PROFILE_FORM_VALUES });
-    setFounderPhotoFile(null);
     setVideoFile(null);
     setRevenueMode("self_reported");
     setRazorpayKey("");
@@ -228,16 +190,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   }, [draftReady, open, revenueMode, startup]);
 
   useEffect(() => {
-    if (!founderPhotoFile) {
-      setFounderPhotoPreviewUrl(null);
-      return;
-    }
-    const objectUrl = URL.createObjectURL(founderPhotoFile);
-    setFounderPhotoPreviewUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [founderPhotoFile]);
-
-  useEffect(() => {
     if (!videoFile) {
       setVideoPreviewUrl(null);
       return;
@@ -269,7 +221,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
         setSessionEmail(session.user.email ?? null);
         setAuthStatus("authed");
         setGoogleLoading(false);
-        setLinkedinLoading(false);
       } catch (error) {
         const message = error instanceof Error ? error.message : AUTH_UNAVAILABLE_MESSAGE;
         setAuthStatus("error");
@@ -389,55 +340,12 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
     }
   };
 
-  const handleLinkedIn = async () => {
-    if (!hasBrowserSupabaseEnv) {
-      setAuthStatus("error");
-      setAuthError(AUTH_UNAVAILABLE_MESSAGE);
-      return;
-    }
-    if (!linkedinEnabled) {
-      setAuthError("LinkedIn sign-in is temporarily unavailable.");
-      return;
-    }
-    const redirectTo = getOAuthCallbackTarget(siteUrl);
-    try {
-      setLinkedinLoading(true);
-      setAuthError(null);
-      const { error } = await supabaseBrowser.auth.signInWithOAuth({
-        provider: "linkedin_oidc",
-        options: {
-          redirectTo,
-          scopes: "openid profile email",
-        },
-      });
-      if (error) throw error;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "LinkedIn sign-in failed.";
-      setAuthError(message);
-      setLinkedinLoading(false);
-    }
-  };
-
   const validateForm = () => {
     const nextErrors: FormErrors = {};
 
     if (!startup.name.trim()) nextErrors.startupName = "Startup name is required.";
-    if (!startup.category.trim()) nextErrors.startupCategory = "Category is required.";
     if (!startup.one_liner.trim()) nextErrors.startupOneLiner = "One-line description is required.";
 
-    const websiteValue = startup.website.trim();
-    if (websiteValue && !isValidHttpUrl(websiteValue)) {
-      nextErrors.startupWebsite = "Website must be a valid http/https URL.";
-    }
-
-    const founderPhotoUrl = startup.founder_photo_url.trim();
-    if (!founderPhotoFile && !founderPhotoUrl) {
-      nextErrors.founderPhoto = "Founder photo is required (file upload or URL).";
-    } else if (!founderPhotoFile && founderPhotoUrl && !isValidHttpUrl(founderPhotoUrl)) {
-      nextErrors.founderPhoto = "Founder photo URL must be a valid http/https link.";
-    } else if (founderPhotoFile && founderPhotoFile.size > MAX_FOUNDER_PHOTO_BYTES) {
-      nextErrors.founderPhoto = "Founder photo is too large. Max 8MB.";
-    }
 
     if (!videoFile) {
       nextErrors.pitchVideo = "Pitch video is required.";
@@ -485,10 +393,13 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
 
       const startupPayload = toStartupApiPayload({
         ...startup,
+        category: "",
+        website: "",
+        founder_photo_url: "",
+        founder_story: "",
         city: "",
         currency_code: "INR",
         monthly_revenue: revenueMode === "self_reported" ? "Self-reported by founder" : "",
-        founder_photo_url: founderPhotoFile ? "" : startup.founder_photo_url,
       });
 
       const startupRes = await fetch("/api/startups", {
@@ -506,50 +417,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
       const startupResponse = (await startupRes.json()) as { startup?: { id?: string } };
       const startupId = startupResponse.startup?.id;
       if (!startupId) throw new Error("Startup creation failed.");
-
-      if (founderPhotoFile) {
-        const uploadLinkRes = await fetch(`/api/startups/${startupId}/founder-photo`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            content_type: founderPhotoFile.type,
-          }),
-        });
-        if (!uploadLinkRes.ok) {
-          throw new Error(
-            await readErrorMessage(uploadLinkRes, "Unable to create founder photo upload URL.")
-          );
-        }
-
-        const uploadLinkPayload = (await uploadLinkRes.json()) as {
-          upload?: { signedUrl?: string; publicUrl?: string | null };
-        };
-        const founderPhotoSignedUrl = uploadLinkPayload.upload?.signedUrl;
-        const founderPhotoPublicUrl = uploadLinkPayload.upload?.publicUrl ?? null;
-        if (!founderPhotoSignedUrl || !founderPhotoPublicUrl) {
-          throw new Error("Founder photo upload URL missing.");
-        }
-
-        await uploadToSignedUrl(founderPhotoSignedUrl, founderPhotoFile);
-
-        const patchStartupRes = await fetch(`/api/startups/${startupId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            ...startupPayload,
-            founder_photo_url: founderPhotoPublicUrl,
-          }),
-        });
-        if (!patchStartupRes.ok) {
-          throw new Error(await readErrorMessage(patchStartupRes, "Unable to attach founder photo."));
-        }
-      }
 
       if (revenueMode === "razorpay" && razorpayKey.trim()) {
         const connectionRes = await fetch("/api/revenue/connections", {
@@ -658,7 +525,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 <video src={videoPreviewUrl} controls muted playsInline preload="metadata" />
               ) : (
                 <div className="post-pitch-preview-empty">
-                  <p>Upload your 60-second MP4 pitch</p>
+                  <p>Upload your 60-second pitch video</p>
                   <span>{videoHint}</span>
                 </div>
               )}
@@ -677,36 +544,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
             </label>
             {formErrors.pitchVideo ? <p className="form-error">{formErrors.pitchVideo}</p> : null}
 
-            <label className="post-pitch-input-block">
-              <span>Founder photo (required)</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(event) => {
-                  setFounderPhotoFile(event.target.files?.[0] ?? null);
-                  setFormErrors((current) => ({ ...current, founderPhoto: undefined }));
-                }}
-              />
-            </label>
-            <label className="post-pitch-input-block">
-              <span>or use founder photo URL</span>
-              <input
-                type="url"
-                placeholder="https://example.com/founder.jpg"
-                value={startup.founder_photo_url}
-                onChange={(event) => {
-                  updateStartupField("founder_photo_url", event.target.value);
-                  setFormErrors((current) => ({ ...current, founderPhoto: undefined }));
-                }}
-              />
-            </label>
-            {founderPhotoPreview ? (
-              <div className="post-pitch-founder-preview">
-                <span>Founder preview</span>
-                <div style={{ backgroundImage: `url(${founderPhotoPreview})` }} />
-              </div>
-            ) : null}
-            {formErrors.founderPhoto ? <p className="form-error">{formErrors.founderPhoto}</p> : null}
           </section>
 
           <section className="post-pitch-modal-form" aria-label="Pitch details">
@@ -740,14 +577,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                     <button type="button" className="ghost" onClick={() => void handleGoogle()} disabled={authBusy || !googleEnabled}>
                       Continue with Google
                     </button>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => void handleLinkedIn()}
-                      disabled={authBusy || !linkedinEnabled}
-                    >
-                      Continue with LinkedIn
-                    </button>
                   </div>
                 </div>
               ) : (
@@ -775,25 +604,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
               {formErrors.startupName ? <p className="form-error">{formErrors.startupName}</p> : null}
 
               <label className="post-pitch-input-block">
-                <span>Category</span>
-                <input
-                  type="text"
-                  list="post-pitch-categories"
-                  value={startup.category}
-                  onChange={(event) => {
-                    updateStartupField("category", event.target.value);
-                    setFormErrors((current) => ({ ...current, startupCategory: undefined }));
-                  }}
-                />
-                <datalist id="post-pitch-categories">
-                  {categorySuggestions.map((category) => (
-                    <option key={category} value={category} />
-                  ))}
-                </datalist>
-              </label>
-              {formErrors.startupCategory ? <p className="form-error">{formErrors.startupCategory}</p> : null}
-
-              <label className="post-pitch-input-block">
                 <span>One-line description</span>
                 <input
                   type="text"
@@ -805,30 +615,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 />
               </label>
               {formErrors.startupOneLiner ? <p className="form-error">{formErrors.startupOneLiner}</p> : null}
-
-              <label className="post-pitch-input-block">
-                <span>Website (optional)</span>
-                <input
-                  type="url"
-                  placeholder="https://startup.com"
-                  value={startup.website}
-                  onChange={(event) => {
-                    updateStartupField("website", event.target.value);
-                    setFormErrors((current) => ({ ...current, startupWebsite: undefined }));
-                  }}
-                />
-              </label>
-              {formErrors.startupWebsite ? <p className="form-error">{formErrors.startupWebsite}</p> : null}
-
-              <label className="post-pitch-input-block">
-                <span>Founder story (optional)</span>
-                <textarea
-                  rows={4}
-                  placeholder="What pushed you to build this startup?"
-                  value={startup.founder_story}
-                  onChange={(event) => updateStartupField("founder_story", event.target.value)}
-                />
-              </label>
 
               <label className="post-pitch-input-block">
                 <span>Revenue verification</span>
