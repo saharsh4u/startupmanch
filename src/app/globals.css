@@ -7666,14 +7666,15 @@ body {
 }
 
 .page-home .hot-cinema {
+  --hot-glow-color: rgba(229, 9, 20, 0.56);
+  --hot-glow-soft: rgba(229, 9, 20, 0.2);
   position: relative;
-  min-height: 430px;
+  min-height: 440px;
   border-radius: 20px;
-  border: 1px solid #232323;
-  background:
-    radial-gradient(circle at 50% 56%, rgba(229, 9, 20, 0.36), rgba(229, 9, 20, 0.03) 44%, transparent 68%),
-    linear-gradient(180deg, #080808 0%, #050505 100%);
+  border: 1px solid #242424;
+  background: linear-gradient(180deg, #080808 0%, #050505 100%);
   overflow: hidden;
+  outline: none;
 }
 
 .page-home .hot-cinema::before,
@@ -7689,65 +7690,98 @@ body {
 
 .page-home .hot-cinema::before {
   left: 0;
-  background: linear-gradient(90deg, rgba(5, 5, 5, 0.72) 8%, rgba(5, 5, 5, 0));
+  background: linear-gradient(90deg, rgba(5, 5, 5, 0.86) 8%, rgba(5, 5, 5, 0));
 }
 
 .page-home .hot-cinema::after {
   right: 0;
-  background: linear-gradient(270deg, rgba(5, 5, 5, 0.72) 8%, rgba(5, 5, 5, 0));
+  background: linear-gradient(270deg, rgba(5, 5, 5, 0.86) 8%, rgba(5, 5, 5, 0));
 }
 
 .page-home .hot-cinema-glow {
   position: absolute;
   left: 50%;
-  top: 53%;
-  width: min(700px, 80%);
-  height: 230px;
+  top: 49%;
+  width: 340px;
+  height: 340px;
   transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(229, 9, 20, 0.56), rgba(229, 9, 20, 0.12) 52%, transparent 72%);
-  filter: blur(9px);
-  animation: hotCinemaPulse 2.6s ease-in-out infinite;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--hot-glow-color) 0%, var(--hot-glow-soft) 45%, transparent 75%);
+  filter: blur(8px);
+  animation: hotCinemaPulse 2.2s ease-in-out infinite;
   pointer-events: none;
 }
 
 .page-home .hot-cinema-track {
   position: relative;
-  min-height: 430px;
-  transform-style: preserve-3d;
-  perspective: 1400px;
+  min-height: 420px;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.page-home .hot-cinema-track.is-dragging {
+  cursor: grabbing;
 }
 
 .page-home .hot-cinema-card {
   position: absolute;
   left: 50%;
-  top: 53%;
-  width: clamp(150px, 17vw, 238px);
-  aspect-ratio: 0.68;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 16px;
+  top: 50%;
+  width: 120px;
+  height: 190px;
+  border: none;
+  border-radius: 18px;
   background: #111111;
   padding: 0;
   overflow: hidden;
   cursor: pointer;
   transition:
-    transform 520ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    opacity 420ms ease,
-    box-shadow 420ms ease,
-    border-color 280ms ease,
-    filter 420ms ease;
-  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.42);
-  filter: saturate(calc(1 - var(--cinema-depth, 0) * 0.06));
+    width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    height 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    opacity 0.55s ease,
+    border-color 0.45s ease,
+    box-shadow 0.45s ease;
+  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(40px) scale(1);
+  opacity: 0.3;
+  z-index: 1;
 }
 
-.page-home .hot-cinema-card.is-center {
-  border-color: rgba(229, 9, 20, 0.72);
-  box-shadow: 0 0 0 1px rgba(229, 9, 20, 0.28), 0 20px 30px rgba(0, 0, 0, 0.5);
-  filter: none;
+.page-home .hot-cinema-card.state-active {
+  width: 240px;
+  height: 360px;
+  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(1);
+  opacity: 1;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.page-home .hot-cinema-card.state-adjacent {
+  width: 190px;
+  height: 290px;
+  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(18px) scale(1);
+  opacity: 0.85;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.page-home .hot-cinema-card.state-far {
+  width: 150px;
+  height: 230px;
+  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(32px) scale(1);
+  opacity: 0.55;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.page-home .hot-cinema-card.state-hidden {
+  width: 120px;
+  height: 190px;
+  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(40px) scale(1);
+  opacity: 0.3;
 }
 
 .page-home .hot-cinema-card:hover {
-  border-color: rgba(229, 9, 20, 0.8);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .page-home .hot-cinema-poster {
@@ -7755,71 +7789,195 @@ body {
   inset: 0;
   background-size: cover;
   background-position: center;
-  filter: saturate(1.02) contrast(1.05) brightness(0.96);
+  background-repeat: no-repeat;
+  filter: saturate(1.02) contrast(1.04) brightness(0.94);
 }
 
 .page-home .hot-cinema-overlay {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5) 74%, rgba(0, 0, 0, 0.66)),
-    linear-gradient(160deg, rgba(229, 9, 20, 0.1), transparent 58%);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.1) 0%,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.5) 75%,
+    rgba(0, 0, 0, 0.85) 100%
+  );
 }
 
-.page-home .hot-cinema-title {
+.page-home .hot-cinema-platform {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 16px;
+  top: 10px;
+  left: 10px;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  z-index: 2;
+}
+
+.page-home .hot-cinema-platform.is-netflix {
+  background: #e50914;
   color: #ffffff;
-  text-align: left;
-  font-weight: 700;
-  font-size: clamp(1rem, 1.5vw, 1.45rem);
-  line-height: 1.1;
-  text-shadow: 0 8px 18px rgba(0, 0, 0, 0.66);
+}
+
+.page-home .hot-cinema-platform.is-hbo {
+  background: #1a1a2e;
+  border: 1.5px solid rgba(100, 130, 255, 0.6);
+  color: #8fa8ff;
+}
+
+.page-home .hot-cinema-platform.is-hulu {
+  background: #1ce783;
+  color: #000000;
+}
+
+.page-home .hot-cinema-platform.is-disney {
+  background: #0b2a6b;
+  border: 1.5px solid rgba(90, 160, 255, 0.5);
+  color: #5aa0ff;
 }
 
 .page-home .hot-cinema-rating {
   position: absolute;
   top: 10px;
   right: 10px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.98rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 2;
 }
 
-.page-home .hot-cinema-card:not(.is-center) .hot-cinema-title {
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
-  opacity: 0.72;
+.page-home .hot-cinema-rating .star {
+  color: rgba(255, 220, 80, 0.9);
+  font-size: 10px;
 }
 
-.page-home .hot-cinema-card:not(.is-center) .hot-cinema-rating {
-  opacity: 0.6;
+.page-home .hot-cinema-info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.page-home .hot-cinema-title {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+}
+
+.page-home .hot-cinema-meta {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.page-home .hot-cinema-meta-tag {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 9px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 30px;
+  letter-spacing: 0.02em;
+}
+
+.page-home .hot-cinema-card:not(.state-active) .hot-cinema-meta {
+  display: none;
+}
+
+.page-home .hot-cinema-card.state-hidden .hot-cinema-info {
+  opacity: 0.62;
+}
+
+.page-home .hot-cinema-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.page-home .hot-cinema-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.22);
+  transition: all 0.35s ease;
+  cursor: pointer;
+}
+
+.page-home .hot-cinema-dot.is-active {
+  width: 20px;
+  background: rgba(200, 20, 20, 0.9);
 }
 
 @keyframes hotCinemaPulse {
   0%,
   100% {
-    opacity: 0.9;
+    opacity: 0.88;
     transform: translate(-50%, -50%) scale(0.98);
   }
   50% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.03);
+    transform: translate(-50%, -50%) scale(1.04);
   }
 }
 
 @media (max-width: 900px) {
   .page-home .hot-cinema,
   .page-home .hot-cinema-track {
-    min-height: 360px;
+    min-height: 370px;
   }
 
   .page-home .hot-cinema-glow {
-    width: min(520px, 92%);
-    height: 200px;
-    top: 54%;
+    width: 280px;
+    height: 280px;
+  }
+
+  .page-home .hot-cinema-card.state-active {
+    width: 216px;
+    height: 324px;
+  }
+
+  .page-home .hot-cinema-card.state-adjacent {
+    width: 174px;
+    height: 264px;
+  }
+
+  .page-home .hot-cinema-card.state-far {
+    width: 138px;
+    height: 212px;
+  }
+
+  .page-home .hot-cinema-card.state-hidden {
+    width: 112px;
+    height: 176px;
   }
 }
 
@@ -7830,14 +7988,14 @@ body {
 
   .page-home .hot-cinema,
   .page-home .hot-cinema-track {
-    min-height: 286px;
+    min-height: 296px;
     border-radius: 14px;
   }
 
   .page-home .hot-cinema-glow {
-    width: 96%;
-    height: 160px;
-    filter: blur(8px);
+    width: 220px;
+    height: 220px;
+    filter: blur(7px);
   }
 
   .page-home .hot-cinema::before,
@@ -7846,20 +8004,50 @@ body {
   }
 
   .page-home .hot-cinema-card {
-    width: clamp(104px, 30vw, 138px);
-    border-radius: 12px;
+    border-radius: 14px;
+  }
+
+  .page-home .hot-cinema-card.state-active {
+    width: 168px;
+    height: 256px;
+  }
+
+  .page-home .hot-cinema-card.state-adjacent {
+    width: 136px;
+    height: 208px;
+  }
+
+  .page-home .hot-cinema-card.state-far {
+    width: 106px;
+    height: 166px;
+  }
+
+  .page-home .hot-cinema-card.state-hidden {
+    width: 88px;
+    height: 140px;
   }
 
   .page-home .hot-cinema-title {
-    bottom: 10px;
-    left: 8px;
-    right: 8px;
-    font-size: 0.8rem;
+    font-size: 12px;
   }
 
   .page-home .hot-cinema-rating {
-    top: 8px;
-    right: 8px;
-    font-size: 0.74rem;
+    font-size: 11px;
+  }
+
+  .page-home .hot-cinema-platform {
+    min-width: 22px;
+    height: 22px;
+    font-size: 7px;
+    padding: 0 5px;
+  }
+
+  .page-home .hot-cinema-info {
+    padding: 10px 9px 10px;
+    gap: 4px;
+  }
+
+  .page-home .hot-cinema-dot.is-active {
+    width: 16px;
   }
 }

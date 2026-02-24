@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
 import { pitches as fallbackPitches } from "@/data/pitches";
@@ -100,6 +110,35 @@ const accentPalette = [
   "#8ad1ff",
 ] as const;
 
+const carouselPlatforms = [
+  {
+    label: "N",
+    badgeClassName: "is-netflix",
+    glow: "rgba(229, 9, 20, 0.56)",
+    glowSoft: "rgba(229, 9, 20, 0.2)",
+  },
+  {
+    label: "HBO",
+    badgeClassName: "is-hbo",
+    glow: "rgba(71, 96, 255, 0.52)",
+    glowSoft: "rgba(71, 96, 255, 0.18)",
+  },
+  {
+    label: "H",
+    badgeClassName: "is-hulu",
+    glow: "rgba(28, 231, 131, 0.48)",
+    glowSoft: "rgba(28, 231, 131, 0.16)",
+  },
+  {
+    label: "D+",
+    badgeClassName: "is-disney",
+    glow: "rgba(70, 132, 255, 0.5)",
+    glowSoft: "rgba(70, 132, 255, 0.16)",
+  },
+] as const;
+
+const hotCinemaOffsets = [-3, -2, -1, 0, 1, 2, 3] as const;
+
 const slotOpenCopyVariants = [
   {
     title: "Your startup could be here.",
@@ -191,6 +230,16 @@ const hashString = (input: string) => {
 };
 
 const accentForKey = (key: string) => accentPalette[hashString(key) % accentPalette.length];
+
+const platformForKey = (key: string) => carouselPlatforms[hashString(key) % carouselPlatforms.length];
+
+const stateForOffset = (offset: number) => {
+  const abs = Math.abs(offset);
+  if (abs === 0) return "state-active";
+  if (abs === 1) return "state-adjacent";
+  if (abs === 2) return "state-far";
+  return "state-hidden";
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof DOMException && error.name === "AbortError") return null;
@@ -292,6 +341,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
   const shuffleRefreshLockRef = useRef(false);
+  const hotCarouselStartXRef = useRef<number | null>(null);
+  const hotCarouselMovedXRef = useRef(0);
+  const hotCarouselSuppressClickRef = useRef(false);
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -794,7 +846,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   );
 
   const [hotCarouselIndex, setHotCarouselIndex] = useState(0);
-  const [hotCarouselPaused, setHotCarouselPaused] = useState(false);
+  const [hotCarouselDragging, setHotCarouselDragging] = useState(false);
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -879,16 +931,87 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     setHotCarouselIndex((current) => wrapIndex(current, carouselPitches.length));
   }, [carouselPitches]);
 
-  useEffect(() => {
-    if (carouselPitches.length <= 1) return;
-    if (loadingInitial || hotCarouselPaused) return;
+  const setHotCarouselTo = useCallback(
+    (index: number) => {
+      if (!carouselPitches.length) return;
+      setHotCarouselIndex(wrapIndex(index, carouselPitches.length));
+    },
+    [carouselPitches.length]
+  );
 
-    const timer = window.setInterval(() => {
-      setHotCarouselIndex((current) => wrapIndex(current + 1, carouselPitches.length));
-    }, 2600);
+  const shiftHotCarousel = useCallback(
+    (delta: number) => {
+      if (carouselPitches.length <= 1) return;
+      setHotCarouselIndex((current) => wrapIndex(current + delta, carouselPitches.length));
+    },
+    [carouselPitches.length]
+  );
 
-    return () => window.clearInterval(timer);
-  }, [carouselPitches.length, hotCarouselPaused, loadingInitial]);
+  const handleHotCarouselPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (carouselPitches.length <= 1) return;
+      hotCarouselStartXRef.current = event.clientX;
+      hotCarouselMovedXRef.current = 0;
+      hotCarouselSuppressClickRef.current = false;
+      setHotCarouselDragging(true);
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [carouselPitches.length]
+  );
+
+  const handleHotCarouselPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    if (hotCarouselStartXRef.current === null) return;
+    hotCarouselMovedXRef.current = event.clientX - hotCarouselStartXRef.current;
+    if (Math.abs(hotCarouselMovedXRef.current) > 8) {
+      hotCarouselSuppressClickRef.current = true;
+    }
+  }, []);
+
+  const finishHotCarouselGesture = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (hotCarouselStartXRef.current === null) return;
+      const movedPx = hotCarouselMovedXRef.current;
+      const threshold = isMobileViewport ? 36 : 52;
+
+      if (movedPx <= -threshold) shiftHotCarousel(1);
+      else if (movedPx >= threshold) shiftHotCarousel(-1);
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+
+      hotCarouselStartXRef.current = null;
+      hotCarouselMovedXRef.current = 0;
+      setHotCarouselDragging(false);
+
+      window.setTimeout(() => {
+        hotCarouselSuppressClickRef.current = false;
+      }, 0);
+    },
+    [isMobileViewport, shiftHotCarousel]
+  );
+
+  const handleHotCarouselKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        shiftHotCarousel(1);
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        shiftHotCarousel(-1);
+      }
+    },
+    [shiftHotCarousel]
+  );
+
+  const activePlatform = useMemo(
+    () =>
+      carouselPitches.length
+        ? platformForKey(carouselPitches[hotCarouselIndex]?.id ?? "default")
+        : carouselPlatforms[0],
+    [carouselPitches, hotCarouselIndex]
+  );
 
   const teaserItems = useMemo(() => {
     if (!SLOT_UPGRADE_ENABLED) return [] as Array<
@@ -1242,48 +1365,58 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           <div className={`pitch-mosaic hot-band${loaded ? " is-loaded" : ""}`}>
             <div
               className="hot-cinema"
-              onMouseEnter={() => setHotCarouselPaused(true)}
-              onMouseLeave={() => setHotCarouselPaused(false)}
-              onFocusCapture={() => setHotCarouselPaused(true)}
-              onBlurCapture={() => setHotCarouselPaused(false)}
+              style={
+                {
+                  ["--hot-glow-color" as string]: activePlatform.glow,
+                  ["--hot-glow-soft" as string]: activePlatform.glowSoft,
+                } as CSSProperties
+              }
+              tabIndex={0}
+              onKeyDown={handleHotCarouselKeyDown}
             >
               <div className="hot-cinema-glow" aria-hidden="true" />
-              <div className="hot-cinema-track" aria-label="Hot pitches carousel">
-                {([-2, -1, 0, 1, 2] as const).map((offset) => {
+              <div
+                className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}`}
+                aria-label="Hot pitches carousel"
+                onPointerDown={handleHotCarouselPointerDown}
+                onPointerMove={handleHotCarouselPointerMove}
+                onPointerUp={finishHotCarouselGesture}
+                onPointerCancel={finishHotCarouselGesture}
+              >
+                {hotCinemaOffsets.map((offset) => {
                   if (!carouselPitches.length) return null;
                   const targetIndex = wrapIndex(hotCarouselIndex + offset, carouselPitches.length);
                   const pitch = carouselPitches[targetIndex];
-                  const absoluteOffset = Math.abs(offset);
+                  const distance = Math.abs(offset);
                   const isCenter = offset === 0;
+                  const stateClass = stateForOffset(offset);
+                  const platform = platformForKey(pitch.id);
                   const rating = (7 + asNumber(pitch.score) * 0.1 + (hashString(pitch.id) % 20) / 100).toFixed(1);
-                  const spread = offset * (isMobileViewport ? 88 : 176);
-                  const scale = Math.max(0.64, 1 - absoluteOffset * 0.14);
-                  const lift = -Math.pow(absoluteOffset, 1.15) * (isMobileViewport ? 2 : 6);
-                  const depth = -absoluteOffset * (isMobileViewport ? 14 : 28);
-                  const tilt = offset * -4.5;
-                  const opacity = Math.max(0.34, 1 - absoluteOffset * 0.26);
-                  const zIndex = 90 - absoluteOffset * 12;
+                  const xSpread = isMobileViewport ? 88 : 168;
+                  const zIndex = 80 - distance * 10;
 
                   return (
                     <button
                       key={`hot-cinema-${pitch.id}-${offset}`}
                       type="button"
-                      className={`hot-cinema-card${isCenter ? " is-center" : ""}`}
+                      className={`hot-cinema-card ${stateClass}`}
                       style={
                         {
-                          transform: `translate(-50%, -50%) translateX(${spread}px) translateY(${lift}px) translateZ(${depth}px) rotate(${tilt}deg) scale(${scale})`,
-                          opacity,
+                          ["--hot-x" as string]: `${offset * xSpread}px`,
                           zIndex,
-                          ["--cinema-depth" as string]: absoluteOffset,
                         } as CSSProperties
                       }
                       aria-label={`Open pitch from ${pitch.name}`}
                       onClick={() => {
+                        if (hotCarouselSuppressClickRef.current) {
+                          hotCarouselSuppressClickRef.current = false;
+                          return;
+                        }
                         if (isCenter) {
                           handleExpand(pitch);
                           return;
                         }
-                        setHotCarouselIndex(targetIndex);
+                        setHotCarouselTo(targetIndex);
                       }}
                     >
                       <span
@@ -1291,11 +1424,33 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                         style={{ backgroundImage: pitch.poster ? `url(${pitch.poster})` : undefined }}
                       />
                       <span className="hot-cinema-overlay" />
-                      <span className="hot-cinema-title">{pitch.name}</span>
-                      <span className="hot-cinema-rating">{rating}</span>
+                      <span className={`hot-cinema-platform ${platform.badgeClassName}`}>{platform.label}</span>
+                      <span className="hot-cinema-rating">
+                        {rating}
+                        <span className="star">★</span>
+                      </span>
+                      <span className="hot-cinema-info">
+                        <span className="hot-cinema-title">{pitch.name}</span>
+                        <span className="hot-cinema-meta">
+                          <span className="hot-cinema-meta-tag">{pitch.category ?? "Pitch"}</span>
+                          <span className="hot-cinema-meta-tag">60s pitch</span>
+                        </span>
+                      </span>
                     </button>
                   );
                 })}
+              </div>
+              <div className="hot-cinema-dots" role="tablist" aria-label="Featured pitch selector">
+                {carouselPitches.map((pitch, index) => (
+                  <button
+                    key={`hot-dot-${pitch.id}-${index}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={index === hotCarouselIndex}
+                    className={`hot-cinema-dot${index === hotCarouselIndex ? " is-active" : ""}`}
+                    onClick={() => setHotCarouselTo(index)}
+                  />
+                ))}
               </div>
             </div>
           </div>
