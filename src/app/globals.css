@@ -7660,3 +7660,204 @@ body {
   background: rgba(229, 9, 20, 0.14);
   color: #ffffff;
 }
+
+.page-home .hot-band {
+  padding: 18px;
+}
+
+.page-home .hot-cinema {
+  position: relative;
+  min-height: 430px;
+  border-radius: 20px;
+  border: 1px solid #272727;
+  background: radial-gradient(circle at 50% -10%, rgba(229, 9, 20, 0.14), #070707 34%);
+  overflow: hidden;
+}
+
+.page-home .hot-cinema::before,
+.page-home .hot-cinema::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: clamp(72px, 8vw, 128px);
+  z-index: 12;
+  pointer-events: none;
+}
+
+.page-home .hot-cinema::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(5, 5, 5, 0.95) 8%, rgba(5, 5, 5, 0));
+}
+
+.page-home .hot-cinema::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(5, 5, 5, 0.95) 8%, rgba(5, 5, 5, 0));
+}
+
+.page-home .hot-cinema-glow {
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  width: min(760px, 82%);
+  height: 260px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(229, 9, 20, 0.52), rgba(229, 9, 20, 0.08) 56%, transparent 74%);
+  filter: blur(14px);
+  animation: hotCinemaPulse 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.page-home .hot-cinema-track {
+  position: relative;
+  min-height: 430px;
+  transform-style: preserve-3d;
+  perspective: 1400px;
+}
+
+.page-home .hot-cinema-card {
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  width: clamp(150px, 17vw, 238px);
+  aspect-ratio: 0.68;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: #111111;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    transform 520ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 420ms ease,
+    box-shadow 420ms ease,
+    border-color 280ms ease,
+    filter 420ms ease;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.6);
+  filter: blur(calc(var(--cinema-depth, 0) * 0.95px)) saturate(calc(1 - var(--cinema-depth, 0) * 0.08));
+}
+
+.page-home .hot-cinema-card.is-center {
+  border-color: rgba(229, 9, 20, 0.72);
+  box-shadow: 0 0 0 1px rgba(229, 9, 20, 0.35), 0 28px 40px rgba(0, 0, 0, 0.68);
+  filter: none;
+}
+
+.page-home .hot-cinema-card:hover {
+  border-color: rgba(229, 9, 20, 0.8);
+}
+
+.page-home .hot-cinema-poster {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: saturate(0.78) contrast(1.04) brightness(0.82);
+}
+
+.page-home .hot-cinema-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.82)),
+    linear-gradient(140deg, rgba(229, 9, 20, 0.18), transparent 60%);
+}
+
+.page-home .hot-cinema-title {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 16px;
+  color: #ffffff;
+  text-align: left;
+  font-weight: 700;
+  font-size: clamp(1rem, 1.5vw, 1.45rem);
+  line-height: 1.1;
+  text-shadow: 0 8px 18px rgba(0, 0, 0, 0.66);
+}
+
+.page-home .hot-cinema-rating {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.page-home .hot-cinema-card:not(.is-center) .hot-cinema-title {
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  opacity: 0.58;
+}
+
+.page-home .hot-cinema-card:not(.is-center) .hot-cinema-rating {
+  opacity: 0.45;
+}
+
+@keyframes hotCinemaPulse {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.03);
+  }
+}
+
+@media (max-width: 900px) {
+  .page-home .hot-cinema,
+  .page-home .hot-cinema-track {
+    min-height: 360px;
+  }
+
+  .page-home .hot-cinema-glow {
+    width: min(520px, 92%);
+    height: 220px;
+    top: 54%;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-home .hot-band {
+    padding: 12px;
+  }
+
+  .page-home .hot-cinema,
+  .page-home .hot-cinema-track {
+    min-height: 286px;
+    border-radius: 14px;
+  }
+
+  .page-home .hot-cinema-glow {
+    width: 96%;
+    height: 170px;
+    filter: blur(11px);
+  }
+
+  .page-home .hot-cinema::before,
+  .page-home .hot-cinema::after {
+    width: clamp(42px, 9vw, 76px);
+  }
+
+  .page-home .hot-cinema-card {
+    width: clamp(104px, 30vw, 138px);
+    border-radius: 12px;
+  }
+
+  .page-home .hot-cinema-title {
+    bottom: 10px;
+    left: 8px;
+    right: 8px;
+    font-size: 0.8rem;
+  }
+
+  .page-home .hot-cinema-rating {
+    top: 8px;
+    right: 8px;
+    font-size: 0.74rem;
+  }
+}

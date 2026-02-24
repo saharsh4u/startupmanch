@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
 import { pitches as fallbackPitches } from "@/data/pitches";
@@ -196,6 +196,11 @@ const getErrorMessage = (error: unknown) => {
   if (error instanceof DOMException && error.name === "AbortError") return null;
   if (error instanceof Error && error.message.trim().length) return error.message;
   return "Unable to load more pitches.";
+};
+
+const wrapIndex = (value: number, length: number) => {
+  if (length <= 0) return 0;
+  return ((value % length) + length) % length;
 };
 
 const buildPitchFeedPath = (options: {
@@ -783,6 +788,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     [baseFeed, topIds]
   );
 
+  const carouselPitches = useMemo(
+    () => dedupePitches([...topPitches, ...approvedMorePitches, ...filteredFallback]).slice(0, 12),
+    [approvedMorePitches, filteredFallback, topPitches]
+  );
+
+  const [hotCarouselIndex, setHotCarouselIndex] = useState(0);
+  const [hotCarouselPaused, setHotCarouselPaused] = useState(false);
+
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
   const approvedVisible = useMemo(() => {
@@ -857,6 +870,25 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
   const expandedList = useMemo(() => [...topPitches, ...approvedMorePitches], [approvedMorePitches, topPitches]);
   const hasVisiblePitches = topPitches.length > 0 || approvedMorePitches.length > 0;
+
+  useEffect(() => {
+    if (!carouselPitches.length) {
+      setHotCarouselIndex(0);
+      return;
+    }
+    setHotCarouselIndex((current) => wrapIndex(current, carouselPitches.length));
+  }, [carouselPitches]);
+
+  useEffect(() => {
+    if (carouselPitches.length <= 1) return;
+    if (loadingInitial || hotCarouselPaused) return;
+
+    const timer = window.setInterval(() => {
+      setHotCarouselIndex((current) => wrapIndex(current + 1, carouselPitches.length));
+    }, 2600);
+
+    return () => window.clearInterval(timer);
+  }, [carouselPitches.length, hotCarouselPaused, loadingInitial]);
 
   const teaserItems = useMemo(() => {
     if (!SLOT_UPGRADE_ENABLED) return [] as Array<
@@ -1208,16 +1240,63 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       ) : (
         <>
           <div className={`pitch-mosaic hot-band${loaded ? " is-loaded" : ""}`}>
-            <div className="pitch-top-grid hot-grid">
-              {topPitches.map((pitch) => (
-                <PitchShowCard
-                  key={pitch.id}
-                  pitch={pitch}
-                  size="feature"
-                  variant="hot"
-                  onExpand={handleExpand}
-                />
-              ))}
+            <div
+              className="hot-cinema"
+              onMouseEnter={() => setHotCarouselPaused(true)}
+              onMouseLeave={() => setHotCarouselPaused(false)}
+              onFocusCapture={() => setHotCarouselPaused(true)}
+              onBlurCapture={() => setHotCarouselPaused(false)}
+            >
+              <div className="hot-cinema-glow" aria-hidden="true" />
+              <div className="hot-cinema-track" aria-label="Hot pitches carousel">
+                {([-2, -1, 0, 1, 2] as const).map((offset) => {
+                  if (!carouselPitches.length) return null;
+                  const targetIndex = wrapIndex(hotCarouselIndex + offset, carouselPitches.length);
+                  const pitch = carouselPitches[targetIndex];
+                  const absoluteOffset = Math.abs(offset);
+                  const isCenter = offset === 0;
+                  const rating = (7 + asNumber(pitch.score) * 0.1 + (hashString(pitch.id) % 20) / 100).toFixed(1);
+                  const spread = offset * (isMobileViewport ? 96 : 214);
+                  const scale = Math.max(0.5, 1 - absoluteOffset * 0.2);
+                  const lift = -Math.pow(absoluteOffset, 1.25) * (isMobileViewport ? 3 : 8);
+                  const depth = -absoluteOffset * (isMobileViewport ? 26 : 52);
+                  const tilt = offset * -8;
+                  const opacity = Math.max(0.16, 1 - absoluteOffset * 0.35);
+                  const zIndex = 90 - absoluteOffset * 12;
+
+                  return (
+                    <button
+                      key={`hot-cinema-${pitch.id}-${offset}`}
+                      type="button"
+                      className={`hot-cinema-card${isCenter ? " is-center" : ""}`}
+                      style={
+                        {
+                          transform: `translate(-50%, -50%) translateX(${spread}px) translateY(${lift}px) translateZ(${depth}px) rotate(${tilt}deg) scale(${scale})`,
+                          opacity,
+                          zIndex,
+                          ["--cinema-depth" as string]: absoluteOffset,
+                        } as CSSProperties
+                      }
+                      aria-label={`Open pitch from ${pitch.name}`}
+                      onClick={() => {
+                        if (isCenter) {
+                          handleExpand(pitch);
+                          return;
+                        }
+                        setHotCarouselIndex(targetIndex);
+                      }}
+                    >
+                      <span
+                        className="hot-cinema-poster"
+                        style={{ backgroundImage: pitch.poster ? `url(${pitch.poster})` : undefined }}
+                      />
+                      <span className="hot-cinema-overlay" />
+                      <span className="hot-cinema-title">{pitch.name}</span>
+                      <span className="hot-cinema-rating">{rating}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
