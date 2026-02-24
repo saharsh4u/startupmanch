@@ -84,6 +84,9 @@ type FeedCacheSnapshot = {
 
 type SlotFilter = "all" | "approved" | "open";
 type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: string };
+type MobileStackItem =
+  | { type: "approved"; id: string; pitch: FeedPitch }
+  | { type: "open"; id: string };
 
 const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
@@ -347,6 +350,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const hotDragRafRef = useRef<number | null>(null);
   const hotDragOffsetRef = useRef(0);
   const hotPointerSuppressClickRef = useRef(false);
+  const mobileStackPointerStartYRef = useRef<number | null>(null);
+  const mobileStackPointerStartXRef = useRef<number | null>(null);
+  const mobileStackPointerLastYRef = useRef<number>(0);
+  const mobileStackPointerLastTimeRef = useRef<number>(0);
+  const mobileStackPointerVelocityRef = useRef<number>(0);
+  const mobileStackDragRafRef = useRef<number | null>(null);
+  const mobileStackDragOffsetRef = useRef(0);
+  const mobileStackPointerSuppressClickRef = useRef(false);
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -858,6 +869,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [hotCarouselIndex, setHotCarouselIndex] = useState(2);
   const [hotCarouselDragging, setHotCarouselDragging] = useState(false);
   const [hotCarouselDragOffset, setHotCarouselDragOffset] = useState(0);
+  const [mobileStackIndex, setMobileStackIndex] = useState(0);
+  const [mobileStackDragging, setMobileStackDragging] = useState(false);
+  const [mobileStackDragOffsetY, setMobileStackDragOffsetY] = useState(0);
   const [hotGlowActiveLayer, setHotGlowActiveLayer] = useState<"a" | "b">("a");
   const [hotGlowBackgroundA, setHotGlowBackgroundA] = useState(() => makeHotGlowBackground("200,20,20"));
   const [hotGlowBackgroundB, setHotGlowBackgroundB] = useState(() => makeHotGlowBackground("200,20,20"));
@@ -933,6 +947,21 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
     return chunkBySize(expanded, ROW_SIZE).slice(0, MOBILE_MORE_PITCH_ROW_COUNT);
   }, [mobileVideoSlots, rowSlots]);
+  const mobileStackItems = useMemo<MobileStackItem[]>(() => {
+    const approved = approvedVisible.map((pitch) => ({
+      type: "approved" as const,
+      id: pitch.id,
+      pitch,
+    }));
+    if (approved.length) return approved;
+    return [{ type: "open" as const, id: "mobile-stack-open-slot" }];
+  }, [approvedVisible]);
+  const mobileStackVisibleOffsets = useMemo(() => {
+    const length = mobileStackItems.length;
+    if (length <= 1) return [0] as number[];
+    if (length <= 3) return [-1, 0, 1] as number[];
+    return [-2, -1, 0, 1, 2] as number[];
+  }, [mobileStackItems.length]);
 
   const expandedList = useMemo(() => [...topPitches, ...approvedMorePitches], [approvedMorePitches, topPitches]);
   const hasVisiblePitches = topPitches.length > 0 || approvedMorePitches.length > 0;
@@ -944,6 +973,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     }
     setHotCarouselIndex((current) => wrapIndex(current, carouselPitches.length));
   }, [carouselPitches]);
+
+  useEffect(() => {
+    if (!mobileStackItems.length) {
+      setMobileStackIndex(0);
+      return;
+    }
+    setMobileStackIndex((current) => wrapIndex(current, mobileStackItems.length));
+  }, [mobileStackItems]);
 
   const setHotCarouselTo = useCallback(
     (index: number) => {
@@ -1112,6 +1149,120 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     [shiftHotCarousel]
   );
 
+  const shiftMobileStack = useCallback(
+    (delta: number) => {
+      if (mobileStackItems.length <= 1) return;
+      setMobileStackIndex((current) => wrapIndex(current + delta, mobileStackItems.length));
+    },
+    [mobileStackItems.length]
+  );
+
+  const flushMobileStackDragOffset = useCallback(() => {
+    if (mobileStackDragRafRef.current !== null) return;
+    mobileStackDragRafRef.current = window.requestAnimationFrame(() => {
+      mobileStackDragRafRef.current = null;
+      setMobileStackDragOffsetY(mobileStackDragOffsetRef.current);
+    });
+  }, []);
+
+  const resetMobileStackDrag = useCallback(() => {
+    mobileStackPointerStartYRef.current = null;
+    mobileStackPointerStartXRef.current = null;
+    mobileStackPointerLastYRef.current = 0;
+    mobileStackPointerLastTimeRef.current = 0;
+    mobileStackPointerVelocityRef.current = 0;
+    mobileStackDragOffsetRef.current = 0;
+    setMobileStackDragging(false);
+    setMobileStackDragOffsetY(0);
+  }, []);
+
+  const handleMobileStackPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!isMobileViewport) return;
+      if (mobileStackItems.length <= 1) return;
+      mobileStackPointerStartYRef.current = event.clientY;
+      mobileStackPointerStartXRef.current = event.clientX;
+      mobileStackPointerLastYRef.current = event.clientY;
+      mobileStackPointerLastTimeRef.current = performance.now();
+      mobileStackPointerVelocityRef.current = 0;
+      mobileStackDragOffsetRef.current = 0;
+      mobileStackPointerSuppressClickRef.current = false;
+      setMobileStackDragging(true);
+      setMobileStackDragOffsetY(0);
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [isMobileViewport, mobileStackItems.length]
+  );
+
+  const handleMobileStackPointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!mobileStackDragging) return;
+      if (mobileStackPointerStartYRef.current === null || mobileStackPointerStartXRef.current === null) return;
+
+      const deltaY = event.clientY - mobileStackPointerStartYRef.current;
+      const deltaX = event.clientX - mobileStackPointerStartXRef.current;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY) + 6 && Math.abs(deltaX) > 12) {
+        mobileStackPointerSuppressClickRef.current = false;
+        resetMobileStackDrag();
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        return;
+      }
+
+      event.preventDefault();
+      const clampedDeltaY = Math.max(-280, Math.min(280, deltaY));
+      const now = performance.now();
+      const lastTime = mobileStackPointerLastTimeRef.current || now;
+      const elapsed = Math.max(1, now - lastTime);
+      const velocitySample = (event.clientY - mobileStackPointerLastYRef.current) / elapsed;
+      mobileStackPointerVelocityRef.current =
+        mobileStackPointerVelocityRef.current * 0.65 + velocitySample * 0.35;
+      mobileStackPointerLastYRef.current = event.clientY;
+      mobileStackPointerLastTimeRef.current = now;
+      mobileStackDragOffsetRef.current = clampedDeltaY;
+      flushMobileStackDragOffset();
+
+      if (Math.abs(deltaY) > 8) {
+        mobileStackPointerSuppressClickRef.current = true;
+      }
+    },
+    [flushMobileStackDragOffset, mobileStackDragging, resetMobileStackDrag]
+  );
+
+  const finishMobileStackPointer = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (mobileStackPointerStartYRef.current === null) return;
+      const deltaY = mobileStackDragOffsetRef.current;
+      const threshold = 58;
+      const flickThreshold = 0.34;
+      const velocity = mobileStackPointerVelocityRef.current;
+
+      if (deltaY <= -threshold || velocity <= -flickThreshold) {
+        shiftMobileStack(1);
+      } else if (deltaY >= threshold || velocity >= flickThreshold) {
+        shiftMobileStack(-1);
+      }
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+
+      resetMobileStackDrag();
+
+      window.setTimeout(() => {
+        mobileStackPointerSuppressClickRef.current = false;
+      }, 0);
+    },
+    [resetMobileStackDrag, shiftMobileStack]
+  );
+
+  const handleMobileStackPointerCaptureLost = useCallback(() => {
+    if (!mobileStackDragging) return;
+    resetMobileStackDrag();
+  }, [mobileStackDragging, resetMobileStackDrag]);
+
   const activePlatform = useMemo(
     () =>
       carouselPitches.length
@@ -1141,6 +1292,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       }
       if (hotDragRafRef.current !== null) {
         window.cancelAnimationFrame(hotDragRafRef.current);
+      }
+      if (mobileStackDragRafRef.current !== null) {
+        window.cancelAnimationFrame(mobileStackDragRafRef.current);
       }
     },
     []
@@ -1250,13 +1404,16 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     });
   }, [topPitches]);
 
-  const handleExpand = (pitch: PitchShow) => {
-    const snapshot = [...expandedList];
-    const idx = snapshot.findIndex((item) => item.id === pitch.id);
-    if (idx < 0) return;
-    setOverlayPitches(snapshot);
-    setExpandedIndex(idx);
-  };
+  const handleExpand = useCallback(
+    (pitch: PitchShow) => {
+      const snapshot = [...expandedList];
+      const idx = snapshot.findIndex((item) => item.id === pitch.id);
+      if (idx < 0) return;
+      setOverlayPitches(snapshot);
+      setExpandedIndex(idx);
+    },
+    [expandedList]
+  );
 
   const closeExpand = () => {
     setExpandedIndex(null);
@@ -1279,6 +1436,46 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
   };
+
+  const triggerPostPitchEntry = useCallback(() => {
+    if (onPostPitch) {
+      onPostPitch();
+      return;
+    }
+    openPostPitchFlow();
+  }, [onPostPitch]);
+
+  const activateMobileStackItem = useCallback(
+    (item: MobileStackItem | undefined) => {
+      if (!item) return;
+      if (item.type === "approved") {
+        handleExpand(item.pitch);
+        return;
+      }
+      triggerPostPitchEntry();
+    },
+    [handleExpand, triggerPostPitchEntry]
+  );
+
+  const handleMobileStackKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        shiftMobileStack(1);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        shiftMobileStack(-1);
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        activateMobileStackItem(mobileStackItems[mobileStackIndex]);
+      }
+    },
+    [activateMobileStackItem, mobileStackIndex, mobileStackItems, shiftMobileStack]
+  );
 
   const handleSharePitch = async (
     event: MouseEvent<HTMLButtonElement>,
@@ -1657,24 +1854,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
             <div className={`pitch-columns${isMobileViewport ? " is-mobile" : " is-desktop"}`}>
               {loadingInitial
                 ? isMobileViewport
-                  ? Array.from({ length: MOBILE_MORE_PITCH_ROW_COUNT }, (_, rowIndex) => (
-                      <div
-                        key={`initial-loading-mobile-row-${rowIndex}`}
-                        className="pitch-mobile-row is-loading"
-                        aria-hidden="true"
-                      >
-                        <div className="pitch-mobile-row-track">
-                          <div className="pitch-mobile-row-segment">
-                            {Array.from({ length: ROW_SIZE }, (_, cardIndex) => (
-                              <article
-                                key={`initial-loading-mobile-card-${rowIndex}-${cardIndex}`}
-                                className="pitch-show-card row skeleton"
-                              />
-                            ))}
-                          </div>
-                        </div>
+                  ? (
+                      <div className="pitch-mobile-stack is-loading" aria-hidden="true">
+                        <article className="pitch-mobile-stack-skeleton pos-back" />
+                        <article className="pitch-mobile-stack-skeleton pos-mid" />
+                        <article className="pitch-mobile-stack-skeleton pos-front" />
                       </div>
-                    ))
+                    )
                   : Array.from({ length: MORE_PITCH_COLUMN_COUNT }, (_, columnIndex) => (
                       <div
                         key={`initial-loading-column-${columnIndex}`}
@@ -1690,29 +1876,131 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                       </div>
                     ))
                 : isMobileViewport
-                  ? mobileRowGroups.map((group, rowIndex) => (
+                  ? (
                       <div
-                        key={`mobile-row-${rowIndex}`}
-                        className={`pitch-mobile-row ${rowIndex % 2 === 0 ? "is-forward" : "is-reverse"}`}
+                        className={`pitch-mobile-stack${mobileStackDragging ? " is-dragging" : ""}`}
+                        tabIndex={0}
+                        onKeyDown={handleMobileStackKeyDown}
+                        onPointerDown={handleMobileStackPointerDown}
+                        onPointerMove={handleMobileStackPointerMove}
+                        onPointerUp={finishMobileStackPointer}
+                        onPointerCancel={finishMobileStackPointer}
+                        onLostPointerCapture={handleMobileStackPointerCaptureLost}
+                        aria-label="More pitches mobile stack"
                       >
-                        <div className="pitch-mobile-row-track">
-                          <div className="pitch-mobile-row-segment" data-row-segment="primary">
-                            {group.map((slot, slotIndex) =>
-                              renderRowSlot(slot, rowIndex, slotIndex, "primary")
-                            )}
-                          </div>
-                          <div
-                            className="pitch-mobile-row-segment is-clone"
-                            data-row-segment="clone"
-                            aria-hidden="true"
-                          >
-                            {group.map((slot, slotIndex) =>
-                              renderRowSlot(slot, rowIndex, slotIndex, "clone")
-                            )}
-                          </div>
-                        </div>
+                        {mobileStackVisibleOffsets.map((offset) => {
+                          if (!mobileStackItems.length) return null;
+                          const targetIndex = wrapIndex(mobileStackIndex + offset, mobileStackItems.length);
+                          const item = mobileStackItems[targetIndex];
+                          const distance = Math.min(2, Math.abs(offset));
+                          const isCenter = offset === 0;
+                          const yShift = offset * 88;
+                          const zIndex = 100 - distance * 16;
+                          const baseScale = isCenter ? 1 : distance === 1 ? 0.87 : 0.75;
+                          const baseOpacity = isCenter ? 1 : distance === 1 ? 0.64 : 0.34;
+                          const angle = isCenter ? 0 : offset < 0 ? -2 : 2;
+
+                          if (item.type === "approved") {
+                            const pitch = item.pitch;
+                            const onCardClick = () => {
+                              if (mobileStackPointerSuppressClickRef.current) return;
+                              if (!isCenter) {
+                                setMobileStackIndex(targetIndex);
+                                return;
+                              }
+                              handleExpand(pitch);
+                            };
+
+                            return (
+                              <button
+                                key={`mobile-stack-${pitch.id}-${offset}`}
+                                type="button"
+                                className={`pitch-mobile-stack-card is-approved${isCenter ? " is-active" : ""}`}
+                                data-stack-depth={distance}
+                                style={
+                                  {
+                                    ["--stack-y" as string]: `${yShift}px`,
+                                    ["--stack-scale" as string]: baseScale,
+                                    ["--stack-opacity" as string]: baseOpacity,
+                                    ["--stack-rotate" as string]: `${angle}deg`,
+                                    ["--stack-z" as string]: zIndex,
+                                    ["--stack-drag-y" as string]: `${mobileStackDragOffsetY}px`,
+                                  } as CSSProperties
+                                }
+                                onClick={onCardClick}
+                                aria-label={isCenter ? `Open pitch from ${pitch.name}` : `Focus pitch from ${pitch.name}`}
+                              >
+                                {isCenter && pitch.video ? (
+                                  <video
+                                    className="pitch-mobile-stack-media"
+                                    src={pitch.video}
+                                    poster={pitch.poster}
+                                    muted
+                                    playsInline
+                                    autoPlay
+                                    loop
+                                    preload="metadata"
+                                  />
+                                ) : (
+                                  <span
+                                    className="pitch-mobile-stack-media"
+                                    style={{ backgroundImage: pitch.poster ? `url(${pitch.poster})` : undefined }}
+                                  />
+                                )}
+                                <span className="pitch-mobile-stack-overlay" />
+                                {isCenter ? (
+                                  <span className="pitch-mobile-stack-info">
+                                    <span className="pitch-mobile-stack-title">{pitch.name}</span>
+                                    <span className="pitch-mobile-stack-meta">
+                                      <span>{pitch.category ?? "Pitch"}</span>
+                                      <span>60s pitch</span>
+                                    </span>
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          }
+
+                          const slotCopy = slotOpenCopyVariants[hashString(item.id) % slotOpenCopyVariants.length];
+                          return (
+                            <button
+                              key={`mobile-stack-open-${item.id}-${offset}`}
+                              type="button"
+                              className={`pitch-mobile-stack-card is-open-slot${isCenter ? " is-active" : ""}`}
+                              data-stack-depth={distance}
+                              style={
+                                {
+                                  ["--stack-y" as string]: `${yShift}px`,
+                                  ["--stack-scale" as string]: baseScale,
+                                  ["--stack-opacity" as string]: baseOpacity,
+                                  ["--stack-rotate" as string]: `${angle}deg`,
+                                  ["--stack-z" as string]: zIndex,
+                                  ["--stack-drag-y" as string]: `${mobileStackDragOffsetY}px`,
+                                } as CSSProperties
+                              }
+                              onClick={() => {
+                                if (mobileStackPointerSuppressClickRef.current) return;
+                                if (!isCenter) {
+                                  setMobileStackIndex(targetIndex);
+                                  return;
+                                }
+                                triggerPostPitchEntry();
+                              }}
+                              aria-label={isCenter ? "Submit your pitch" : "Focus open slot card"}
+                            >
+                              <span className="pitch-mobile-stack-open-kicker">Slot open</span>
+                              <span className="pitch-mobile-stack-open-title">{slotCopy.title}</span>
+                              {isCenter ? (
+                                <>
+                                  <span className="pitch-mobile-stack-open-copy">{slotCopy.description}</span>
+                                  <span className="pitch-mobile-stack-open-cta">{slotCopy.cta}</span>
+                                </>
+                              ) : null}
+                            </button>
+                          );
+                        })}
                       </div>
-                    ))
+                    )
                   : columnGroups.map((group, columnIndex) => (
                       <div
                         key={`column-group-${columnIndex}`}
