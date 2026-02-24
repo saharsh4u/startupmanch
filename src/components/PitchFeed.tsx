@@ -114,26 +114,22 @@ const carouselPlatforms = [
   {
     label: "N",
     badgeClassName: "is-netflix",
-    glow: "rgba(229, 9, 20, 0.56)",
-    glowSoft: "rgba(229, 9, 20, 0.2)",
+    glowRgb: "200,20,20",
   },
   {
     label: "HBO",
     badgeClassName: "is-hbo",
-    glow: "rgba(71, 96, 255, 0.52)",
-    glowSoft: "rgba(71, 96, 255, 0.18)",
+    glowRgb: "50,80,200",
   },
   {
     label: "H",
     badgeClassName: "is-hulu",
-    glow: "rgba(28, 231, 131, 0.48)",
-    glowSoft: "rgba(28, 231, 131, 0.16)",
+    glowRgb: "20,180,100",
   },
   {
     label: "D+",
     badgeClassName: "is-disney",
-    glow: "rgba(70, 132, 255, 0.5)",
-    glowSoft: "rgba(70, 132, 255, 0.16)",
+    glowRgb: "30,80,200",
   },
 ] as const;
 
@@ -232,6 +228,9 @@ const hashString = (input: string) => {
 const accentForKey = (key: string) => accentPalette[hashString(key) % accentPalette.length];
 
 const platformForKey = (key: string) => carouselPlatforms[hashString(key) % carouselPlatforms.length];
+
+const makeHotGlowBackground = (rgb: string) =>
+  `radial-gradient(circle, rgba(${rgb},0.6) 0%, rgba(${rgb},0.25) 45%, transparent 72%)`;
 
 const stateForOffset = (offset: number) => {
   const abs = Math.abs(offset);
@@ -344,6 +343,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const hotCarouselStartXRef = useRef<number | null>(null);
   const hotCarouselMovedXRef = useRef(0);
   const hotCarouselSuppressClickRef = useRef(false);
+  const hotGlowLayerRef = useRef<"a" | "b">("a");
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -847,6 +847,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
   const [hotCarouselIndex, setHotCarouselIndex] = useState(0);
   const [hotCarouselDragging, setHotCarouselDragging] = useState(false);
+  const [hotGlowActiveLayer, setHotGlowActiveLayer] = useState<"a" | "b">("a");
+  const [hotGlowBackgroundA, setHotGlowBackgroundA] = useState(() => makeHotGlowBackground("200,20,20"));
+  const [hotGlowBackgroundB, setHotGlowBackgroundB] = useState(() => makeHotGlowBackground("200,20,20"));
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -1012,6 +1015,20 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         : carouselPlatforms[0],
     [carouselPitches, hotCarouselIndex]
   );
+
+  useEffect(() => {
+    const nextBackground = makeHotGlowBackground(activePlatform.glowRgb);
+    if (hotGlowLayerRef.current === "a") {
+      setHotGlowBackgroundB(nextBackground);
+      setHotGlowActiveLayer("b");
+      hotGlowLayerRef.current = "b";
+      return;
+    }
+
+    setHotGlowBackgroundA(nextBackground);
+    setHotGlowActiveLayer("a");
+    hotGlowLayerRef.current = "a";
+  }, [activePlatform.glowRgb, hotCarouselIndex]);
 
   const teaserItems = useMemo(() => {
     if (!SLOT_UPGRADE_ENABLED) return [] as Array<
@@ -1365,16 +1382,19 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           <div className={`pitch-mosaic hot-band${loaded ? " is-loaded" : ""}`}>
             <div
               className="hot-cinema"
-              style={
-                {
-                  ["--hot-glow-color" as string]: activePlatform.glow,
-                  ["--hot-glow-soft" as string]: activePlatform.glowSoft,
-                } as CSSProperties
-              }
               tabIndex={0}
               onKeyDown={handleHotCarouselKeyDown}
             >
-              <div className="hot-cinema-glow" aria-hidden="true" />
+              <div
+                className={`hot-cinema-glow-layer${hotGlowActiveLayer === "a" ? " is-active" : ""}`}
+                style={{ background: hotGlowBackgroundA }}
+                aria-hidden="true"
+              />
+              <div
+                className={`hot-cinema-glow-layer${hotGlowActiveLayer === "b" ? " is-active" : ""}`}
+                style={{ background: hotGlowBackgroundB }}
+                aria-hidden="true"
+              />
               <div
                 className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}`}
                 aria-label="Hot pitches carousel"
@@ -1399,7 +1419,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                     <button
                       key={`hot-cinema-${pitch.id}-${offset}`}
                       type="button"
-                      className={`hot-cinema-card ${stateClass}`}
+                      className={`hot-cinema-card ${stateClass}${isCenter ? " is-just-activated" : ""}`}
                       style={
                         {
                           ["--hot-x" as string]: `${offset * xSpread}px`,

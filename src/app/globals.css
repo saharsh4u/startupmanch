@@ -7666,8 +7666,6 @@ body {
 }
 
 .page-home .hot-cinema {
-  --hot-glow-color: rgba(229, 9, 20, 0.56);
-  --hot-glow-soft: rgba(229, 9, 20, 0.2);
   position: relative;
   min-height: 440px;
   border-radius: 20px;
@@ -7698,18 +7696,23 @@ body {
   background: linear-gradient(270deg, rgba(5, 5, 5, 0.86) 8%, rgba(5, 5, 5, 0));
 }
 
-.page-home .hot-cinema-glow {
+.page-home .hot-cinema-glow-layer {
   position: absolute;
   left: 50%;
   top: 49%;
-  width: 340px;
-  height: 340px;
+  width: 400px;
+  height: 400px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, var(--hot-glow-color) 0%, var(--hot-glow-soft) 45%, transparent 75%);
-  filter: blur(8px);
-  animation: hotCinemaPulse 2.2s ease-in-out infinite;
+  filter: blur(12px);
+  transition: opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
+  opacity: 0;
+  animation: hotCinemaPulse 2.2s ease-in-out infinite;
+}
+
+.page-home .hot-cinema-glow-layer.is-active {
+  opacity: 1;
 }
 
 .page-home .hot-cinema-track {
@@ -7736,16 +7739,18 @@ body {
   padding: 0;
   overflow: hidden;
   cursor: pointer;
+  will-change: transform, width, height, opacity;
   transition:
-    width 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    height 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    opacity 0.55s ease,
-    border-color 0.45s ease,
-    box-shadow 0.45s ease;
+    width 0.72s cubic-bezier(0.34, 1.3, 0.64, 1),
+    height 0.72s cubic-bezier(0.34, 1.3, 0.64, 1),
+    transform 0.72s cubic-bezier(0.34, 1.3, 0.64, 1),
+    opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.4s ease,
+    box-shadow 0.55s ease;
   transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(40px) scale(1);
   opacity: 0.3;
   z-index: 1;
+  box-shadow: none;
 }
 
 .page-home .hot-cinema-card.state-active {
@@ -7754,7 +7759,14 @@ body {
   transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(1);
   opacity: 1;
   border: 1.5px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.page-home .hot-cinema-card.state-active.is-just-activated {
+  animation: hotCinemaCardPop 0.65s cubic-bezier(0.34, 1.5, 0.64, 1) both;
 }
 
 .page-home .hot-cinema-card.state-adjacent {
@@ -7763,6 +7775,7 @@ body {
   transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(18px) scale(1);
   opacity: 0.85;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 .page-home .hot-cinema-card.state-far {
@@ -7771,6 +7784,7 @@ body {
   transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(32px) scale(1);
   opacity: 0.55;
   border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: none;
 }
 
 .page-home .hot-cinema-card.state-hidden {
@@ -7778,6 +7792,7 @@ body {
   height: 190px;
   transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(40px) scale(1);
   opacity: 0.3;
+  box-shadow: none;
 }
 
 .page-home .hot-cinema-card:hover {
@@ -7937,6 +7952,18 @@ body {
   background: rgba(200, 20, 20, 0.9);
 }
 
+@keyframes hotCinemaCardPop {
+  0% {
+    transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(0.97);
+  }
+  55% {
+    transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(1.025);
+  }
+  100% {
+    transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(1);
+  }
+}
+
 @keyframes hotCinemaPulse {
   0%,
   100% {
@@ -7955,9 +7982,9 @@ body {
     min-height: 370px;
   }
 
-  .page-home .hot-cinema-glow {
-    width: 280px;
-    height: 280px;
+  .page-home .hot-cinema-glow-layer {
+    width: 330px;
+    height: 330px;
   }
 
   .page-home .hot-cinema-card.state-active {
@@ -7992,10 +8019,10 @@ body {
     border-radius: 14px;
   }
 
-  .page-home .hot-cinema-glow {
-    width: 220px;
-    height: 220px;
-    filter: blur(7px);
+  .page-home .hot-cinema-glow-layer {
+    width: 260px;
+    height: 260px;
+    filter: blur(10px);
   }
 
   .page-home .hot-cinema::before,
