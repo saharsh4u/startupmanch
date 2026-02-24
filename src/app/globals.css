@@ -7667,7 +7667,7 @@ body {
 
 .page-home .hot-cinema {
   position: relative;
-  min-height: 440px;
+  min-height: 560px;
   border-radius: 20px;
   border: 1px solid #242424;
   background: linear-gradient(180deg, #080808 0%, #050505 100%);
@@ -7699,12 +7699,12 @@ body {
 .page-home .hot-cinema-glow-layer {
   position: absolute;
   left: 50%;
-  top: 49%;
-  width: 400px;
-  height: 400px;
+  top: 38%;
+  width: 620px;
+  height: 620px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  filter: blur(12px);
+  filter: blur(30px);
   transition: opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
   opacity: 0;
@@ -7717,86 +7717,77 @@ body {
 
 .page-home .hot-cinema-track {
   position: relative;
-  min-height: 420px;
-  cursor: grab;
+  min-height: 520px;
   user-select: none;
-  touch-action: pan-y;
-}
-
-.page-home .hot-cinema-track.is-dragging {
-  cursor: grabbing;
+  touch-action: pan-y pinch-zoom;
+  padding-top: 40px;
 }
 
 .page-home .hot-cinema-card {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 40px;
   width: 120px;
   height: 190px;
   border: none;
-  border-radius: 18px;
+  border-radius: 22px;
   background: #111111;
   padding: 0;
   overflow: hidden;
   cursor: pointer;
   will-change: transform, width, height, opacity;
   transition:
-    width 0.72s cubic-bezier(0.34, 1.3, 0.64, 1),
-    height 0.72s cubic-bezier(0.34, 1.3, 0.64, 1),
-    transform 0.72s cubic-bezier(0.34, 1.3, 0.64, 1),
+    width 0.72s cubic-bezier(0.34, 1.2, 0.64, 1),
+    height 0.72s cubic-bezier(0.34, 1.2, 0.64, 1),
+    transform 0.72s cubic-bezier(0.34, 1.2, 0.64, 1),
     opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.4s ease,
     box-shadow 0.55s ease;
-  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(40px) scale(1);
+  transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(var(--hot-y, 135px));
+  transform-origin: top center;
   opacity: 0.3;
   z-index: 1;
   box-shadow: none;
 }
 
-.page-home .hot-cinema-card.state-active {
-  width: 240px;
-  height: 360px;
-  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(1);
+.page-home .hot-cinema-card.pos-0 {
+  width: 280px;
+  height: 420px;
+  margin: 0 12px;
   opacity: 1;
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
   box-shadow:
-    0 28px 70px rgba(0, 0, 0, 0.85),
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 40px rgba(0, 0, 0, 0.5);
+    0 36px 90px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-.page-home .hot-cinema-card.state-active.is-just-activated {
+.page-home .hot-cinema-card.pos-0.is-just-activated {
   animation: hotCinemaCardPop 0.65s cubic-bezier(0.34, 1.5, 0.64, 1) both;
 }
 
-.page-home .hot-cinema-card.state-adjacent {
-  width: 190px;
-  height: 290px;
-  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(18px) scale(1);
-  opacity: 0.85;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
+.page-home .hot-cinema-card.pos-1 {
+  width: 200px;
+  height: 310px;
+  margin: 0 8px;
+  opacity: 0.9;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
 }
 
-.page-home .hot-cinema-card.state-far {
-  width: 150px;
-  height: 230px;
-  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(32px) scale(1);
-  opacity: 0.55;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: none;
+.page-home .hot-cinema-card.pos-2 {
+  width: 155px;
+  height: 245px;
+  margin: 0 6px;
+  opacity: 0.6;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.page-home .hot-cinema-card.state-hidden {
-  width: 120px;
-  height: 190px;
-  transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(40px) scale(1);
-  opacity: 0.3;
-  box-shadow: none;
-}
-
-.page-home .hot-cinema-card:hover {
-  border-color: rgba(255, 255, 255, 0.22);
+.page-home .hot-cinema-card.pos-3 {
+  width: 110px;
+  height: 175px;
+  margin: 0 4px;
+  opacity: 0.25;
+  border: none;
 }
 
 .page-home .hot-cinema-poster {
@@ -7819,6 +7810,52 @@ body {
     rgba(0, 0, 0, 0.5) 75%,
     rgba(0, 0, 0, 0.85) 100%
   );
+}
+
+.page-home .hot-cinema-card:not(.pos-0) .hot-cinema-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.1) 35%,
+    rgba(0, 0, 0, 0.1) 55%,
+    rgba(0, 0, 0, 0.6) 78%,
+    rgba(0, 0, 0, 0.9) 100%
+  );
+}
+
+.page-home .hot-cinema-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.7);
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition:
+    opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.page-home .hot-cinema-play svg {
+  width: 22px;
+  height: 22px;
+  fill: #ffffff;
+  margin-left: 3px;
+}
+
+.page-home .hot-cinema-card.active .hot-cinema-play {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .page-home .hot-cinema-platform {
@@ -7884,7 +7921,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 12px 12px 14px;
+  padding: 14px 14px 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -7898,6 +7935,32 @@ body {
   line-height: 1.2;
   letter-spacing: -0.01em;
   text-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+}
+
+.page-home .hot-cinema-card.pos-0 .hot-cinema-title {
+  font-size: 20px;
+}
+
+.page-home .hot-cinema-card.pos-0 .hot-cinema-info {
+  padding: 16px 16px 22px;
+}
+
+.page-home .hot-cinema-card.pos-0 .hot-cinema-platform {
+  min-width: 32px;
+  height: 32px;
+  font-size: 10px;
+  top: 12px;
+  left: 12px;
+}
+
+.page-home .hot-cinema-card.pos-0 .hot-cinema-rating {
+  font-size: 17px;
+  top: 12px;
+  right: 12px;
+}
+
+.page-home .hot-cinema-card.pos-0 .hot-cinema-rating .star {
+  font-size: 13px;
 }
 
 .page-home .hot-cinema-meta {
@@ -7917,11 +7980,11 @@ body {
   letter-spacing: 0.02em;
 }
 
-.page-home .hot-cinema-card:not(.state-active) .hot-cinema-meta {
+.page-home .hot-cinema-card:not(.pos-0) .hot-cinema-meta {
   display: none;
 }
 
-.page-home .hot-cinema-card.state-hidden .hot-cinema-info {
+.page-home .hot-cinema-card.pos-3 .hot-cinema-info {
   opacity: 0.62;
 }
 
@@ -7954,13 +8017,13 @@ body {
 
 @keyframes hotCinemaCardPop {
   0% {
-    transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(0.97);
+    transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(var(--hot-y, 0px)) scale(0.94);
   }
   55% {
-    transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(1.025);
+    transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(calc(var(--hot-y, 0px) - 5px)) scale(1.03);
   }
   100% {
-    transform: translate(-50%, -50%) translateX(var(--hot-x, 0px)) translateY(0) scale(1);
+    transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(var(--hot-y, 0px)) scale(1);
   }
 }
 
@@ -7979,32 +8042,33 @@ body {
 @media (max-width: 900px) {
   .page-home .hot-cinema,
   .page-home .hot-cinema-track {
-    min-height: 370px;
+    min-height: 440px;
   }
 
   .page-home .hot-cinema-glow-layer {
-    width: 330px;
-    height: 330px;
+    width: 460px;
+    height: 460px;
+    filter: blur(22px);
   }
 
-  .page-home .hot-cinema-card.state-active {
-    width: 216px;
-    height: 324px;
+  .page-home .hot-cinema-card.pos-0 {
+    width: 220px;
+    height: 336px;
   }
 
-  .page-home .hot-cinema-card.state-adjacent {
-    width: 174px;
-    height: 264px;
+  .page-home .hot-cinema-card.pos-1 {
+    width: 170px;
+    height: 266px;
   }
 
-  .page-home .hot-cinema-card.state-far {
-    width: 138px;
-    height: 212px;
+  .page-home .hot-cinema-card.pos-2 {
+    width: 132px;
+    height: 208px;
   }
 
-  .page-home .hot-cinema-card.state-hidden {
-    width: 112px;
-    height: 176px;
+  .page-home .hot-cinema-card.pos-3 {
+    width: 96px;
+    height: 154px;
   }
 }
 
@@ -8015,14 +8079,14 @@ body {
 
   .page-home .hot-cinema,
   .page-home .hot-cinema-track {
-    min-height: 296px;
+    min-height: 340px;
     border-radius: 14px;
   }
 
   .page-home .hot-cinema-glow-layer {
-    width: 260px;
-    height: 260px;
-    filter: blur(10px);
+    width: 320px;
+    height: 320px;
+    filter: blur(18px);
   }
 
   .page-home .hot-cinema::before,
@@ -8034,32 +8098,32 @@ body {
     border-radius: 14px;
   }
 
-  .page-home .hot-cinema-card.state-active {
-    width: 168px;
-    height: 256px;
+  .page-home .hot-cinema-card.pos-0 {
+    width: 180px;
+    height: 276px;
   }
 
-  .page-home .hot-cinema-card.state-adjacent {
-    width: 136px;
-    height: 208px;
+  .page-home .hot-cinema-card.pos-1 {
+    width: 140px;
+    height: 218px;
   }
 
-  .page-home .hot-cinema-card.state-far {
-    width: 106px;
-    height: 166px;
+  .page-home .hot-cinema-card.pos-2 {
+    width: 108px;
+    height: 170px;
   }
 
-  .page-home .hot-cinema-card.state-hidden {
-    width: 88px;
-    height: 140px;
+  .page-home .hot-cinema-card.pos-3 {
+    width: 82px;
+    height: 130px;
   }
 
   .page-home .hot-cinema-title {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .page-home .hot-cinema-rating {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .page-home .hot-cinema-platform {
@@ -8070,7 +8134,7 @@ body {
   }
 
   .page-home .hot-cinema-info {
-    padding: 10px 9px 10px;
+    padding: 10px 8px 10px;
     gap: 4px;
   }
 
