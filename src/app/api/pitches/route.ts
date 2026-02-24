@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { pitches as fallbackPitches } from "@/data/pitches";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,105 @@ const asNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const isSupabaseRestrictedError = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("exceed_cached_egress_quota") ||
+    normalized.includes("service for this project is restricted")
+  );
+};
+
+const shouldIncludeFallbackPitch = (pitch: (typeof fallbackPitches)[number], tab: string, category: string | null) => {
+  const normalizedCategory = pitch.category.trim().toLowerCase();
+  if (tab === "fashion") {
+    return normalizedCategory.includes("fashion") || normalizedCategory.includes("apparel");
+  }
+  if (tab === "food") {
+    return normalizedCategory.includes("food") || normalizedCategory.includes("beverage");
+  }
+  if (tab === "category" && category) {
+    return normalizedCategory === category.trim().toLowerCase();
+  }
+  return true;
+};
+
+const buildFallbackRows = (options: {
+  mode: string;
+  tab: string;
+  categoryFilter: string | null;
+  offset: number;
+  limit: number;
+}) => {
+  const filtered = fallbackPitches.filter((pitch) =>
+    shouldIncludeFallbackPitch(pitch, options.tab, options.categoryFilter)
+  );
+  const source = options.mode === "week" ? filtered.slice(0, 4) : filtered;
+  const rows = source.slice(options.offset, options.offset + options.limit);
+  const nowIso = new Date().toISOString();
+
+  return rows.map((pitch, index) => ({
+    pitch_id: pitch.id,
+    startup_id: `fallback-${pitch.id}`,
+    startup_name: pitch.name,
+    category: pitch.category,
+    city: pitch.city,
+    one_liner: pitch.tagline,
+    monthly_revenue: null,
+    video_path: null,
+    poster_path: null,
+    created_at: nowIso,
+    approved_at: nowIso,
+    in_count: 0,
+    out_count: 0,
+    comment_count: 0,
+    score: 0,
+    founder_photo_url: null,
+    founder_story: null,
+    founder_name: null,
+    slot_index: options.offset + index + 1,
+    video_url: null,
+    poster_url: pitch.poster,
+    is_fallback: true,
+  }));
+};
+
+const fallbackFeedResponse = (options: {
+  mode: string;
+  tab: string;
+  categoryFilter: string | null;
+  offset: number;
+  limit: number;
+  shuffleWindow: ReturnType<typeof buildShuffleWindow> | null;
+  status?: number;
+}) => {
+  const response = NextResponse.json(
+    {
+      mode: options.mode,
+      tab: options.tab,
+      data: buildFallbackRows({
+        mode: options.mode,
+        tab: options.tab,
+        categoryFilter: options.categoryFilter,
+        offset: options.offset,
+        limit: options.limit,
+      }),
+      offset: options.offset,
+      limit: options.limit,
+      window_id: options.shuffleWindow?.windowId ?? null,
+      next_shuffle_at: options.shuffleWindow?.nextShuffleAt ?? null,
+      degraded: true,
+    },
+    { status: options.status ?? 200 }
+  );
+
+  applyPublicEdgeCache(response, {
+    sMaxAgeSeconds: 60,
+    staleWhileRevalidateSeconds: 300,
+  });
+
+  return response;
+};
+
 const buildShuffleWindow = (now = Date.now()) => {
   const windowId = Math.floor(now / SHUFFLE_WINDOW_MS);
   const nextShuffleAtMs = (windowId + 1) * SHUFFLE_WINDOW_MS;
@@ -165,6 +265,16 @@ export async function GET(request: Request) {
       .eq("type", "elevator");
 
     if (baseError) {
+      if (isSupabaseRestrictedError(baseError.message)) {
+        return fallbackFeedResponse({
+          mode: safeMode,
+          tab: resolvedTab,
+          categoryFilter,
+          offset,
+          limit,
+          shuffleWindow,
+        });
+      }
       return NextResponse.json({ error: baseError.message }, { status: 500 });
     }
 
@@ -183,6 +293,16 @@ export async function GET(request: Request) {
         .select("pitch_id,in_count,out_count,comment_count")
         .in("pitch_id", pageIds);
       if (statError) {
+        if (isSupabaseRestrictedError(statError.message)) {
+          return fallbackFeedResponse({
+            mode: safeMode,
+            tab: resolvedTab,
+            categoryFilter,
+            offset,
+            limit,
+            shuffleWindow,
+          });
+        }
         return NextResponse.json({ error: statError.message }, { status: 500 });
       }
       for (const stat of (statRows ?? []) as PitchStatsRow[]) {
@@ -232,6 +352,16 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin.rpc("fetch_pitch_feed", rpcArgs);
     if (error) {
+      if (isSupabaseRestrictedError(error.message)) {
+        return fallbackFeedResponse({
+          mode: safeMode,
+          tab: resolvedTab,
+          categoryFilter,
+          offset,
+          limit,
+          shuffleWindow,
+        });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -249,6 +379,16 @@ export async function GET(request: Request) {
 
     if (videoStateError) {
       if (!isMissingVideoProcessingColumnError(videoStateError.message)) {
+        if (isSupabaseRestrictedError(videoStateError.message)) {
+          return fallbackFeedResponse({
+            mode: safeMode,
+            tab: resolvedTab,
+            categoryFilter,
+            offset,
+            limit,
+            shuffleWindow,
+          });
+        }
         return NextResponse.json({ error: videoStateError.message }, { status: 500 });
       }
     } else {
@@ -268,6 +408,16 @@ export async function GET(request: Request) {
       .select("id,founder_id,founder_photo_url,founder_story")
       .in("id", Array.from(startupIds));
     if (startupError) {
+      if (isSupabaseRestrictedError(startupError.message)) {
+        return fallbackFeedResponse({
+          mode: safeMode,
+          tab: resolvedTab,
+          categoryFilter,
+          offset,
+          limit,
+          shuffleWindow,
+        });
+      }
       return NextResponse.json({ error: startupError.message }, { status: 500 });
     }
 
@@ -284,6 +434,16 @@ export async function GET(request: Request) {
       .select("id,display_name")
       .in("id", Array.from(founderIds));
     if (profileError) {
+      if (isSupabaseRestrictedError(profileError.message)) {
+        return fallbackFeedResponse({
+          mode: safeMode,
+          tab: resolvedTab,
+          categoryFilter,
+          offset,
+          limit,
+          shuffleWindow,
+        });
+      }
       return NextResponse.json({ error: profileError.message }, { status: 500 });
     }
 
