@@ -1396,6 +1396,26 @@ button:disabled {
   pointer-events: none;
 }
 
+.expand-up-next {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 3;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  color: #fdf8ec;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+  white-space: nowrap;
+}
+
+.expand-up-next strong {
+  color: #ffffff;
+}
+
 .expand-close {
   position: absolute;
   top: 10px;
@@ -5299,6 +5319,14 @@ html[data-theme="light"] .theme-toggle-thumb {
     height: 100%;
     max-height: none;
     object-fit: contain;
+  }
+
+  .expand-up-next {
+    bottom: 12px;
+    max-width: calc(100% - 20px);
+    font-size: 0.74rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .expand-info-mobile {

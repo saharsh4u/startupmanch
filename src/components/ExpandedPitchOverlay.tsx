@@ -82,6 +82,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const wheelCooldown = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wheelLock = useRef(false);
   const fallbackAttemptedRef = useRef(false);
+  const upNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const pitch = pitches[index];
   const pitchId = pitch?.id ?? "";
@@ -95,6 +96,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [activeVideoSrc, setActiveVideoSrc] = useState<string | null>(null);
   const [videoUnavailable, setVideoUnavailable] = useState(false);
+  const [upNextLabel, setUpNextLabel] = useState<string | null>(null);
   const [founderStoryExpanded, setFounderStoryExpanded] = useState(false);
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
@@ -132,15 +134,45 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     [pitches.length]
   );
 
+  const clearUpNext = useCallback(() => {
+    if (upNextTimeoutRef.current) {
+      clearTimeout(upNextTimeoutRef.current);
+      upNextTimeoutRef.current = null;
+    }
+    setUpNextLabel(null);
+  }, []);
+
   const goNext = useCallback(() => {
+    clearUpNext();
     pauseCurrentVideo();
-    setIndex(clampIndex(index + 1));
-  }, [clampIndex, index, setIndex]);
+    if (pitches.length <= 1) return;
+    const nextIndex = index >= pitches.length - 1 ? 0 : index + 1;
+    setIndex(nextIndex);
+  }, [clearUpNext, index, pitches.length, setIndex]);
 
   const goPrev = useCallback(() => {
+    clearUpNext();
     pauseCurrentVideo();
     setIndex(clampIndex(index - 1));
-  }, [clampIndex, index, setIndex]);
+  }, [clearUpNext, clampIndex, index, setIndex]);
+
+  const handleVideoEnded = useCallback(() => {
+    if (pitches.length <= 1) return;
+    const nextIndex = index >= pitches.length - 1 ? 0 : index + 1;
+    const nextPitchName = pitches[nextIndex]?.name ?? "Next pitch";
+
+    if (index === pitches.length - 1) {
+      clearUpNext();
+      setUpNextLabel(nextPitchName);
+      upNextTimeoutRef.current = setTimeout(() => {
+        setUpNextLabel(null);
+        setIndex(nextIndex);
+      }, 900);
+      return;
+    }
+
+    goNext();
+  }, [clearUpNext, goNext, index, pitches, setIndex]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -170,6 +202,15 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      if (upNextTimeoutRef.current) {
+        clearTimeout(upNextTimeoutRef.current);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     const check = () => setIsMobile(window.matchMedia("(max-width: 768px)").matches);
     check();
@@ -198,7 +239,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     setComments([]);
     setCommentDraft("");
     setActiveVideoSrc(feedVideoSrc ?? null);
-  }, [pitchId, feedVideoSrc]);
+    clearUpNext();
+  }, [clearUpNext, pitchId, feedVideoSrc]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -538,7 +580,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               className="expand-nav next"
               onClick={goNext}
               aria-label="Next pitch"
-              disabled={index === pitches.length - 1}
               style={isMobile ? { top: "auto", bottom: 14, transform: "none" } : undefined}
             >
               ›
@@ -561,6 +602,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 preload="metadata"
                 onError={handleVideoError}
                 onLoadedData={() => setVideoUnavailable(false)}
+                onEnded={handleVideoEnded}
               />
             ) : (
               <div
@@ -573,6 +615,11 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 <span className="expand-media-fallback-label">Video unavailable</span>
               </div>
             )}
+            {upNextLabel ? (
+              <div className="expand-up-next" aria-live="polite">
+                Coming up next: <strong>{upNextLabel}</strong>
+              </div>
+            ) : null}
           </div>
 
           <div className="expand-info expand-info-mobile" aria-label="Founder and pitch details">
