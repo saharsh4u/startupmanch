@@ -7669,8 +7669,10 @@ body {
   position: relative;
   min-height: 430px;
   border-radius: 20px;
-  border: 1px solid #272727;
-  background: radial-gradient(circle at 50% -10%, rgba(229, 9, 20, 0.14), #070707 34%);
+  border: 1px solid #232323;
+  background:
+    radial-gradient(circle at 50% 56%, rgba(229, 9, 20, 0.36), rgba(229, 9, 20, 0.03) 44%, transparent 68%),
+    linear-gradient(180deg, #080808 0%, #050505 100%);
   overflow: hidden;
 }
 
@@ -7687,24 +7689,24 @@ body {
 
 .page-home .hot-cinema::before {
   left: 0;
-  background: linear-gradient(90deg, rgba(5, 5, 5, 0.95) 8%, rgba(5, 5, 5, 0));
+  background: linear-gradient(90deg, rgba(5, 5, 5, 0.72) 8%, rgba(5, 5, 5, 0));
 }
 
 .page-home .hot-cinema::after {
   right: 0;
-  background: linear-gradient(270deg, rgba(5, 5, 5, 0.95) 8%, rgba(5, 5, 5, 0));
+  background: linear-gradient(270deg, rgba(5, 5, 5, 0.72) 8%, rgba(5, 5, 5, 0));
 }
 
 .page-home .hot-cinema-glow {
   position: absolute;
   left: 50%;
   top: 53%;
-  width: min(760px, 82%);
-  height: 260px;
+  width: min(700px, 80%);
+  height: 230px;
   transform: translate(-50%, -50%);
   border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(229, 9, 20, 0.52), rgba(229, 9, 20, 0.08) 56%, transparent 74%);
-  filter: blur(14px);
+  background: radial-gradient(ellipse at center, rgba(229, 9, 20, 0.56), rgba(229, 9, 20, 0.12) 52%, transparent 72%);
+  filter: blur(9px);
   animation: hotCinemaPulse 2.6s ease-in-out infinite;
   pointer-events: none;
 }
@@ -7722,7 +7724,7 @@ body {
   top: 53%;
   width: clamp(150px, 17vw, 238px);
   aspect-ratio: 0.68;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 16px;
   background: #111111;
   padding: 0;
@@ -7734,13 +7736,13 @@ body {
     box-shadow 420ms ease,
     border-color 280ms ease,
     filter 420ms ease;
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.6);
-  filter: blur(calc(var(--cinema-depth, 0) * 0.95px)) saturate(calc(1 - var(--cinema-depth, 0) * 0.08));
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.42);
+  filter: saturate(calc(1 - var(--cinema-depth, 0) * 0.06));
 }
 
 .page-home .hot-cinema-card.is-center {
   border-color: rgba(229, 9, 20, 0.72);
-  box-shadow: 0 0 0 1px rgba(229, 9, 20, 0.35), 0 28px 40px rgba(0, 0, 0, 0.68);
+  box-shadow: 0 0 0 1px rgba(229, 9, 20, 0.28), 0 20px 30px rgba(0, 0, 0, 0.5);
   filter: none;
 }
 
@@ -7753,15 +7755,15 @@ body {
   inset: 0;
   background-size: cover;
   background-position: center;
-  filter: saturate(0.78) contrast(1.04) brightness(0.82);
+  filter: saturate(1.02) contrast(1.05) brightness(0.96);
 }
 
 .page-home .hot-cinema-overlay {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.82)),
-    linear-gradient(140deg, rgba(229, 9, 20, 0.18), transparent 60%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5) 74%, rgba(0, 0, 0, 0.66)),
+    linear-gradient(160deg, rgba(229, 9, 20, 0.1), transparent 58%);
 }
 
 .page-home .hot-cinema-title {
@@ -7789,11 +7791,11 @@ body {
 
 .page-home .hot-cinema-card:not(.is-center) .hot-cinema-title {
   font-size: clamp(0.8rem, 1.2vw, 1rem);
-  opacity: 0.58;
+  opacity: 0.72;
 }
 
 .page-home .hot-cinema-card:not(.is-center) .hot-cinema-rating {
-  opacity: 0.45;
+  opacity: 0.6;
 }
 
 @keyframes hotCinemaPulse {
@@ -7816,7 +7818,7 @@ body {
 
   .page-home .hot-cinema-glow {
     width: min(520px, 92%);
-    height: 220px;
+    height: 200px;
     top: 54%;
   }
 }
@@ -7834,8 +7836,8 @@ body {
 
   .page-home .hot-cinema-glow {
     width: 96%;
-    height: 170px;
-    filter: blur(11px);
+    height: 160px;
+    filter: blur(8px);
   }
 
   .page-home .hot-cinema::before,

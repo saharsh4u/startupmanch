@@ -1,12 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280" fill="none">
   <defs>
-    <linearGradient id="g3" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#0e2a2a" />
-      <stop offset="100%" stop-color="#0b0b0b" />
+    <linearGradient id="bg" x1="70" y1="40" x2="620" y2="1240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F2A2A"/>
+      <stop offset="0.55" stop-color="#081111"/>
+      <stop offset="1" stop-color="#040404"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(280 220) rotate(45) scale(520 390)">
+      <stop stop-color="#16A34A" stop-opacity="0.56"/>
+      <stop offset="1" stop-color="#16A34A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="150" y1="170" x2="560" y2="1100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#193E3B"/>
+      <stop offset="1" stop-color="#090D0C"/>
     </linearGradient>
   </defs>
-  <rect width="720" height="1280" fill="url(#g3)" />
-  <circle cx="520" cy="320" r="190" fill="#2bb673" opacity="0.25" />
-  <circle cx="140" cy="1020" r="220" fill="#2bb673" opacity="0.16" />
-  <rect x="80" y="160" width="560" height="960" rx="36" fill="#111" opacity="0.55" />
+  <rect width="720" height="1280" fill="url(#bg)"/>
+  <rect width="720" height="1280" fill="url(#light)"/>
+  <rect x="126" y="170" width="468" height="940" rx="34" fill="url(#panel)" stroke="rgba(255,255,255,0.16)"/>
+  <path d="M170 860C260 770 352 720 530 680V1110H170V860Z" fill="rgba(0,0,0,0.45)"/>
+  <text x="178" y="230" fill="#E7E7E7" font-family="ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="28" letter-spacing="3">STARTUPMANCH</text>
+  <text x="178" y="1030" fill="#FFFFFF" font-family="ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="52" font-weight="700">HEALTHBRIDGE</text>
+  <text x="178" y="1074" fill="#B8B8B8" font-family="ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="24">Clinics for tier-2 India</text>
 </svg>

@@ -365,7 +365,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       startupId: item.startup_id ?? null,
       name: item.startup_name ?? "Startup",
       tagline: item.one_liner ?? item.category ?? "New pitch",
-      poster: item.poster_url ?? fallbackPoster,
+      poster: item.poster_url ?? item.founder_photo_url ?? fallbackPoster,
       video: item.video_url ?? null,
       isFallback: false,
       category: item.category ?? null,
@@ -1256,12 +1256,12 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                   const absoluteOffset = Math.abs(offset);
                   const isCenter = offset === 0;
                   const rating = (7 + asNumber(pitch.score) * 0.1 + (hashString(pitch.id) % 20) / 100).toFixed(1);
-                  const spread = offset * (isMobileViewport ? 96 : 214);
-                  const scale = Math.max(0.5, 1 - absoluteOffset * 0.2);
-                  const lift = -Math.pow(absoluteOffset, 1.25) * (isMobileViewport ? 3 : 8);
-                  const depth = -absoluteOffset * (isMobileViewport ? 26 : 52);
-                  const tilt = offset * -8;
-                  const opacity = Math.max(0.16, 1 - absoluteOffset * 0.35);
+                  const spread = offset * (isMobileViewport ? 88 : 176);
+                  const scale = Math.max(0.64, 1 - absoluteOffset * 0.14);
+                  const lift = -Math.pow(absoluteOffset, 1.15) * (isMobileViewport ? 2 : 6);
+                  const depth = -absoluteOffset * (isMobileViewport ? 14 : 28);
+                  const tilt = offset * -4.5;
+                  const opacity = Math.max(0.34, 1 - absoluteOffset * 0.26);
                   const zIndex = 90 - absoluteOffset * 12;
 
                   return (

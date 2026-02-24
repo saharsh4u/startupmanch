@@ -1,12 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280" fill="none">
   <defs>
-    <linearGradient id="g2" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#1a2033" />
-      <stop offset="100%" stop-color="#0b0b0b" />
+    <linearGradient id="bg" x1="80" y1="60" x2="640" y2="1240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111A3A"/>
+      <stop offset="0.55" stop-color="#090C19"/>
+      <stop offset="1" stop-color="#040404"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(520 220) rotate(134) scale(520 380)">
+      <stop stop-color="#3B82F6" stop-opacity="0.58"/>
+      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="150" y1="180" x2="560" y2="1100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F2B5F"/>
+      <stop offset="1" stop-color="#0A0B0F"/>
     </linearGradient>
   </defs>
-  <rect width="720" height="1280" fill="url(#g2)" />
-  <circle cx="160" cy="220" r="160" fill="#5871ff" opacity="0.35" />
-  <circle cx="580" cy="980" r="220" fill="#8b5bff" opacity="0.18" />
-  <rect x="80" y="160" width="560" height="960" rx="36" fill="#111" opacity="0.55" />
+  <rect width="720" height="1280" fill="url(#bg)"/>
+  <rect width="720" height="1280" fill="url(#light)"/>
+  <rect x="126" y="170" width="468" height="940" rx="34" fill="url(#panel)" stroke="rgba(255,255,255,0.16)"/>
+  <path d="M130 860C250 760 342 650 540 610V1110H130V860Z" fill="rgba(0,0,0,0.5)"/>
+  <text x="178" y="230" fill="#E7E7E7" font-family="ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="28" letter-spacing="3">STARTUPMANCH</text>
+  <text x="178" y="1030" fill="#FFFFFF" font-family="ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="52" font-weight="700">LOOMWEAR</text>
+  <text x="178" y="1074" fill="#B8B8B8" font-family="ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="24">Ethnic drops, on-demand</text>
 </svg>
