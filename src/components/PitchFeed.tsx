@@ -94,6 +94,7 @@ const FEED_PAGE_SIZE = 50;
 const ROW_SIZE = 5;
 const MORE_PITCH_COLUMN_COUNT = 3;
 const MOBILE_MORE_PITCH_ROW_COUNT = 3;
+const MOBILE_STACK_MIN_ITEMS = 50;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
@@ -953,8 +954,28 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       id: pitch.id,
       pitch,
     }));
-    if (approved.length) return approved;
-    return [{ type: "open" as const, id: "mobile-stack-open-slot" }];
+
+    if (approved.length >= MOBILE_STACK_MIN_ITEMS) {
+      return approved;
+    }
+
+    if (approved.length > 0) {
+      const repeated: MobileStackItem[] = [];
+      for (let index = 0; index < MOBILE_STACK_MIN_ITEMS; index += 1) {
+        const base = approved[index % approved.length];
+        repeated.push({
+          type: "approved",
+          id: `${base.id}-stack-${index + 1}`,
+          pitch: base.pitch,
+        });
+      }
+      return repeated;
+    }
+
+    return Array.from({ length: MOBILE_STACK_MIN_ITEMS }, (_, index) => ({
+      type: "open" as const,
+      id: `mobile-stack-open-slot-${index + 1}`,
+    }));
   }, [approvedVisible]);
   const mobileStackVisibleOffsets = useMemo(() => {
     const length = mobileStackItems.length;
