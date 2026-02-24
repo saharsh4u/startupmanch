@@ -241,9 +241,9 @@ const getErrorMessage = (error: unknown) => {
   return "Unable to load more pitches.";
 };
 
-const clampIndex = (value: number, length: number) => {
+const wrapIndex = (value: number, length: number) => {
   if (length <= 0) return 0;
-  return Math.max(0, Math.min(length - 1, value));
+  return ((value % length) + length) % length;
 };
 
 const buildPitchFeedPath = (options: {
@@ -842,6 +842,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     () => dedupePitches([...topPitches, ...approvedMorePitches, ...filteredFallback]).slice(0, 12),
     [approvedMorePitches, filteredFallback, topPitches]
   );
+  const hotCinemaVisibleOffsets = useMemo(() => {
+    if (carouselPitches.length <= 1) return [0] as number[];
+    const maxSide = Math.min(3, Math.floor((carouselPitches.length - 1) / 2));
+    const offsets: number[] = [];
+    for (let offset = -maxSide; offset <= maxSide; offset += 1) offsets.push(offset);
+    return offsets;
+  }, [carouselPitches.length]);
 
   const [hotCarouselIndex, setHotCarouselIndex] = useState(2);
   const [hotGlowActiveLayer, setHotGlowActiveLayer] = useState<"a" | "b">("a");
@@ -928,13 +935,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       setHotCarouselIndex(0);
       return;
     }
-    setHotCarouselIndex((current) => clampIndex(current, carouselPitches.length));
+    setHotCarouselIndex((current) => wrapIndex(current, carouselPitches.length));
   }, [carouselPitches]);
 
   const setHotCarouselTo = useCallback(
     (index: number) => {
       if (!carouselPitches.length) return;
-      setHotCarouselIndex(clampIndex(index, carouselPitches.length));
+      setHotCarouselIndex(wrapIndex(index, carouselPitches.length));
     },
     [carouselPitches.length]
   );
@@ -942,7 +949,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const shiftHotCarousel = useCallback(
     (delta: number) => {
       if (carouselPitches.length <= 1) return;
-      setHotCarouselIndex((current) => clampIndex(current + delta, carouselPitches.length));
+      setHotCarouselIndex((current) => wrapIndex(current + delta, carouselPitches.length));
     },
     [carouselPitches.length]
   );
@@ -1434,22 +1441,23 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                 onTouchMove={handleHotCarouselTouchMove}
                 onTouchEnd={handleHotCarouselTouchEnd}
               >
-                {carouselPitches.map((pitch, index) => {
-                  const rawDistance = Math.abs(index - hotCarouselIndex);
-                  if (rawDistance > 3) return null;
-                  const distance = Math.min(3, rawDistance);
+                {hotCinemaVisibleOffsets.map((offset) => {
+                  if (!carouselPitches.length) return null;
+                  const targetIndex = wrapIndex(hotCarouselIndex + offset, carouselPitches.length);
+                  const pitch = carouselPitches[targetIndex];
+                  const distance = Math.min(3, Math.abs(offset));
                   const posClass = hotCinemaPosClassForDistance(distance);
-                  const isCenter = index === hotCarouselIndex;
+                  const isCenter = offset === 0;
                   const platform = platformForKey(pitch.id);
                   const rating = (7 + asNumber(pitch.score) * 0.1 + (hashString(pitch.id) % 20) / 100).toFixed(1);
                   const horizontalSpacing = isMobileViewport ? 110 : 178;
-                  const xShift = (index - hotCarouselIndex) * horizontalSpacing;
+                  const xShift = offset * horizontalSpacing;
                   const yShift = hotCinemaDropOffsets[distance];
                   const zIndex = 100 - distance * 20;
 
                   return (
                     <button
-                      key={`hot-cinema-${pitch.id}-${index}`}
+                      key={`hot-cinema-${pitch.id}-${offset}`}
                       type="button"
                       className={`hot-cinema-card ${posClass}${isCenter ? " active is-just-activated" : ""}`}
                       style={
@@ -1465,7 +1473,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                           handleExpand(pitch);
                           return;
                         }
-                        setHotCarouselTo(index);
+                        setHotCarouselTo(targetIndex);
                       }}
                     >
                       <span
