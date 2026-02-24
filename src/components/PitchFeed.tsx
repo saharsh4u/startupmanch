@@ -9,7 +9,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
-  type TouchEvent,
+  type PointerEvent,
   type WheelEvent,
 } from "react";
 import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
@@ -339,9 +339,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const hotWheelAccumRef = useRef(0);
   const hotWheelTimerRef = useRef<number | null>(null);
   const hotWheelLockedRef = useRef(false);
-  const hotTouchStartXRef = useRef(0);
-  const hotTouchStartYRef = useRef(0);
-  const hotTouchLockedRef = useRef(false);
+  const hotPointerStartXRef = useRef<number | null>(null);
+  const hotPointerStartYRef = useRef<number | null>(null);
+  const hotPointerLastXRef = useRef<number>(0);
+  const hotPointerLastTimeRef = useRef<number>(0);
+  const hotPointerVelocityRef = useRef<number>(0);
+  const hotDragRafRef = useRef<number | null>(null);
+  const hotDragOffsetRef = useRef(0);
+  const hotPointerSuppressClickRef = useRef(false);
 
   const [items, setItems] = useState<FeedPitch[]>([]);
   const [weekPicks, setWeekPicks] = useState<FeedPitch[]>([]);
@@ -851,6 +856,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   }, [carouselPitches.length]);
 
   const [hotCarouselIndex, setHotCarouselIndex] = useState(2);
+  const [hotCarouselDragging, setHotCarouselDragging] = useState(false);
+  const [hotCarouselDragOffset, setHotCarouselDragOffset] = useState(0);
   const [hotGlowActiveLayer, setHotGlowActiveLayer] = useState<"a" | "b">("a");
   const [hotGlowBackgroundA, setHotGlowBackgroundA] = useState(() => makeHotGlowBackground("200,20,20"));
   const [hotGlowBackgroundB, setHotGlowBackgroundB] = useState(() => makeHotGlowBackground("200,20,20"));
@@ -990,38 +997,106 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     [carouselPitches.length, shiftHotCarousel]
   );
 
-  const handleHotCarouselTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    if (!touch) return;
-    hotTouchStartXRef.current = touch.clientX;
-    hotTouchStartYRef.current = touch.clientY;
-    hotTouchLockedRef.current = false;
+  const flushHotCarouselDragOffset = useCallback(() => {
+    if (hotDragRafRef.current !== null) return;
+    hotDragRafRef.current = window.requestAnimationFrame(() => {
+      hotDragRafRef.current = null;
+      setHotCarouselDragOffset(hotDragOffsetRef.current);
+    });
   }, []);
 
-  const handleHotCarouselTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    if (hotTouchLockedRef.current) return;
-    const touch = event.touches[0];
-    if (!touch) return;
-    const dx = touch.clientX - hotTouchStartXRef.current;
-    const dy = touch.clientY - hotTouchStartYRef.current;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+  const resetHotCarouselDrag = useCallback(() => {
+    hotPointerStartXRef.current = null;
+    hotPointerStartYRef.current = null;
+    hotPointerLastXRef.current = 0;
+    hotPointerLastTimeRef.current = 0;
+    hotPointerVelocityRef.current = 0;
+    hotDragOffsetRef.current = 0;
+    setHotCarouselDragging(false);
+    setHotCarouselDragOffset(0);
+  }, []);
+
+  const handleHotCarouselPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (carouselPitches.length <= 1) return;
+      hotPointerStartXRef.current = event.clientX;
+      hotPointerStartYRef.current = event.clientY;
+      hotPointerLastXRef.current = event.clientX;
+      hotPointerLastTimeRef.current = performance.now();
+      hotPointerVelocityRef.current = 0;
+      hotDragOffsetRef.current = 0;
+      hotPointerSuppressClickRef.current = false;
+      setHotCarouselDragging(true);
+      setHotCarouselDragOffset(0);
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [carouselPitches.length]
+  );
+
+  const handleHotCarouselPointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!hotCarouselDragging) return;
+      if (hotPointerStartXRef.current === null) return;
+      const startY = hotPointerStartYRef.current ?? event.clientY;
+      const deltaY = event.clientY - startY;
+      const deltaX = event.clientX - hotPointerStartXRef.current;
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) {
+        hotPointerSuppressClickRef.current = false;
+        resetHotCarouselDrag();
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        return;
+      }
       event.preventDefault();
-    }
-  }, []);
-
-  const handleHotCarouselTouchEnd = useCallback(
-    (event: TouchEvent<HTMLDivElement>) => {
-      if (hotTouchLockedRef.current || carouselPitches.length <= 1) return;
-      const touch = event.changedTouches[0];
-      if (!touch) return;
-      const deltaX = touch.clientX - hotTouchStartXRef.current;
-      if (Math.abs(deltaX) > 40) {
-        hotTouchLockedRef.current = true;
-        shiftHotCarousel(deltaX < 0 ? 1 : -1);
+      const clampedDeltaX = Math.max(-280, Math.min(280, deltaX));
+      const now = performance.now();
+      const lastTime = hotPointerLastTimeRef.current || now;
+      const elapsed = Math.max(1, now - lastTime);
+      const velocitySample = (event.clientX - hotPointerLastXRef.current) / elapsed;
+      hotPointerVelocityRef.current = hotPointerVelocityRef.current * 0.65 + velocitySample * 0.35;
+      hotPointerLastXRef.current = event.clientX;
+      hotPointerLastTimeRef.current = now;
+      hotDragOffsetRef.current = clampedDeltaX;
+      flushHotCarouselDragOffset();
+      if (Math.abs(deltaX) > 8) {
+        hotPointerSuppressClickRef.current = true;
       }
     },
-    [carouselPitches.length, shiftHotCarousel]
+    [flushHotCarouselDragOffset, hotCarouselDragging, resetHotCarouselDrag]
   );
+
+  const finishHotCarouselPointer = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (hotPointerStartXRef.current === null) return;
+      const deltaX = hotDragOffsetRef.current;
+      const threshold = isMobileViewport ? 44 : 68;
+      const flickThreshold = isMobileViewport ? 0.3 : 0.38;
+      const velocity = hotPointerVelocityRef.current;
+
+      if (deltaX <= -threshold || velocity <= -flickThreshold) {
+        shiftHotCarousel(1);
+      } else if (deltaX >= threshold || velocity >= flickThreshold) {
+        shiftHotCarousel(-1);
+      }
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+
+      resetHotCarouselDrag();
+
+      window.setTimeout(() => {
+        hotPointerSuppressClickRef.current = false;
+      }, 0);
+    },
+    [isMobileViewport, resetHotCarouselDrag, shiftHotCarousel]
+  );
+
+  const handleHotCarouselPointerCaptureLost = useCallback(() => {
+    if (!hotCarouselDragging) return;
+    resetHotCarouselDrag();
+  }, [hotCarouselDragging, resetHotCarouselDrag]);
 
   const handleHotCarouselKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -1063,6 +1138,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     () => () => {
       if (hotWheelTimerRef.current !== null) {
         window.clearTimeout(hotWheelTimerRef.current);
+      }
+      if (hotDragRafRef.current !== null) {
+        window.cancelAnimationFrame(hotDragRafRef.current);
       }
     },
     []
@@ -1434,12 +1512,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                 aria-hidden="true"
               />
               <div
-                className="hot-cinema-track"
+                className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}`}
                 aria-label="Hot pitches carousel"
                 onWheel={handleHotCarouselWheel}
-                onTouchStart={handleHotCarouselTouchStart}
-                onTouchMove={handleHotCarouselTouchMove}
-                onTouchEnd={handleHotCarouselTouchEnd}
+                onPointerDown={handleHotCarouselPointerDown}
+                onPointerMove={handleHotCarouselPointerMove}
+                onPointerUp={finishHotCarouselPointer}
+                onPointerCancel={finishHotCarouselPointer}
+                onLostPointerCapture={handleHotCarouselPointerCaptureLost}
               >
                 {hotCinemaVisibleOffsets.map((offset) => {
                   if (!carouselPitches.length) return null;
@@ -1459,16 +1539,18 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                     <button
                       key={`hot-cinema-${pitch.id}-${offset}`}
                       type="button"
-                      className={`hot-cinema-card ${posClass}${isCenter ? " active is-just-activated" : ""}`}
+                      className={`hot-cinema-card ${posClass}${isCenter ? " active" : ""}`}
                       style={
                         {
                           ["--hot-x" as string]: `${xShift}px`,
                           ["--hot-y" as string]: `${yShift}px`,
+                          ["--hot-drag-x" as string]: `${hotCarouselDragOffset}px`,
                           zIndex,
                         } as CSSProperties
                       }
                       aria-label={`Open pitch from ${pitch.name}`}
                       onClick={() => {
+                        if (hotPointerSuppressClickRef.current) return;
                         if (isCenter) {
                           handleExpand(pitch);
                           return;
@@ -1501,18 +1583,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                     </button>
                   );
                 })}
-              </div>
-              <div className="hot-cinema-dots" role="tablist" aria-label="Featured pitch selector">
-                {carouselPitches.map((pitch, index) => (
-                  <button
-                    key={`hot-dot-${pitch.id}-${index}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={index === hotCarouselIndex}
-                    className={`hot-cinema-dot${index === hotCarouselIndex ? " is-active" : ""}`}
-                    onClick={() => setHotCarouselTo(index)}
-                  />
-                ))}
               </div>
             </div>
           </div>

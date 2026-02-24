@@ -7749,6 +7749,15 @@ body {
   user-select: none;
   touch-action: pan-y pinch-zoom;
   padding-top: 40px;
+  cursor: grab;
+}
+
+.page-home .hot-cinema-track.is-dragging {
+  cursor: grabbing;
+}
+
+.page-home .hot-cinema-track.is-dragging .hot-cinema-card {
+  transition-duration: 0ms;
 }
 
 .page-home .hot-cinema-card {
@@ -7764,14 +7773,15 @@ body {
   overflow: hidden;
   cursor: pointer;
   will-change: transform, width, height, opacity;
+  backface-visibility: hidden;
   transition:
-    width 0.72s cubic-bezier(0.34, 1.2, 0.64, 1),
-    height 0.72s cubic-bezier(0.34, 1.2, 0.64, 1),
-    transform 0.72s cubic-bezier(0.34, 1.2, 0.64, 1),
-    opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    height 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.4s ease,
     border-color 0.4s ease,
-    box-shadow 0.55s ease;
-  transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(var(--hot-y, 135px));
+    box-shadow 0.4s ease;
+  transform: translate3d(calc(-50% + var(--hot-x, 0px) + var(--hot-drag-x, 0px)), var(--hot-y, 135px), 0);
   transform-origin: top center;
   opacity: 0.3;
   z-index: 1;
@@ -7787,10 +7797,6 @@ body {
   box-shadow:
     0 36px 90px rgba(0, 0, 0, 0.95),
     0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
-.page-home .hot-cinema-card.pos-0.is-just-activated {
-  animation: hotCinemaCardPop 0.65s cubic-bezier(0.34, 1.5, 0.64, 1) both;
 }
 
 .page-home .hot-cinema-card.pos-1 {
@@ -8016,45 +8022,6 @@ body {
   opacity: 0.62;
 }
 
-.page-home .hot-cinema-dots {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  justify-content: center;
-  z-index: 20;
-}
-
-.page-home .hot-cinema-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  border: 0;
-  background: rgba(255, 255, 255, 0.22);
-  transition: all 0.35s ease;
-  cursor: pointer;
-}
-
-.page-home .hot-cinema-dot.is-active {
-  width: 20px;
-  background: rgba(200, 20, 20, 0.9);
-}
-
-@keyframes hotCinemaCardPop {
-  0% {
-    transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(var(--hot-y, 0px)) scale(0.94);
-  }
-  55% {
-    transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(calc(var(--hot-y, 0px) - 5px)) scale(1.03);
-  }
-  100% {
-    transform: translateX(-50%) translateX(var(--hot-x, 0px)) translateY(var(--hot-y, 0px)) scale(1);
-  }
-}
-
 @keyframes hotCinemaPulse {
   0%,
   100% {
@@ -8166,7 +8133,4 @@ body {
     gap: 4px;
   }
 
-  .page-home .hot-cinema-dot.is-active {
-    width: 16px;
-  }
 }
