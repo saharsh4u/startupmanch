@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import HomeHero from "@/components/HomeHero";
 import LeadCaptureForm from "@/components/LeadCaptureForm";
 import PostPitchModal from "@/components/PostPitchModal";
@@ -11,7 +11,11 @@ import TopNav from "@/components/TopNav";
 import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
 import { POST_PITCH_OPEN_EVENT } from "@/lib/post-pitch";
 
-export default function HomeCenterPanel() {
+type HomeCenterPanelProps = {
+  hotPitchesSlot?: ReactNode;
+};
+
+export default function HomeCenterPanel({ hotPitchesSlot }: HomeCenterPanelProps) {
   const [postPitchOpen, setPostPitchOpen] = useState(false);
   const [postPitchToast, setPostPitchToast] = useState<string | null>(null);
 
@@ -71,6 +75,7 @@ export default function HomeCenterPanel() {
     <>
       <TopNav context="home" showPostPitch onPostPitch={() => setPostPitchOpen(true)} />
       <HomeHero onPostPitch={() => setPostPitchOpen(true)} />
+      {hotPitchesSlot}
       <div id="top-rated-block" className="anchor-block">
         <PitchFeed onPostPitch={() => setPostPitchOpen(true)} />
       </div>

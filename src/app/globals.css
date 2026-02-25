@@ -9026,3 +9026,351 @@ body {
     font-size: 0.84rem;
   }
 }
+
+/* Hot Pitches: cinematic centered carousel */
+.page-home .hot-pitches-section {
+  --hot-pitches-card-width: clamp(310px, 54vw, 480px);
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #07090f;
+  color: #f5f7ff;
+  padding: 24px 20px 30px;
+  isolation: isolate;
+}
+
+.page-home .hot-pitches-section::before {
+  content: "";
+  position: absolute;
+  inset: -26% 12% auto;
+  height: 320px;
+  background: radial-gradient(circle at center, rgba(241, 57, 57, 0.32) 0%, rgba(241, 57, 57, 0.12) 35%, rgba(10, 12, 18, 0) 70%);
+  filter: blur(26px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.page-home .hot-pitches-section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.page-home .hot-pitches-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-home .hot-pitches-header h2 {
+  margin: 0;
+  font-size: clamp(1.12rem, 2vw, 1.44rem);
+  letter-spacing: 0.01em;
+  color: #f6f7fb;
+}
+
+.page-home .hot-pitches-view-all {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.84);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+  padding-bottom: 1px;
+}
+
+.page-home .hot-pitches-view-all:hover {
+  color: #ffffff;
+  border-bottom-color: rgba(255, 255, 255, 0.75);
+}
+
+.page-home .hot-pitches-carousel-shell {
+  position: relative;
+}
+
+.page-home .hot-pitches-viewport {
+  overflow-x: auto;
+  overflow-y: visible;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  padding: 14px 0;
+  cursor: grab;
+}
+
+.page-home .hot-pitches-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.page-home .hot-pitches-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.page-home .hot-pitches-track {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  padding: 6px calc(50% - (var(--hot-pitches-card-width) / 2));
+}
+
+.page-home .hot-pitches-item {
+  flex: 0 0 var(--hot-pitches-card-width);
+  scroll-snap-align: center;
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 260ms ease, filter 260ms ease;
+  will-change: transform, opacity, filter;
+}
+
+.page-home .hot-pitches-item.is-active {
+  transform: scale(1.12);
+  opacity: 1;
+  filter: none;
+  z-index: 3;
+}
+
+.page-home .hot-pitches-item.is-near {
+  transform: scale(0.95);
+  opacity: 0.8;
+  filter: saturate(0.8);
+  z-index: 2;
+}
+
+.page-home .hot-pitches-item.is-far {
+  transform: scale(0.88);
+  opacity: 0.56;
+  filter: saturate(0.65) blur(0.4px);
+  z-index: 1;
+}
+
+.page-home .hot-pitches-card-link {
+  display: block;
+}
+
+.page-home .hot-pitches-card {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #121624;
+}
+
+.page-home .hot-pitches-card.is-active {
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.5);
+}
+
+.page-home .hot-pitches-card-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #0f1119;
+}
+
+.page-home .hot-pitches-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.page-home .hot-pitches-card-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 5, 9, 0.06) 10%, rgba(4, 5, 9, 0.26) 52%, rgba(4, 5, 9, 0.84) 100%);
+}
+
+.page-home .hot-pitches-card.is-side .hot-pitches-card-gradient {
+  background: linear-gradient(180deg, rgba(3, 4, 7, 0.2) 5%, rgba(3, 4, 7, 0.36) 48%, rgba(3, 4, 7, 0.88) 100%);
+}
+
+.page-home .hot-pitches-card.is-side::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 10, 0.24);
+  backdrop-filter: blur(1px);
+  pointer-events: none;
+}
+
+.page-home .hot-pitches-card-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  letter-spacing: 0.01em;
+}
+
+.page-home .hot-pitches-card-badge.is-score {
+  background: rgba(7, 10, 16, 0.72);
+  color: #f4f7ff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.page-home .hot-pitches-card-badge.is-hot {
+  background: rgba(224, 54, 54, 0.92);
+  color: #fff5f5;
+}
+
+.page-home .hot-pitches-card-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  background: rgba(10, 11, 16, 0.5);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(4px);
+  z-index: 3;
+}
+
+.page-home .hot-pitches-card-copy {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.page-home .hot-pitches-card-copy h3 {
+  margin: 0;
+  font-size: clamp(0.94rem, 1.5vw, 1.06rem);
+  color: #f8faff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.58);
+}
+
+.page-home .hot-pitches-card-copy p {
+  margin: 0;
+  color: rgba(236, 240, 250, 0.9);
+  font-size: 0.77rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-home .hot-pitches-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(10, 12, 18, 0.65);
+  color: rgba(255, 255, 255, 0.92);
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  backdrop-filter: blur(4px);
+}
+
+.page-home .hot-pitches-arrow-left {
+  left: 8px;
+}
+
+.page-home .hot-pitches-arrow-right {
+  right: 8px;
+}
+
+.page-home .hot-pitches-arrow:hover:not(:disabled) {
+  background: rgba(20, 24, 34, 0.85);
+}
+
+.page-home .hot-pitches-arrow:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+}
+
+.page-home .hot-pitches-empty-state {
+  margin: 8px 0 0;
+  color: rgba(230, 234, 245, 0.78);
+  font-size: 0.94rem;
+}
+
+@media (max-width: 1100px) {
+  .page-home .hot-pitches-section {
+    --hot-pitches-card-width: clamp(280px, 64vw, 420px);
+  }
+
+  .page-home .hot-pitches-item.is-active {
+    transform: scale(1.09);
+  }
+
+  .page-home .hot-pitches-item.is-near {
+    transform: scale(0.93);
+  }
+}
+
+@media (max-width: 900px) {
+  .page-home .hot-pitches-section {
+    --hot-pitches-card-width: clamp(250px, 78vw, 340px);
+    border-radius: 18px;
+    padding: 18px 12px 20px;
+  }
+
+  .page-home .hot-pitches-track {
+    gap: 14px;
+  }
+
+  .page-home .hot-pitches-arrow {
+    width: 36px;
+    height: 36px;
+    font-size: 1.2rem;
+  }
+
+  .page-home .hot-pitches-arrow-left {
+    left: 4px;
+  }
+
+  .page-home .hot-pitches-arrow-right {
+    right: 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-home .hot-pitches-section {
+    --hot-pitches-card-width: min(86vw, 320px);
+  }
+
+  .page-home .hot-pitches-item.is-active {
+    transform: scale(1.05);
+  }
+
+  .page-home .hot-pitches-item.is-near {
+    transform: scale(0.92);
+  }
+
+  .page-home .hot-pitches-item.is-far {
+    transform: scale(0.88);
+    opacity: 0.52;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-home .hot-pitches-item,
+  .page-home .hot-pitches-arrow,
+  .page-home .hot-pitches-card,
+  .page-home .hot-pitches-card-gradient {
+    transition: none !important;
+    animation: none !important;
+  }
+}
