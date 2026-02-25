@@ -743,7 +743,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 onClick={() => void handleSubmit()}
                 disabled={submitStatus === "submitting" || authBusy || !isAuthed}
               >
-                {submitStatus === "submitting" ? "Posting Episode 1..." : "▶ Post Episode 1"}
+                {submitStatus === "submitting" ? "Posting Episode 1..." : "Go Public"}
               </button>
               {!isAuthed ? <p className="post-pitch-note">Sign in to start your public timeline.</p> : null}
               {submitMessage ? (
