@@ -9034,38 +9034,38 @@ body {
   display: inline-block;
   color: inherit;
   z-index: 0;
-  padding: 0 0.05em;
+  padding: 0 0.08em;
 }
 
 .page-home .hero-story-brush::before {
   content: "";
   position: absolute;
-  left: -0.14em;
-  right: -0.14em;
+  left: -0.2em;
+  right: -0.2em;
+  top: 0.06em;
   bottom: 0.06em;
-  height: 0.38em;
   border-radius: 999px;
-  background: rgba(235, 59, 46, 0.34);
-  filter: blur(7px);
+  background: rgba(229, 57, 53, 0.22);
+  filter: blur(9px);
   z-index: -2;
 }
 
 .page-home .hero-story-brush::after {
   content: "";
   position: absolute;
-  left: -0.1em;
-  right: -0.1em;
-  bottom: 0.08em;
-  height: 0.32em;
-  border-radius: 0.48em;
-  transform: rotate(-1deg);
+  left: -0.16em;
+  right: -0.16em;
+  top: 0.12em;
+  bottom: 0.12em;
+  border-radius: 0.62em;
+  transform: rotate(-0.8deg);
   background:
     linear-gradient(
       92deg,
-      rgba(235, 59, 46, 0.58) 0%,
-      rgba(235, 59, 46, 0.82) 30%,
-      rgba(235, 59, 46, 0.72) 62%,
-      rgba(235, 59, 46, 0.6) 100%
+      rgba(235, 59, 46, 0.34) 0%,
+      rgba(235, 59, 46, 0.48) 30%,
+      rgba(235, 59, 46, 0.43) 62%,
+      rgba(235, 59, 46, 0.36) 100%
     );
   z-index: -1;
 }
