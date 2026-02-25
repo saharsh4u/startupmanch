@@ -9024,6 +9024,8 @@ body {
   margin: 0;
   max-width: min(100%, 34ch);
   display: inline-block;
+  font-family: var(--font-display), "Inconsolata", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 700;
   font-size: clamp(1.48rem, 3vw, 2.52rem);
   line-height: 1.12;
   letter-spacing: -0.02em;
@@ -9083,6 +9085,8 @@ body {
 }
 
 .page-home .hero-story-fade-quote {
+  font-family: var(--font-display), "Inconsolata", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 700;
   font-size: clamp(1.38rem, 2.9vw, 2.42rem);
   line-height: 1.12;
   letter-spacing: -0.02em;
