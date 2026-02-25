@@ -8034,6 +8034,141 @@ body {
   }
 }
 
+@keyframes hotCinemaPulseDesktop {
+  0%,
+  100% {
+    opacity: 0.84;
+    transform: translate(-50%, -50%) scaleX(0.94) scaleY(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleX(1) scaleY(1);
+  }
+}
+
+@media (min-width: 901px) {
+  .page-home .hot-band {
+    padding: 22px;
+  }
+
+  .page-home .hot-cinema {
+    min-height: 590px;
+    border-radius: 24px;
+    border: 1px solid #1f1f1f;
+    background:
+      radial-gradient(110% 94% at 50% 6%, rgba(82, 8, 12, 0.28) 0%, rgba(10, 10, 10, 0) 52%),
+      linear-gradient(180deg, #0a0a0a 0%, #050505 56%, #030303 100%);
+  }
+
+  .page-home .hot-cinema::before,
+  .page-home .hot-cinema::after {
+    width: clamp(112px, 12vw, 186px);
+  }
+
+  .page-home .hot-cinema::before {
+    background: linear-gradient(90deg, rgba(3, 3, 3, 0.96) 0%, rgba(3, 3, 3, 0));
+  }
+
+  .page-home .hot-cinema::after {
+    background: linear-gradient(270deg, rgba(3, 3, 3, 0.96) 0%, rgba(3, 3, 3, 0));
+  }
+
+  .page-home .hot-cinema-glow-layer {
+    top: 63%;
+    width: 920px;
+    height: 420px;
+    filter: blur(70px);
+    animation: hotCinemaPulseDesktop 5.2s ease-in-out infinite;
+  }
+
+  .page-home .hot-cinema-track {
+    min-height: 560px;
+    padding-top: 58px;
+  }
+
+  .page-home .hot-cinema-card {
+    top: 58px;
+    border-radius: 26px;
+    transition:
+      width 620ms cubic-bezier(0.22, 1, 0.36, 1),
+      height 620ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 540ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      border-color 540ms ease,
+      box-shadow 540ms ease,
+      filter 540ms ease;
+    transform: translate3d(calc(-50% + var(--hot-x, 0px) + var(--hot-drag-x, 0px)), var(--hot-y, 0px), 0);
+    opacity: 0.16;
+    filter: saturate(0.72) brightness(0.7);
+  }
+
+  .page-home .hot-cinema-card.pos-0 {
+    width: 352px;
+    height: 528px;
+    opacity: 1;
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    filter: none;
+    box-shadow:
+      0 42px 96px rgba(0, 0, 0, 0.95),
+      0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  .page-home .hot-cinema-card.pos-1 {
+    width: 258px;
+    height: 392px;
+    opacity: 0.72;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    filter: saturate(0.9) brightness(0.88);
+    box-shadow: 0 22px 56px rgba(0, 0, 0, 0.76);
+  }
+
+  .page-home .hot-cinema-card.pos-2 {
+    width: 196px;
+    height: 304px;
+    opacity: 0.46;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    filter: saturate(0.8) brightness(0.78);
+  }
+
+  .page-home .hot-cinema-card.pos-3 {
+    width: 148px;
+    height: 226px;
+    opacity: 0.2;
+    border: none;
+    filter: saturate(0.64) brightness(0.58);
+  }
+
+  .page-home .hot-cinema-info {
+    padding: 14px 14px 18px;
+  }
+
+  .page-home .hot-cinema-title {
+    font-size: 17px;
+  }
+
+  .page-home .hot-cinema-card.pos-0 .hot-cinema-title {
+    font-size: 22px;
+  }
+
+  .page-home .hot-cinema-card.pos-0 .hot-cinema-info {
+    padding: 18px 18px 22px;
+  }
+
+  .page-home .hot-cinema-card.pos-0 .hot-cinema-platform {
+    top: 14px;
+    left: 14px;
+  }
+
+  .page-home .hot-cinema-card.pos-0 .hot-cinema-rating {
+    top: 14px;
+    right: 14px;
+  }
+
+  .page-home .hot-cinema-card.pos-3 .hot-cinema-info {
+    opacity: 0.52;
+  }
+}
+
 @media (max-width: 900px) {
   .page-home .hot-cinema,
   .page-home .hot-cinema-track {
@@ -8133,6 +8268,16 @@ body {
     gap: 4px;
   }
 
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-home .hot-cinema-glow-layer {
+    animation: none !important;
+  }
+
+  .page-home .hot-cinema-card {
+    transition: none !important;
+  }
 }
 
 /* Community rail polish: Netflix-inspired */

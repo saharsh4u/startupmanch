@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -103,6 +104,8 @@ const FEED_CACHE_KEY_PREFIX = "pitch-feed-cache-v1";
 const SHUFFLE_WINDOW_SECONDS = 5 * 60;
 const SLOT_REORDER_MIN_MS = 8_000;
 const SLOT_REORDER_MAX_MS = 16_000;
+const HOT_AUTOPLAY_INTERVAL_MS = 2600;
+const HOT_AUTOPLAY_RESUME_DELAY_MS = 1600;
 
 const accentPalette = [
   "#42d6ff",
@@ -139,6 +142,7 @@ const carouselPlatforms = [
 ] as const;
 
 const hotCinemaDropOffsets = [0, 65, 105, 135] as const;
+const hotCinemaFlatOffsets = [0, 0, 0, 0] as const;
 
 const slotOpenCopyVariants = [
   {
@@ -351,6 +355,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const hotDragRafRef = useRef<number | null>(null);
   const hotDragOffsetRef = useRef(0);
   const hotPointerSuppressClickRef = useRef(false);
+  const hotAutoplayResumeTimerRef = useRef<number | null>(null);
   const mobileStackPointerStartYRef = useRef<number | null>(null);
   const mobileStackPointerStartXRef = useRef<number | null>(null);
   const mobileStackPointerLastYRef = useRef<number>(0);
@@ -389,6 +394,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [focusedPreviewPitchId, setFocusedPreviewPitchId] = useState<string | null>(null);
   const [visiblePreviewPitchIds, setVisiblePreviewPitchIds] = useState<Set<string>>(new Set());
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [isDesktopHotViewport, setIsDesktopHotViewport] = useState(false);
+  const [hotAutoplayPaused, setHotAutoplayPaused] = useState(false);
+  const [isDocumentHidden, setIsDocumentHidden] = useState(false);
   const [moreSectionInView, setMoreSectionInView] = useState(false);
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
@@ -779,11 +787,30 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   useEffect(() => {
     const updateViewport = () => {
       setIsMobileViewport(window.matchMedia("(max-width: 768px)").matches);
+      setIsDesktopHotViewport(window.matchMedia("(min-width: 901px)").matches);
     };
     updateViewport();
     window.addEventListener("resize", updateViewport);
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
+
+  useEffect(() => {
+    const syncVisibility = () => {
+      setIsDocumentHidden(document.hidden);
+    };
+    syncVisibility();
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => document.removeEventListener("visibilitychange", syncVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (isDesktopHotViewport) return;
+    if (hotAutoplayResumeTimerRef.current !== null) {
+      window.clearTimeout(hotAutoplayResumeTimerRef.current);
+      hotAutoplayResumeTimerRef.current = null;
+    }
+    setHotAutoplayPaused(false);
+  }, [isDesktopHotViewport]);
 
   useEffect(() => {
     if (moreSectionInView) return;
@@ -861,10 +888,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   );
   const hotCinemaVisibleOffsets = useMemo(() => {
     if (carouselPitches.length <= 1) return [0] as number[];
-    const maxSide = Math.min(3, Math.floor((carouselPitches.length - 1) / 2));
-    const offsets: number[] = [];
-    for (let offset = -maxSide; offset <= maxSide; offset += 1) offsets.push(offset);
-    return offsets;
+    if (carouselPitches.length <= 3) return [-1, 0, 1] as number[];
+    if (carouselPitches.length <= 6) return [-2, -1, 0, 1, 2] as number[];
+    return [-3, -2, -1, 0, 1, 2, 3] as number[];
   }, [carouselPitches.length]);
 
   const [hotCarouselIndex, setHotCarouselIndex] = useState(2);
@@ -1019,6 +1045,29 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     [carouselPitches.length]
   );
 
+  const clearHotAutoplayResumeTimer = useCallback(() => {
+    if (hotAutoplayResumeTimerRef.current === null) return;
+    window.clearTimeout(hotAutoplayResumeTimerRef.current);
+    hotAutoplayResumeTimerRef.current = null;
+  }, []);
+
+  const pauseHotAutoplay = useCallback(() => {
+    clearHotAutoplayResumeTimer();
+    setHotAutoplayPaused(true);
+  }, [clearHotAutoplayResumeTimer]);
+
+  const resumeHotAutoplaySoon = useCallback(
+    (delay = HOT_AUTOPLAY_RESUME_DELAY_MS) => {
+      clearHotAutoplayResumeTimer();
+      setHotAutoplayPaused(true);
+      hotAutoplayResumeTimerRef.current = window.setTimeout(() => {
+        hotAutoplayResumeTimerRef.current = null;
+        setHotAutoplayPaused(false);
+      }, delay);
+    },
+    [clearHotAutoplayResumeTimer]
+  );
+
   const handleHotCarouselWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
       if (carouselPitches.length <= 1) return;
@@ -1032,7 +1081,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         window.clearTimeout(hotWheelTimerRef.current);
       }
 
-      const threshold = 40;
+      pauseHotAutoplay();
+      const threshold = isDesktopHotViewport ? 56 : 40;
       if (Math.abs(hotWheelAccumRef.current) >= threshold) {
         const direction = hotWheelAccumRef.current > 0 ? 1 : -1;
         hotWheelAccumRef.current = 0;
@@ -1041,6 +1091,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         window.setTimeout(() => {
           hotWheelLockedRef.current = false;
         }, 420);
+        resumeHotAutoplaySoon();
         return;
       }
 
@@ -1050,9 +1101,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         }
         hotWheelAccumRef.current = 0;
         hotWheelLockedRef.current = false;
+        resumeHotAutoplaySoon();
       }, 120);
     },
-    [carouselPitches.length, shiftHotCarousel]
+    [carouselPitches.length, isDesktopHotViewport, pauseHotAutoplay, resumeHotAutoplaySoon, shiftHotCarousel]
   );
 
   const flushHotCarouselDragOffset = useCallback(() => {
@@ -1077,6 +1129,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const handleHotCarouselPointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (carouselPitches.length <= 1) return;
+      pauseHotAutoplay();
       hotPointerStartXRef.current = event.clientX;
       hotPointerStartYRef.current = event.clientY;
       hotPointerLastXRef.current = event.clientX;
@@ -1088,7 +1141,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       setHotCarouselDragOffset(0);
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [carouselPitches.length]
+    [carouselPitches.length, pauseHotAutoplay]
   );
 
   const handleHotCarouselPointerMove = useCallback(
@@ -1107,12 +1160,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         return;
       }
       event.preventDefault();
-      const clampedDeltaX = Math.max(-280, Math.min(280, deltaX));
+      const dragRange = isDesktopHotViewport ? 360 : 280;
+      const clampedDeltaX = Math.max(-dragRange, Math.min(dragRange, deltaX * 0.88));
       const now = performance.now();
       const lastTime = hotPointerLastTimeRef.current || now;
       const elapsed = Math.max(1, now - lastTime);
       const velocitySample = (event.clientX - hotPointerLastXRef.current) / elapsed;
-      hotPointerVelocityRef.current = hotPointerVelocityRef.current * 0.65 + velocitySample * 0.35;
+      hotPointerVelocityRef.current = hotPointerVelocityRef.current * 0.78 + velocitySample * 0.22;
       hotPointerLastXRef.current = event.clientX;
       hotPointerLastTimeRef.current = now;
       hotDragOffsetRef.current = clampedDeltaX;
@@ -1121,15 +1175,15 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         hotPointerSuppressClickRef.current = true;
       }
     },
-    [flushHotCarouselDragOffset, hotCarouselDragging, resetHotCarouselDrag]
+    [flushHotCarouselDragOffset, hotCarouselDragging, isDesktopHotViewport, resetHotCarouselDrag]
   );
 
   const finishHotCarouselPointer = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (hotPointerStartXRef.current === null) return;
       const deltaX = hotDragOffsetRef.current;
-      const threshold = isMobileViewport ? 44 : 68;
-      const flickThreshold = isMobileViewport ? 0.3 : 0.38;
+      const threshold = isDesktopHotViewport ? 96 : isMobileViewport ? 44 : 68;
+      const flickThreshold = isDesktopHotViewport ? 0.48 : isMobileViewport ? 0.3 : 0.38;
       const velocity = hotPointerVelocityRef.current;
 
       if (deltaX <= -threshold || velocity <= -flickThreshold) {
@@ -1143,31 +1197,61 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       }
 
       resetHotCarouselDrag();
+      resumeHotAutoplaySoon();
 
       window.setTimeout(() => {
         hotPointerSuppressClickRef.current = false;
       }, 0);
     },
-    [isMobileViewport, resetHotCarouselDrag, shiftHotCarousel]
+    [isDesktopHotViewport, isMobileViewport, resetHotCarouselDrag, resumeHotAutoplaySoon, shiftHotCarousel]
   );
 
   const handleHotCarouselPointerCaptureLost = useCallback(() => {
     if (!hotCarouselDragging) return;
     resetHotCarouselDrag();
-  }, [hotCarouselDragging, resetHotCarouselDrag]);
+    resumeHotAutoplaySoon();
+  }, [hotCarouselDragging, resetHotCarouselDrag, resumeHotAutoplaySoon]);
 
   const handleHotCarouselKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
       if (event.key === "ArrowRight") {
         event.preventDefault();
+        pauseHotAutoplay();
         shiftHotCarousel(1);
+        resumeHotAutoplaySoon();
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
+        pauseHotAutoplay();
         shiftHotCarousel(-1);
+        resumeHotAutoplaySoon();
       }
     },
-    [shiftHotCarousel]
+    [pauseHotAutoplay, resumeHotAutoplaySoon, shiftHotCarousel]
+  );
+
+  const handleHotCinemaMouseEnter = useCallback(() => {
+    if (!isDesktopHotViewport) return;
+    pauseHotAutoplay();
+  }, [isDesktopHotViewport, pauseHotAutoplay]);
+
+  const handleHotCinemaMouseLeave = useCallback(() => {
+    if (!isDesktopHotViewport) return;
+    resumeHotAutoplaySoon(420);
+  }, [isDesktopHotViewport, resumeHotAutoplaySoon]);
+
+  const handleHotCinemaFocus = useCallback(() => {
+    if (!isDesktopHotViewport) return;
+    pauseHotAutoplay();
+  }, [isDesktopHotViewport, pauseHotAutoplay]);
+
+  const handleHotCinemaBlur = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      if (!isDesktopHotViewport) return;
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+      resumeHotAutoplaySoon(360);
+    },
+    [isDesktopHotViewport, resumeHotAutoplaySoon]
   );
 
   const shiftMobileStack = useCallback(
@@ -1306,6 +1390,31 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     hotGlowLayerRef.current = "a";
   }, [activePlatform.glowRgb, hotCarouselIndex]);
 
+  useEffect(() => {
+    if (!isDesktopHotViewport) return;
+    if (loadingInitial) return;
+    if (carouselPitches.length <= 1) return;
+    if (hotCarouselDragging) return;
+    if (hotAutoplayPaused) return;
+    if (isDocumentHidden) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const timer = window.setTimeout(() => {
+      shiftHotCarousel(1);
+    }, HOT_AUTOPLAY_INTERVAL_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    carouselPitches.length,
+    hotAutoplayPaused,
+    hotCarouselDragging,
+    hotCarouselIndex,
+    isDesktopHotViewport,
+    isDocumentHidden,
+    loadingInitial,
+    shiftHotCarousel,
+  ]);
+
   useEffect(
     () => () => {
       if (hotWheelTimerRef.current !== null) {
@@ -1316,6 +1425,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       }
       if (mobileStackDragRafRef.current !== null) {
         window.cancelAnimationFrame(mobileStackDragRafRef.current);
+      }
+      if (hotAutoplayResumeTimerRef.current !== null) {
+        window.clearTimeout(hotAutoplayResumeTimerRef.current);
       }
     },
     []
@@ -1718,6 +1830,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               className="hot-cinema"
               tabIndex={0}
               onKeyDown={handleHotCarouselKeyDown}
+              onMouseEnter={handleHotCinemaMouseEnter}
+              onMouseLeave={handleHotCinemaMouseLeave}
+              onFocus={handleHotCinemaFocus}
+              onBlur={handleHotCinemaBlur}
             >
               <div
                 className={`hot-cinema-glow-layer${hotGlowActiveLayer === "a" ? " is-active" : ""}`}
@@ -1748,10 +1864,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                   const isCenter = offset === 0;
                   const platform = platformForKey(pitch.id);
                   const rating = (7 + asNumber(pitch.score) * 0.1 + (hashString(pitch.id) % 20) / 100).toFixed(1);
-                  const horizontalSpacing = isMobileViewport ? 110 : 178;
+                  const horizontalSpacing = isDesktopHotViewport ? 246 : isMobileViewport ? 110 : 178;
                   const xShift = offset * horizontalSpacing;
-                  const yShift = hotCinemaDropOffsets[distance];
-                  const zIndex = 100 - distance * 20;
+                  const yShift = isDesktopHotViewport ? hotCinemaFlatOffsets[distance] : hotCinemaDropOffsets[distance];
+                  const zIndex = 120 - distance * 20;
 
                   return (
                     <button
@@ -1769,6 +1885,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                       aria-label={`Open pitch from ${pitch.name}`}
                       onClick={() => {
                         if (hotPointerSuppressClickRef.current) return;
+                        if (isDesktopHotViewport) {
+                          pauseHotAutoplay();
+                          resumeHotAutoplaySoon(700);
+                        }
                         if (isCenter) {
                           handleExpand(pitch);
                           return;
