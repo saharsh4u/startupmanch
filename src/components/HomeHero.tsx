@@ -97,7 +97,7 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
       >
         ▶ Start Your Journey
       </a>
-      <p className="hero-story-meta">Free · Open to all builders · No gatekeeping</p>
+      <p className="hero-story-meta">Make Cool Stuff.</p>
     </section>
   );
 }
