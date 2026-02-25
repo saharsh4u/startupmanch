@@ -73,7 +73,7 @@ export default function TopNav({
               openPostPitchFlow();
             }}
           >
-            Post a Pitch
+            Post It Free.
           </Link>
         ) : null}
       </div>
