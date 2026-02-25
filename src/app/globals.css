@@ -7760,7 +7760,19 @@ body {
   color: #e8e8e8;
 }
 
-.page-home .pitch-slot-open-action,
+.page-home .pitch-slot-open-action {
+  border-color: #f5cc72;
+  background: #f2b13d;
+  color: #1b1407;
+  font-weight: 700;
+}
+
+.page-home .pitch-slot-open-action:hover,
+.page-home .pitch-slot-open-action:focus-visible {
+  border-color: #f8d487;
+  background: #f6bc4f;
+}
+
 .page-home .pitch-slot-share {
   border-color: rgba(242, 177, 61, 0.5);
   background: rgba(242, 177, 61, 0.14);
@@ -8748,8 +8760,16 @@ body {
 }
 
 .page-home .community-cinema .pitch-slot-open-action {
-  border-color: #6674a5;
-  background: #273250;
+  border-color: #f5cc72;
+  background: #f2b13d;
+  color: #1b1407;
+  font-weight: 700;
+}
+
+.page-home .community-cinema .pitch-slot-open-action:hover,
+.page-home .community-cinema .pitch-slot-open-action:focus-visible {
+  border-color: #f8d487;
+  background: #f6bc4f;
 }
 
 @keyframes communityRailMarquee {
