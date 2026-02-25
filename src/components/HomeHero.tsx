@@ -47,7 +47,8 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
           </span>
         </h1>
         <p className={`hero-story-fade-item hero-story-fade-quote ${isSwapped ? "is-visible" : "is-hidden"}`}>
-          There will never be a &apos;right&apos; time &amp; you&apos;ll never feel ready.
+          There will never be a &apos;<span className="hero-story-brush">right</span>&apos; time &amp; you&apos;ll
+          never feel <span className="hero-story-brush">ready</span>.
         </p>
       </div>
       <a
