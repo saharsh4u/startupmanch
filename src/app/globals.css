@@ -9029,6 +9029,47 @@ body {
   color: #f8f8f8;
 }
 
+.page-home .hero-story-brush {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+  z-index: 0;
+  padding: 0 0.05em;
+}
+
+.page-home .hero-story-brush::before {
+  content: "";
+  position: absolute;
+  left: -0.14em;
+  right: -0.14em;
+  bottom: 0.06em;
+  height: 0.38em;
+  border-radius: 999px;
+  background: rgba(235, 59, 46, 0.34);
+  filter: blur(7px);
+  z-index: -2;
+}
+
+.page-home .hero-story-brush::after {
+  content: "";
+  position: absolute;
+  left: -0.1em;
+  right: -0.1em;
+  bottom: 0.08em;
+  height: 0.32em;
+  border-radius: 0.48em;
+  transform: rotate(-1deg);
+  background:
+    linear-gradient(
+      92deg,
+      rgba(235, 59, 46, 0.58) 0%,
+      rgba(235, 59, 46, 0.82) 30%,
+      rgba(235, 59, 46, 0.72) 62%,
+      rgba(235, 59, 46, 0.6) 100%
+    );
+  z-index: -1;
+}
+
 @media (min-width: 901px) {
   .page-home .hero-story-title {
     white-space: nowrap;

@@ -7,7 +7,10 @@ type HomeHeroProps = {
 export default function HomeHero({ onPostPitch }: HomeHeroProps) {
   return (
     <section className="hero hero-story">
-      <h1 className="hero-story-title">Watch Startups Being Built in Public 🇮🇳</h1>
+      <h1 className="hero-story-title">
+        Watch <span className="hero-story-brush">Startups</span> Being Built in{" "}
+        <span className="hero-story-brush">Public</span> 🇮🇳
+      </h1>
       <p className="hero-subline hero-story-subline">
         There will never be a &apos;right&apos; time &amp; you&apos;ll never feel ready.
       </p>
