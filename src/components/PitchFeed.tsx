@@ -2076,11 +2076,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
             </>
           ) : null}
 
-          <div className="pitch-divider labeled">
-            <span>More pitches</span>
-            <p className="pitch-subtext">Real 60-second updates from founders building in public.</p>
-          </div>
-
           <div
             className={`community-cinema${loaded ? " is-loaded" : ""}${moreSectionInView ? " is-visible" : ""}`}
             ref={moreSectionRef}
