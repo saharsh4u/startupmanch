@@ -7752,6 +7752,11 @@ body {
   transition-duration: 0ms;
 }
 
+.page-home .hot-cinema-track.is-wheeling:not(.is-dragging) .hot-cinema-card {
+  transition-duration: 700ms;
+  transition-timing-function: cubic-bezier(0.18, 0.9, 0.28, 1);
+}
+
 .page-home .hot-cinema-card {
   position: absolute;
   left: 50%;
@@ -7767,12 +7772,12 @@ body {
   will-change: transform, width, height, opacity;
   backface-visibility: hidden;
   transition:
-    width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    height 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
-    opacity 0.4s ease,
-    border-color 0.4s ease,
-    box-shadow 0.4s ease;
+    width 620ms cubic-bezier(0.18, 0.9, 0.28, 1),
+    height 620ms cubic-bezier(0.18, 0.9, 0.28, 1),
+    transform 620ms cubic-bezier(0.18, 0.9, 0.28, 1),
+    opacity 460ms ease,
+    border-color 460ms ease,
+    box-shadow 460ms ease;
   transform: translate3d(calc(-50% + var(--hot-x, 0px) + var(--hot-drag-x, 0px)), var(--hot-y, 135px), 0);
   transform-origin: top center;
   opacity: 0.3;
@@ -8068,16 +8073,20 @@ body {
     top: 58px;
     border-radius: 26px;
     transition:
-      width 620ms cubic-bezier(0.22, 1, 0.36, 1),
-      height 620ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 540ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      width 720ms cubic-bezier(0.18, 0.9, 0.28, 1),
+      height 720ms cubic-bezier(0.18, 0.9, 0.28, 1),
+      transform 720ms cubic-bezier(0.18, 0.9, 0.28, 1),
+      opacity 560ms cubic-bezier(0.2, 0.8, 0.2, 1),
       border-color 540ms ease,
       box-shadow 540ms ease,
       filter 540ms ease;
     transform: translate3d(calc(-50% + var(--hot-x, 0px) + var(--hot-drag-x, 0px)), var(--hot-y, 0px), 0);
     opacity: 0.16;
     filter: saturate(0.72) brightness(0.7);
+  }
+
+  .page-home .hot-cinema-track.is-wheeling:not(.is-dragging) .hot-cinema-card {
+    transition-duration: 780ms;
   }
 
   .page-home .hot-cinema-card.pos-0 {

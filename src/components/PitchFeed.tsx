@@ -106,6 +106,7 @@ const SLOT_REORDER_MIN_MS = 8_000;
 const SLOT_REORDER_MAX_MS = 16_000;
 const HOT_AUTOPLAY_INTERVAL_MS = 2600;
 const HOT_AUTOPLAY_RESUME_DELAY_MS = 1600;
+const HOT_WHEEL_SETTLE_MS = 560;
 
 const accentPalette = [
   "#42d6ff",
@@ -894,6 +895,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
   const [hotCarouselIndex, setHotCarouselIndex] = useState(2);
   const [hotCarouselDragging, setHotCarouselDragging] = useState(false);
+  const [hotCarouselWheeling, setHotCarouselWheeling] = useState(false);
   const [hotCarouselDragOffset, setHotCarouselDragOffset] = useState(0);
   const [mobileStackIndex, setMobileStackIndex] = useState(0);
   const [mobileStackDragging, setMobileStackDragging] = useState(false);
@@ -1074,34 +1076,51 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
       if (hotWheelLockedRef.current) return;
 
-      hotWheelAccumRef.current += event.deltaX || event.deltaY;
+      const threshold = isDesktopHotViewport ? 68 : 44;
+      const previewLimit = isDesktopHotViewport ? 86 : 52;
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      hotWheelAccumRef.current += delta;
+      const previewOffset = Math.max(
+        -previewLimit,
+        Math.min(previewLimit, (hotWheelAccumRef.current / threshold) * previewLimit)
+      );
+      setHotCarouselWheeling(true);
+      setHotCarouselDragOffset(previewOffset);
 
       if (hotWheelTimerRef.current !== null) {
         window.clearTimeout(hotWheelTimerRef.current);
       }
 
       pauseHotAutoplay();
-      const threshold = isDesktopHotViewport ? 56 : 40;
       if (Math.abs(hotWheelAccumRef.current) >= threshold) {
         const direction = hotWheelAccumRef.current > 0 ? 1 : -1;
         hotWheelAccumRef.current = 0;
         hotWheelLockedRef.current = true;
+        setHotCarouselDragOffset(0);
         shiftHotCarousel(direction);
         window.setTimeout(() => {
           hotWheelLockedRef.current = false;
-        }, 420);
+          setHotCarouselWheeling(false);
+        }, HOT_WHEEL_SETTLE_MS);
         resumeHotAutoplaySoon();
         return;
       }
 
       hotWheelTimerRef.current = window.setTimeout(() => {
-        if (Math.abs(hotWheelAccumRef.current) > 10) {
+        if (Math.abs(hotWheelAccumRef.current) > threshold * 0.32) {
+          hotWheelLockedRef.current = true;
           shiftHotCarousel(hotWheelAccumRef.current > 0 ? 1 : -1);
+          window.setTimeout(() => {
+            hotWheelLockedRef.current = false;
+            setHotCarouselWheeling(false);
+          }, HOT_WHEEL_SETTLE_MS);
+        } else {
+          setHotCarouselWheeling(false);
         }
         hotWheelAccumRef.current = 0;
-        hotWheelLockedRef.current = false;
+        setHotCarouselDragOffset(0);
         resumeHotAutoplaySoon();
-      }, 120);
+      }, 160);
     },
     [carouselPitches.length, isDesktopHotViewport, pauseHotAutoplay, resumeHotAutoplaySoon, shiftHotCarousel]
   );
@@ -1129,6 +1148,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     (event: PointerEvent<HTMLDivElement>) => {
       if (carouselPitches.length <= 1) return;
       pauseHotAutoplay();
+      setHotCarouselWheeling(false);
       hotPointerStartXRef.current = event.clientX;
       hotPointerStartYRef.current = event.clientY;
       hotPointerLastXRef.current = event.clientX;
@@ -1846,7 +1866,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                 aria-hidden="true"
               />
               <div
-                className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}`}
+                className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}${hotCarouselWheeling ? " is-wheeling" : ""}`}
                 aria-label="Hot pitches carousel"
                 onWheel={handleHotCarouselWheel}
                 onPointerDown={handleHotCarouselPointerDown}
