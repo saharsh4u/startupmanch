@@ -7,16 +7,9 @@ type HomeHeroProps = {
 export default function HomeHero({ onPostPitch }: HomeHeroProps) {
   return (
     <section className="hero hero-story">
-      <p className="hero-story-kicker">FOR EVERY INDIAN FOUNDER</p>
-      <div className="hero-brand hero-story-brand">
-        <span className="brand-star">✦</span>
-        <span>StartupManch</span>
-      </div>
-      <h1 className="hero-story-title">
-        Your story <span className="hero-story-highlight">matters.</span>
-      </h1>
+      <h1 className="hero-story-title">Watch Startups Being Built in Public 🇮🇳</h1>
       <p className="hero-subline hero-story-subline">
-        Share your wins, losses, and learnings. The Indian startup community is here for you.
+        India&apos;s video network for founders documenting their journey.
       </p>
       <a
         href={POST_PITCH_FALLBACK_HREF}
@@ -30,9 +23,9 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
           openPostPitchFlow();
         }}
       >
-        ↗ Start Your Journey
+        ▶ Start Your Journey
       </a>
-      <p className="hero-story-meta">Free · For everyone · No strings attached</p>
+      <p className="hero-story-meta">Free · Open to all builders · No gatekeeping</p>
     </section>
   );
 }
