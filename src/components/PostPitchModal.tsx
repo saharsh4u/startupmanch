@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   DEFAULT_STARTUP_PROFILE_FORM_VALUES,
   toStartupApiPayload,
@@ -70,6 +70,7 @@ const getOAuthCallbackTarget = (siteUrl: string | undefined) => {
 export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchModalProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const loadedDraftRef = useRef(false);
   const [draftReady, setDraftReady] = useState(false);
 
@@ -108,6 +109,15 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   const videoHint = videoFile
     ? `${videoFile.name} (${(videoFile.size / (1024 * 1024)).toFixed(1)}MB)`
     : "Video up to 50MB";
+
+  const openVideoPicker = () => {
+    videoInputRef.current?.click();
+  };
+
+  const handleVideoSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    setVideoFile(event.target.files?.[0] ?? null);
+    setFormErrors((current) => ({ ...current, pitchVideo: undefined }));
+  };
 
   const saveDraft = (nextStartup: StartupProfileFormValues, nextRevenueMode: RevenueMode) => {
     if (typeof window === "undefined") return;
@@ -541,28 +551,37 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
               <br />
               Keep it simple. Be real.
             </p>
-            <div className="post-pitch-preview-tile">
-              {videoPreviewUrl ? (
+            <input
+              ref={videoInputRef}
+              className="post-pitch-file-input-hidden"
+              type="file"
+              accept="video/mp4,video/*"
+              onChange={handleVideoSelection}
+            />
+            {videoPreviewUrl ? (
+              <div className="post-pitch-preview-tile">
                 <video src={videoPreviewUrl} controls muted playsInline preload="metadata" />
-              ) : (
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="post-pitch-preview-tile post-pitch-preview-trigger"
+                onClick={openVideoPicker}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openVideoPicker();
+                  }
+                }}
+                aria-label="Upload your first 60-second update"
+              >
                 <div className="post-pitch-preview-empty">
                   <p>Upload Your First 60-Second Update</p>
                   <span>(Video up to 50MB)</span>
                 </div>
-              )}
-            </div>
-            <label className="post-pitch-input-block">
-              <span>Episode 1 video (required)</span>
-              <input
-                type="file"
-                accept="video/mp4,video/*"
-                onChange={(event) => {
-                  setVideoFile(event.target.files?.[0] ?? null);
-                  setFormErrors((current) => ({ ...current, pitchVideo: undefined }));
-                }}
-              />
-              <small>{videoHint}</small>
-            </label>
+              </button>
+            )}
+            <p className="post-pitch-note">{videoHint}</p>
             {formErrors.pitchVideo ? <p className="form-error">{formErrors.pitchVideo}</p> : null}
 
           </section>
