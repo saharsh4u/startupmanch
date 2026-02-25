@@ -30,8 +30,8 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
 
   return (
     <section className="hero hero-story">
-      <div className="hero-story-swap-stage" aria-live="polite">
-        <h1 className={`hero-story-title hero-story-swap-item ${isSwapped ? "is-bottom" : "is-top"}`}>
+      <div className="hero-story-fade-stage" aria-live="polite">
+        <h1 className={`hero-story-title hero-story-fade-item ${isSwapped ? "is-hidden" : "is-visible"}`}>
           <span className="hero-story-quote-mark hero-story-quote-left" aria-hidden="true">
             “
           </span>
@@ -41,11 +41,7 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
             ”
           </span>
         </h1>
-        <p
-          className={`hero-subline hero-story-subline hero-story-swap-item hero-story-quote-line ${
-            isSwapped ? "is-top" : "is-bottom"
-          }`}
-        >
+        <p className={`hero-story-fade-item hero-story-fade-quote ${isSwapped ? "is-visible" : "is-hidden"}`}>
           There will never be a &apos;right&apos; time &amp; you&apos;ll never feel ready.
         </p>
       </div>

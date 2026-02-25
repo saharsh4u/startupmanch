@@ -9032,45 +9032,40 @@ body {
   color: #f8f8f8;
 }
 
-.page-home .hero-story-swap-stage {
+.page-home .hero-story-fade-stage {
   position: relative;
   width: min(100%, 1120px);
-  min-height: clamp(130px, 15vw, 206px);
+  min-height: clamp(136px, 15vw, 210px);
 }
 
-.page-home .hero-story-swap-item {
+.page-home .hero-story-fade-item {
   position: absolute;
   left: 50%;
-  width: min(100%, 1080px);
+  top: 0;
+  width: min(100%, 1040px);
   margin: 0;
   transform: translateX(-50%);
-  transform-origin: top center;
-  will-change: transform, opacity, filter;
-  transition:
-    transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 560ms ease,
-    filter 560ms ease;
+  will-change: opacity;
+  transition: opacity 520ms ease;
 }
 
-.page-home .hero-story-swap-item.is-top {
-  transform: translate(-50%, 0) scale(1);
+.page-home .hero-story-fade-item.is-visible {
   opacity: 1;
-  filter: none;
+  pointer-events: auto;
   z-index: 2;
 }
 
-.page-home .hero-story-swap-item.is-bottom {
-  transform: translate(-50%, clamp(64px, 6.1vw, 92px)) scale(0.72);
-  opacity: 0.72;
-  filter: saturate(0.8);
+.page-home .hero-story-fade-item.is-hidden {
+  opacity: 0;
+  pointer-events: none;
   z-index: 1;
 }
 
-.page-home .hero-story-quote-line.is-top {
-  font-size: clamp(1.14rem, 2vw, 1.78rem);
-  line-height: 1.16;
+.page-home .hero-story-fade-quote {
+  font-size: clamp(1.04rem, 2vw, 1.72rem);
+  line-height: 1.2;
   letter-spacing: -0.01em;
-  color: #f4f7ff;
+  color: rgba(242, 245, 255, 0.95);
   max-width: min(100%, 34ch);
 }
 
@@ -9146,7 +9141,7 @@ body {
 }
 
 @media (min-width: 901px) {
-  .page-home .hero-story-title.is-top {
+  .page-home .hero-story-title {
     white-space: nowrap;
   }
 }
@@ -9195,22 +9190,18 @@ body {
     border-radius: 16px;
   }
 
-  .page-home .hero-story-swap-stage {
-    min-height: 180px;
+  .page-home .hero-story-fade-stage {
+    min-height: 168px;
   }
 
   .page-home .hero-story-title {
-    max-width: 20ch;
+    max-width: 19ch;
     display: inline;
     white-space: normal;
   }
 
-  .page-home .hero-story-swap-item.is-bottom {
-    transform: translate(-50%, 84px) scale(0.79);
-  }
-
-  .page-home .hero-story-quote-line.is-top {
-    font-size: clamp(1.02rem, 4.8vw, 1.34rem);
+  .page-home .hero-story-fade-quote {
+    font-size: clamp(0.98rem, 4.6vw, 1.26rem);
     line-height: 1.2;
     max-width: min(100%, 28ch);
   }
@@ -9230,7 +9221,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page-home .hero-story-swap-item {
+  .page-home .hero-story-fade-item {
     transition: none !important;
   }
 }
