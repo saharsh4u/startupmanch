@@ -1,6 +1,5 @@
 import AdRailsScaffold from "@/components/AdRailsScaffold";
 import HomeCenterPanel from "@/components/HomeCenterPanel";
-import HotPitchesSection from "@/app/components/hot-pitches/HotPitchesSection";
 import { toAbsoluteSiteUrl } from "@/lib/site";
 
 export default function Home() {
@@ -34,7 +33,7 @@ export default function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
       <AdRailsScaffold mainClassName="page page-home">
-        <HomeCenterPanel hotPitchesSlot={<HotPitchesSection />} />
+        <HomeCenterPanel />
       </AdRailsScaffold>
     </>
   );
