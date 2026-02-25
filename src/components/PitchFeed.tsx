@@ -406,6 +406,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [moreSectionInView, setMoreSectionInView] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [isCommunityFilterOpen, setIsCommunityFilterOpen] = useState(false);
+  const [isCommunityRailInteracting, setIsCommunityRailInteracting] = useState(false);
+  const communityRailRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const communityRailResumeTimerRef = useRef<number | null>(null);
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
     [selectedCategory]
@@ -847,6 +850,26 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     return () => observer.disconnect();
   }, [moreSectionInView]);
 
+  const pauseCommunityRailAutoScroll = useCallback((resumeDelayMs = 1400) => {
+    if (communityRailResumeTimerRef.current !== null) {
+      window.clearTimeout(communityRailResumeTimerRef.current);
+      communityRailResumeTimerRef.current = null;
+    }
+    setIsCommunityRailInteracting(true);
+    communityRailResumeTimerRef.current = window.setTimeout(() => {
+      setIsCommunityRailInteracting(false);
+      communityRailResumeTimerRef.current = null;
+    }, resumeDelayMs);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (communityRailResumeTimerRef.current !== null) {
+        window.clearTimeout(communityRailResumeTimerRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (loadingInitial) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -989,6 +1012,52 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       };
     });
   }, [communityRailSource]);
+
+  useEffect(() => {
+    if (prefersReducedMotion || isDocumentHidden || !communityRails.length) return;
+    const rails = communityRailRefs.current.filter((node): node is HTMLDivElement => Boolean(node));
+    if (!rails.length) return;
+
+    rails.forEach((rail, railIndex) => {
+      const halfWidth = rail.scrollWidth / 2;
+      if (halfWidth <= rail.clientWidth + 1) return;
+      if (railIndex % 2 === 1 && rail.scrollLeft <= 1) {
+        rail.scrollLeft = Math.max(1, halfWidth - 1);
+      }
+    });
+
+    let rafId = 0;
+    let lastTime = performance.now();
+
+    const tick = (time: number) => {
+      const deltaMs = Math.min(42, time - lastTime);
+      lastTime = time;
+
+      if (!isCommunityRailInteracting) {
+        rails.forEach((rail, railIndex) => {
+          const halfWidth = rail.scrollWidth / 2;
+          if (halfWidth <= rail.clientWidth + 1) return;
+
+          const direction = railIndex % 2 === 1 ? -1 : 1;
+          const speedPxPerMs = 0.024 + railIndex * 0.003;
+          let nextLeft = rail.scrollLeft + direction * speedPxPerMs * deltaMs;
+
+          if (direction > 0 && nextLeft >= halfWidth) {
+            nextLeft -= halfWidth;
+          } else if (direction < 0 && nextLeft <= 0) {
+            nextLeft += halfWidth;
+          }
+
+          rail.scrollLeft = nextLeft;
+        });
+      }
+
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [communityRails, isCommunityRailInteracting, isDocumentHidden, prefersReducedMotion]);
 
 
   const columnGroups = useMemo(() => {
@@ -2071,15 +2140,19 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                   <div
                     className={`community-rail${prefersReducedMotion ? " is-static" : ""}`}
                     aria-label={rail.title}
+                    ref={(node) => {
+                      communityRailRefs.current[railIndex] = node;
+                    }}
+                    onPointerDown={() => pauseCommunityRailAutoScroll(2600)}
+                    onPointerUp={() => pauseCommunityRailAutoScroll(950)}
+                    onPointerCancel={() => pauseCommunityRailAutoScroll(950)}
+                    onWheel={() => pauseCommunityRailAutoScroll(1300)}
+                    onTouchStart={() => pauseCommunityRailAutoScroll(2600)}
+                    onTouchEnd={() => pauseCommunityRailAutoScroll(1000)}
+                    onFocusCapture={() => pauseCommunityRailAutoScroll(1800)}
+                    onBlurCapture={() => pauseCommunityRailAutoScroll(900)}
                   >
-                    <div
-                      className={`community-rail-track${railIndex % 2 === 1 ? " is-reverse" : ""}`}
-                      style={
-                        {
-                          ["--community-rail-speed" as string]: `${42 + railIndex * 6}s`,
-                        } as CSSProperties
-                      }
-                    >
+                    <div className={`community-rail-track${railIndex % 2 === 1 ? " is-reverse" : ""}`}>
                       <div className="community-rail-segment" data-segment="primary">
                         {rail.items.map((slot, slotIndex) => (
                           <div
