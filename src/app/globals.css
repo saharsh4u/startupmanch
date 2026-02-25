@@ -8586,7 +8586,7 @@ body {
 .page-home .community-rail-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
 }
 
@@ -8597,52 +8597,38 @@ body {
   letter-spacing: 0.02em;
 }
 
-.page-home .community-rail-controls {
-  display: inline-flex;
-  gap: 6px;
-}
-
-.page-home .community-rail-arrow {
-  border: 1px solid #3b3e4a;
-  border-radius: 999px;
-  background: #191b25;
-  color: #f4f5fa;
-  width: 34px;
-  height: 34px;
-  display: inline-grid;
-  place-items: center;
-  font-size: 0.9rem;
-}
-
 .page-home .community-rail {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(250px, 24vw);
+  overflow: hidden;
+  width: 100%;
+  padding-bottom: 2px;
+}
+
+.page-home .community-rail-track {
+  display: flex;
+  width: max-content;
+  gap: 0;
+  animation: communityRailMarquee var(--community-rail-speed, 44s) linear infinite;
+  will-change: transform;
+}
+
+.page-home .community-rail-track.is-reverse {
+  animation-direction: reverse;
+}
+
+.page-home .community-rail:hover .community-rail-track,
+.page-home .community-rail:focus-within .community-rail-track {
+  animation-play-state: paused;
+}
+
+.page-home .community-rail-segment {
+  display: flex;
   gap: 12px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-  scrollbar-color: #3a3d4a #191b23;
-  padding-bottom: 8px;
-}
-
-.page-home .community-rail::-webkit-scrollbar {
-  height: 8px;
-}
-
-.page-home .community-rail::-webkit-scrollbar-track {
-  background: #191b23;
-  border-radius: 999px;
-}
-
-.page-home .community-rail::-webkit-scrollbar-thumb {
-  background: #3a3d4a;
-  border-radius: 999px;
+  padding-right: 12px;
 }
 
 .page-home .community-rail-item {
-  scroll-snap-align: start;
+  flex: 0 0 auto;
+  width: clamp(250px, 24vw, 332px);
   min-height: 312px;
 }
 
@@ -8715,6 +8701,15 @@ body {
   background: #273250;
 }
 
+@keyframes communityRailMarquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
 .page-home .community-testimonials {
   margin-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -8741,7 +8736,7 @@ body {
   }
 
   .page-home .community-rail {
-    grid-auto-columns: minmax(236px, 52vw);
+    overflow: hidden;
   }
 }
 
@@ -8770,15 +8765,13 @@ body {
   }
 
   .page-home .community-rail {
-    grid-auto-columns: minmax(230px, 78vw);
+    overflow: hidden;
   }
 
   .page-home .community-rail-item {
+    flex-basis: auto;
+    width: clamp(224px, 72vw, 288px);
     min-height: 280px;
-  }
-
-  .page-home .community-rail-controls {
-    display: none;
   }
 }
 
@@ -8786,6 +8779,21 @@ body {
   .page-home .community-filter-drawer,
   .page-home .community-cinema .pitch-slot-approved .pitch-show-card.row {
     transition: none !important;
+  }
+
+  .page-home .community-rail {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .page-home .community-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page-home .community-rail-track {
+    animation: none !important;
+    transform: none !important;
   }
 }
 

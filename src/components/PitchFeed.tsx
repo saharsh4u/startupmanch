@@ -406,7 +406,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [moreSectionInView, setMoreSectionInView] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [isCommunityFilterOpen, setIsCommunityFilterOpen] = useState(false);
-  const communityRailRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
     [selectedCategory]
@@ -1074,23 +1073,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     }
     setMobileStackIndex((current) => wrapIndex(current, mobileStackItems.length));
   }, [mobileStackItems]);
-
-  const registerCommunityRailRef = useCallback((railId: string, node: HTMLDivElement | null) => {
-    communityRailRefs.current[railId] = node;
-  }, []);
-
-  const scrollCommunityRail = useCallback(
-    (railId: string, direction: -1 | 1) => {
-      const rail = communityRailRefs.current[railId];
-      if (!rail) return;
-      const distance = Math.max(220, Math.round(rail.clientWidth * 0.78));
-      rail.scrollBy({
-        left: distance * direction,
-        behavior: prefersReducedMotion ? "auto" : "smooth",
-      });
-    },
-    [prefersReducedMotion]
-  );
 
   const setHotCarouselTo = useCallback(
     (index: number) => {
@@ -2088,38 +2070,40 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                 <section key={rail.id} className="community-rail-block" aria-label={rail.title}>
                   <div className="community-rail-header">
                     <h4>{rail.title}</h4>
-                    <div className="community-rail-controls">
-                      <button
-                        type="button"
-                        className="community-rail-arrow"
-                        aria-label={`Scroll ${rail.title} left`}
-                        onClick={() => scrollCommunityRail(rail.id, -1)}
-                      >
-                        ←
-                      </button>
-                      <button
-                        type="button"
-                        className="community-rail-arrow"
-                        aria-label={`Scroll ${rail.title} right`}
-                        onClick={() => scrollCommunityRail(rail.id, 1)}
-                      >
-                        →
-                      </button>
-                    </div>
                   </div>
                   <div
-                    className="community-rail"
-                    ref={(node) => registerCommunityRailRef(rail.id, node)}
+                    className={`community-rail${prefersReducedMotion ? " is-static" : ""}`}
                     aria-label={rail.title}
                   >
-                    {rail.items.map((slot, slotIndex) => (
-                      <div
-                        key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}`}
-                        className="community-rail-item"
-                      >
-                        {renderRowSlot(slot, railIndex, slotIndex, "primary")}
+                    <div
+                      className={`community-rail-track${railIndex % 2 === 1 ? " is-reverse" : ""}`}
+                      style={
+                        {
+                          ["--community-rail-speed" as string]: `${42 + railIndex * 6}s`,
+                        } as CSSProperties
+                      }
+                    >
+                      <div className="community-rail-segment" data-segment="primary">
+                        {rail.items.map((slot, slotIndex) => (
+                          <div
+                            key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}-primary`}
+                            className="community-rail-item"
+                          >
+                            {renderRowSlot(slot, railIndex, slotIndex, "primary")}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                      <div className="community-rail-segment is-clone" data-segment="clone" aria-hidden="true">
+                        {rail.items.map((slot, slotIndex) => (
+                          <div
+                            key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}-clone`}
+                            className="community-rail-item"
+                          >
+                            {renderRowSlot(slot, railIndex, slotIndex, "clone")}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </section>
               ))}
