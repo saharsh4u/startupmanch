@@ -9051,7 +9051,7 @@ body {
   display: grid;
   place-items: start center;
   width: min(100%, 1120px);
-  min-height: clamp(86px, 7.4vw, 126px);
+  min-height: clamp(78px, 6.4vw, 106px);
 }
 
 .page-home .hero-story-fade-item {
@@ -9083,9 +9083,9 @@ body {
 }
 
 .page-home .hero-story-fade-quote {
-  font-size: clamp(1.04rem, 2vw, 1.72rem);
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  font-size: clamp(1.38rem, 2.9vw, 2.42rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
   color: rgba(242, 245, 255, 0.95);
   max-width: min(100%, 34ch);
 }
@@ -9207,7 +9207,7 @@ body {
 
   .page-home .hero-story-fade-stage {
     width: min(100%, 680px);
-    min-height: clamp(72px, 13vw, 112px);
+    min-height: clamp(72px, 12vw, 102px);
   }
 
   .page-home .hero-story-title {
@@ -9222,8 +9222,8 @@ body {
   }
 
   .page-home .hero-story-fade-quote {
-    font-size: clamp(0.98rem, 4.6vw, 1.26rem);
-    line-height: 1.2;
+    font-size: clamp(1.22rem, 5.4vw, 1.72rem);
+    line-height: 1.14;
     max-width: min(100%, 28ch);
   }
 
