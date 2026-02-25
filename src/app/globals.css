@@ -8333,15 +8333,20 @@ body {
 }
 
 .page-home .community-cinema-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
   gap: 12px;
 }
 
 .page-home .community-cinema-copy {
   display: grid;
   gap: 5px;
+  grid-column: 2;
+  justify-items: center;
+  text-align: center;
+  margin: 0 auto;
+  max-width: min(100%, 64ch);
 }
 
 .page-home .community-cinema-kicker {
@@ -8364,6 +8369,8 @@ body {
 }
 
 .page-home .community-filter-toggle {
+  grid-column: 3;
+  justify-self: end;
   border: 1px solid #3b3d46;
   border-radius: 999px;
   background: #17181f;
@@ -8731,8 +8738,19 @@ body {
   }
 
   .page-home .community-cinema-header {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .page-home .community-cinema-copy {
+    grid-column: 1;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .page-home .community-filter-toggle {
+    grid-column: 1;
+    justify-self: center;
   }
 
   .page-home .community-filter-drawer {
@@ -8816,6 +8834,11 @@ body {
 .page-home .pitch-divider.labeled {
   margin-top: 4px;
   margin-bottom: 10px;
+}
+
+.page-home .pitch-divider.labeled .pitch-subtext {
+  margin-top: 2px;
+  text-align: center;
 }
 
 .page-home .pitch-divider.labeled span {
