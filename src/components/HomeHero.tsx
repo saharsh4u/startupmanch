@@ -32,13 +32,18 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
     <section className="hero hero-story">
       <div className="hero-story-fade-stage" aria-live="polite">
         <h1 className={`hero-story-title hero-story-fade-item ${isSwapped ? "is-hidden" : "is-visible"}`}>
-          <span className="hero-story-quote-mark hero-story-quote-left" aria-hidden="true">
-            “
+          <span className="hero-story-flag" aria-hidden="true">
+            🇮🇳
           </span>
-          Watch <span className="hero-story-brush">Startups</span> Being Built in{" "}
-          <span className="hero-story-brush">Public</span> 🇮🇳
-          <span className="hero-story-quote-mark hero-story-quote-right" aria-hidden="true">
-            ”
+          <span className="hero-story-quote-line">
+            <span className="hero-story-quote-mark hero-story-quote-left" aria-hidden="true">
+              “
+            </span>
+            Watch <span className="hero-story-brush">Startups</span> Being Built in{" "}
+            <span className="hero-story-brush">Public</span>
+            <span className="hero-story-quote-mark hero-story-quote-right" aria-hidden="true">
+              ”
+            </span>
           </span>
         </h1>
         <p className={`hero-story-fade-item hero-story-fade-quote ${isSwapped ? "is-visible" : "is-hidden"}`}>

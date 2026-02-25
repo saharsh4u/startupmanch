@@ -9031,6 +9031,18 @@ body {
   text-wrap: balance;
 }
 
+.page-home .hero-story-flag {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 0.22em;
+  font-size: clamp(1.25rem, 2.2vw, 1.8rem);
+  line-height: 1;
+}
+
+.page-home .hero-story-quote-line {
+  display: inline-block;
+}
+
 .page-home .hero-story-fade-stage {
   display: grid;
   place-items: start center;
@@ -9191,8 +9203,13 @@ body {
 
   .page-home .hero-story-title {
     max-width: 24ch;
-    display: inline;
+    display: inline-block;
     white-space: normal;
+  }
+
+  .page-home .hero-story-flag {
+    margin-bottom: 0.18em;
+    font-size: clamp(1.12rem, 4.8vw, 1.42rem);
   }
 
   .page-home .hero-story-fade-quote {
