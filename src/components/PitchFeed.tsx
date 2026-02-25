@@ -238,8 +238,7 @@ const accentForKey = (key: string) => accentPalette[hashString(key) % accentPale
 
 const platformForKey = (key: string) => carouselPlatforms[hashString(key) % carouselPlatforms.length];
 
-const makeHotGlowBackground = (rgb: string) =>
-  `radial-gradient(circle, rgba(${rgb},0.6) 0%, rgba(${rgb},0.25) 45%, transparent 72%)`;
+const makeHotGlowBackground = (rgb: string) => `rgba(${rgb}, 0.24)`;
 
 const hotCinemaPosClassForDistance = (distance: number) => `pos-${Math.min(3, Math.max(0, distance))}`;
 
@@ -1171,7 +1170,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       hotPointerLastTimeRef.current = now;
       hotDragOffsetRef.current = clampedDeltaX;
       flushHotCarouselDragOffset();
-      if (Math.abs(deltaX) > 8) {
+      const suppressThreshold = isDesktopHotViewport ? 16 : 10;
+      if (Math.abs(deltaX) > suppressThreshold) {
         hotPointerSuppressClickRef.current = true;
       }
     },
@@ -1883,7 +1883,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                         } as CSSProperties
                       }
                       aria-label={`Open pitch from ${pitch.name}`}
-                      onClick={() => {
+                      onClick={(event) => {
+                        const clickTarget = event.target as HTMLElement | null;
+                        const clickedPlayTrigger = Boolean(clickTarget?.closest(".hot-cinema-play-trigger"));
+                        if (clickedPlayTrigger) {
+                          handleExpand(pitch);
+                          return;
+                        }
                         if (hotPointerSuppressClickRef.current) return;
                         if (isDesktopHotViewport) {
                           pauseHotAutoplay();
@@ -1901,7 +1907,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                         style={{ backgroundImage: pitch.poster ? `url(${pitch.poster})` : undefined }}
                       />
                       <span className="hot-cinema-overlay" />
-                      <span className="hot-cinema-play" aria-hidden="true">
+                      <span className="hot-cinema-play hot-cinema-play-trigger" aria-hidden="true">
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path d="M8 5v14l11-7z" />
                         </svg>

@@ -4,14 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 
 const barPalette = [
-  "linear-gradient(90deg, #f7b3e4, #f59ec7)",
-  "linear-gradient(90deg, #c7b6ff, #b69cff)",
-  "linear-gradient(90deg, #a8d5ff, #8bc1ff)",
-  "linear-gradient(90deg, #ffe6a7, #ffd06f)",
-  "linear-gradient(90deg, #b2f5ea, #6ee7f0)",
-  "linear-gradient(90deg, #c7f9cc, #8ee3a1)",
-  "linear-gradient(90deg, #ffd6d6, #ffb6b6)",
-  "linear-gradient(90deg, #d4f4ff, #9de2ff)"
+  "#f59ec7",
+  "#b69cff",
+  "#8bc1ff",
+  "#ffd06f",
+  "#6ee7f0",
+  "#8ee3a1",
+  "#ffb6b6",
+  "#9de2ff"
 ];
 
 const UPDATE_INTERVAL = 60000;
