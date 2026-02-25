@@ -9023,10 +9023,32 @@ body {
 .page-home .hero-story-title {
   margin: 0;
   max-width: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.12em;
   font-size: clamp(1.48rem, 3vw, 2.52rem);
   line-height: 1.12;
   letter-spacing: -0.02em;
   color: #f8f8f8;
+}
+
+.page-home .hero-story-quote-mark {
+  display: inline-block;
+  font-size: 0.9em;
+  line-height: 1;
+  color: rgba(248, 248, 248, 0.86);
+  text-shadow:
+    0 0 1px rgba(248, 248, 248, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+  transform-origin: center;
+}
+
+.page-home .hero-story-quote-left {
+  transform: translateY(-0.08em) rotate(-6deg);
+}
+
+.page-home .hero-story-quote-right {
+  transform: translateY(-0.05em) rotate(6deg);
 }
 
 .page-home .hero-story-brush {
@@ -9045,7 +9067,7 @@ body {
   top: 0.06em;
   bottom: 0.06em;
   border-radius: 999px;
-  background: rgba(229, 57, 53, 0.22);
+  background: rgba(229, 57, 53, 0.18);
   filter: blur(9px);
   z-index: -2;
 }
@@ -9053,20 +9075,31 @@ body {
 .page-home .hero-story-brush::after {
   content: "";
   position: absolute;
-  left: -0.16em;
-  right: -0.16em;
-  top: 0.12em;
-  bottom: 0.12em;
-  border-radius: 0.62em;
-  transform: rotate(-0.8deg);
+  left: -0.18em;
+  right: -0.14em;
+  top: 0.09em;
+  bottom: 0.1em;
+  border-radius: 0.58em 0.72em 0.52em 0.66em;
+  transform: rotate(-1.2deg);
+  clip-path: polygon(2% 16%, 9% 7%, 18% 10%, 29% 5%, 41% 9%, 54% 6%, 68% 10%, 81% 8%, 92% 12%, 98% 20%, 97% 82%, 90% 92%, 78% 88%, 63% 94%, 48% 89%, 36% 93%, 23% 88%, 9% 92%, 3% 84%);
   background:
     linear-gradient(
       92deg,
-      rgba(235, 59, 46, 0.34) 0%,
-      rgba(235, 59, 46, 0.48) 30%,
-      rgba(235, 59, 46, 0.43) 62%,
-      rgba(235, 59, 46, 0.36) 100%
+      rgba(235, 59, 46, 0.31) 0%,
+      rgba(235, 59, 46, 0.45) 30%,
+      rgba(235, 59, 46, 0.4) 62%,
+      rgba(235, 59, 46, 0.32) 100%
+    ),
+    repeating-linear-gradient(
+      -17deg,
+      rgba(255, 255, 255, 0.1) 0 2px,
+      rgba(255, 255, 255, 0.03) 2px 5px,
+      rgba(0, 0, 0, 0.06) 5px 8px,
+      transparent 8px 11px
     );
+  box-shadow:
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: -1;
 }
 
@@ -9122,7 +9155,12 @@ body {
 
   .page-home .hero-story-title {
     max-width: 18ch;
+    display: inline;
     white-space: normal;
+  }
+
+  .page-home .hero-story-quote-mark {
+    font-size: 0.78em;
   }
 
   .page-home .hero-story-btn {

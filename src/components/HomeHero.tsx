@@ -8,8 +8,14 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
   return (
     <section className="hero hero-story">
       <h1 className="hero-story-title">
+        <span className="hero-story-quote-mark hero-story-quote-left" aria-hidden="true">
+          “
+        </span>
         Watch <span className="hero-story-brush">Startups</span> Being Built in{" "}
         <span className="hero-story-brush">Public</span> 🇮🇳
+        <span className="hero-story-quote-mark hero-story-quote-right" aria-hidden="true">
+          ”
+        </span>
       </h1>
       <p className="hero-subline hero-story-subline">
         There will never be a &apos;right&apos; time &amp; you&apos;ll never feel ready.
