@@ -9,7 +9,7 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
     <section className="hero hero-story">
       <h1 className="hero-story-title">Watch Startups Being Built in Public 🇮🇳</h1>
       <p className="hero-subline hero-story-subline">
-        India&apos;s video network for founders documenting their journey.
+        There will never be a &apos;right&apos; time &amp; you&apos;ll never feel ready.
       </p>
       <a
         href={POST_PITCH_FALLBACK_HREF}
