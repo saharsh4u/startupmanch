@@ -7756,8 +7756,10 @@ body {
 }
 
 .page-home .pitch-slot-open-badge {
-  border-color: rgba(242, 177, 61, 0.45);
-  color: #e8e8e8;
+  border-color: #f5cc72;
+  background: #f2b13d;
+  color: #1b1407;
+  font-weight: 700;
 }
 
 .page-home .pitch-slot-open-action {
@@ -8746,9 +8748,10 @@ body {
 }
 
 .page-home .community-cinema .pitch-slot-open-badge {
-  border-color: #697293;
-  color: #d6daf0;
-  background: #1e2230;
+  border-color: #f5cc72;
+  background: #f2b13d;
+  color: #1b1407;
+  font-weight: 700;
 }
 
 .page-home .community-cinema .pitch-slot-open-card h4 {

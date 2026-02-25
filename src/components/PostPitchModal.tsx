@@ -729,11 +729,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 </p>
               ) : null}
 
-              <p className="post-pitch-note">
-                🎬 Not a polished pitch.
-                <br />
-                Just your build log.
-              </p>
+              <p className="post-pitch-note">Just build in public.</p>
             </div>
 
             <div className="post-pitch-submit-row">
