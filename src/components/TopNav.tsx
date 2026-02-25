@@ -12,7 +12,6 @@ type TopNavProps = {
 };
 
 const navAnchors = [
-  { id: "top-rated-block", label: "Top rated" },
   { id: "leaderboard-block", label: "Leaderboard" },
 ] as const;
 
@@ -54,7 +53,6 @@ export default function TopNav({
               {item.label}
             </Link>
           ))}
-          <Link href="/blog">Blog</Link>
         </div>
         <div className="site-nav-search">
           <span>⌕</span>

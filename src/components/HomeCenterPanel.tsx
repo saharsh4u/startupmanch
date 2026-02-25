@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import HomeHero from "@/components/HomeHero";
-import LeadCaptureForm from "@/components/LeadCaptureForm";
 import PostPitchModal from "@/components/PostPitchModal";
 import PitchFeed from "@/components/PitchFeed";
 import RankingsTable from "@/components/RankingsTable";
@@ -77,12 +76,6 @@ export default function HomeCenterPanel() {
       <div id="leaderboard-block" className="anchor-block">
         <RankingsTable />
       </div>
-      <LeadCaptureForm
-        source="home_hero"
-        title="Get founder and investor updates"
-        description="Join StartupManch to receive practical growth insights and featured pitches."
-        compact
-      />
       <PostPitchModal
         open={postPitchOpen}
         onClose={() => setPostPitchOpen(false)}
