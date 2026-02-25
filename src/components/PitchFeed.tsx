@@ -2078,7 +2078,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
           <div className="pitch-divider labeled">
             <span>More pitches</span>
-            <p className="pitch-subtext">Fresh from the community.</p>
+            <p className="pitch-subtext">Real 60-second updates from founders building in public.</p>
           </div>
 
           <div
@@ -2087,12 +2087,11 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           >
             <div className="community-cinema-header">
               <div className="community-cinema-copy">
-                <p className="community-cinema-kicker">Fresh from the community</p>
-                <h3>Discover startups as they build in public</h3>
+                <h3>See What People Are Building — And Build Yours Too</h3>
                 <p className="pitch-subtext">
-                  {teaserItems.length
-                    ? `${teaserItems.length} recent submissions from founders.`
-                    : "Real 60-second startup updates from active builders."}
+                  Watch ideas turn into products.
+                  <br />
+                  Then start your own.
                 </p>
               </div>
               <button
