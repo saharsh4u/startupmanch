@@ -6,43 +6,36 @@ type HomeHeroProps = {
 
 export default function HomeHero({ onPostPitch }: HomeHeroProps) {
   return (
-    <section className="hero">
-      <div className="hero-brand">
+    <section className="hero hero-story">
+      <p className="hero-story-kicker">FOR EVERY INDIAN FOUNDER</p>
+      <p className="hero-story-watermark" aria-hidden="true">
+        BUILD IN PUBLIC
+      </p>
+      <div className="hero-brand hero-story-brand">
         <span className="brand-star">✦</span>
         <span>StartupManch</span>
       </div>
-      <h1>India&apos;s Startup Marketplace for Founders &amp; Investors</h1>
-      <p className="hero-subline">Without a Pitch, It&apos;s Just an Idea</p>
-      <div className="hero-actions">
-        <div className="hero-action-group hero-action-group-search">
-          <div className="hero-search">
-            <span className="search-icon">⌕</span>
-            <input
-              type="text"
-              placeholder="Search pitches, founders, categories..."
-              aria-label="Search pitches"
-            />
-          </div>
-          <p className="hero-action-meta">Explore early-stage ideas.</p>
-        </div>
-        <div className="hero-action-group hero-action-group-cta">
-          <a
-            href={POST_PITCH_FALLBACK_HREF}
-            className="hero-btn"
-            onClick={(event) => {
-              event.preventDefault();
-              if (onPostPitch) {
-                onPostPitch();
-                return;
-              }
-              openPostPitchFlow();
-            }}
-          >
-            Post a Pitch
-          </a>
-          <p className="hero-action-meta">Takes less than 2 minutes.</p>
-        </div>
-      </div>
+      <h1 className="hero-story-title">
+        Your story <span className="hero-story-highlight">matters.</span>
+      </h1>
+      <p className="hero-subline hero-story-subline">
+        Share your wins, losses, and learnings. The Indian startup community is here for you.
+      </p>
+      <a
+        href={POST_PITCH_FALLBACK_HREF}
+        className="hero-btn hero-story-btn"
+        onClick={(event) => {
+          event.preventDefault();
+          if (onPostPitch) {
+            onPostPitch();
+            return;
+          }
+          openPostPitchFlow();
+        }}
+      >
+        ↗ Start Your Journey
+      </a>
+      <p className="hero-story-meta">Free · For everyone · No strings attached</p>
     </section>
   );
 }

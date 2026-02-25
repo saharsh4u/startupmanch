@@ -8937,3 +8937,106 @@ body {
     width: clamp(140px, 14vw, 220px);
   }
 }
+
+/* Home hero replacement: story-first block from visual reference, recolored for StartupManch */
+.page-home .hero.hero-story {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: #09090d !important;
+  padding: 52px 28px 48px;
+  overflow: hidden;
+}
+
+.page-home .hero-story-kicker {
+  margin: 0;
+  font-size: 0.86rem;
+  letter-spacing: 0.14em;
+  color: #f1cf95;
+  font-weight: 700;
+}
+
+.page-home .hero-story-brand {
+  color: #b4b4b4;
+}
+
+.page-home .hero-story-watermark {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.05);
+  font-size: clamp(2.5rem, 11vw, 10rem);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.page-home .hero-story-title {
+  margin: 0;
+  font-size: clamp(2.35rem, 5.6vw, 5.1rem);
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+  color: #f8f8f8;
+}
+
+.page-home .hero-story-highlight {
+  color: #f1cf95;
+}
+
+.page-home .hero-story-subline {
+  margin: 0;
+  max-width: 860px;
+  font-size: clamp(1.1rem, 2.2vw, 1.9rem);
+  line-height: 1.35;
+  color: #f0f0f0;
+}
+
+.page-home .hero-story-btn {
+  margin-top: 8px;
+  border-radius: 16px;
+  border: 1px solid #ff6b5a;
+  background: #e53b2e;
+  color: #ffffff;
+  font-size: clamp(1.05rem, 2vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 14px 28px;
+  min-width: 310px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.44);
+}
+
+.page-home .hero-story-btn:hover {
+  background: #f04a3e;
+  border-color: #ff7b6c;
+}
+
+.page-home .hero-story-meta {
+  margin: 4px 0 0;
+  color: #d0d0d0;
+  font-size: 0.96rem;
+}
+
+@media (max-width: 900px) {
+  .page-home .hero.hero-story {
+    padding: 42px 18px 36px;
+    border-radius: 22px;
+  }
+
+  .page-home .hero-story-btn {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .page-home .hero-story-meta {
+    font-size: 0.84rem;
+  }
+}
