@@ -9022,42 +9022,43 @@ body {
 
 .page-home .hero-story-title {
   margin: 0;
-  max-width: min(100%, 28ch);
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.12em;
+  max-width: min(100%, 34ch);
+  display: inline-block;
   font-size: clamp(1.48rem, 3vw, 2.52rem);
   line-height: 1.12;
   letter-spacing: -0.02em;
   color: #f8f8f8;
+  text-wrap: balance;
 }
 
 .page-home .hero-story-fade-stage {
-  position: relative;
+  display: grid;
+  place-items: start center;
   width: min(100%, 1120px);
-  min-height: clamp(136px, 15vw, 210px);
 }
 
 .page-home .hero-story-fade-item {
-  position: absolute;
-  left: 50%;
-  top: 0;
+  grid-area: 1 / 1;
   width: min(100%, 1040px);
   margin: 0;
-  transform: translateX(-50%);
-  will-change: opacity;
-  transition: opacity 520ms ease;
+  text-align: center;
+  will-change: opacity, filter;
+  transition:
+    opacity 420ms ease,
+    filter 420ms ease;
 }
 
 .page-home .hero-story-fade-item.is-visible {
   opacity: 1;
   pointer-events: auto;
+  filter: blur(0);
   z-index: 2;
 }
 
 .page-home .hero-story-fade-item.is-hidden {
   opacity: 0;
   pointer-events: none;
+  filter: blur(2px);
   z-index: 1;
 }
 
@@ -9140,12 +9141,6 @@ body {
   z-index: -1;
 }
 
-@media (min-width: 901px) {
-  .page-home .hero-story-title {
-    white-space: nowrap;
-  }
-}
-
 .page-home .hero-story-highlight {
   color: #ff4d40;
 }
@@ -9191,11 +9186,11 @@ body {
   }
 
   .page-home .hero-story-fade-stage {
-    min-height: 168px;
+    width: min(100%, 680px);
   }
 
   .page-home .hero-story-title {
-    max-width: 19ch;
+    max-width: 24ch;
     display: inline;
     white-space: normal;
   }
