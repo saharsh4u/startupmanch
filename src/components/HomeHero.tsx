@@ -30,11 +30,11 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
 
   return (
     <section className="hero hero-story">
+      <p className="hero-story-flag hero-story-flag-static" aria-hidden="true">
+        🇮🇳
+      </p>
       <div className="hero-story-fade-stage" aria-live="polite">
         <h1 className={`hero-story-title hero-story-fade-item ${isSwapped ? "is-hidden" : "is-visible"}`}>
-          <span className="hero-story-flag" aria-hidden="true">
-            🇮🇳
-          </span>
           <span className="hero-story-quote-line">
             <span className="hero-story-quote-mark hero-story-quote-left" aria-hidden="true">
               “

@@ -9034,9 +9034,13 @@ body {
 .page-home .hero-story-flag {
   display: block;
   width: fit-content;
-  margin: 0 auto 0.22em;
+  margin: 0 auto;
   font-size: clamp(1.25rem, 2.2vw, 1.8rem);
   line-height: 1;
+}
+
+.page-home .hero-story-flag-static {
+  margin-bottom: 2px;
 }
 
 .page-home .hero-story-quote-line {
@@ -9047,6 +9051,7 @@ body {
   display: grid;
   place-items: start center;
   width: min(100%, 1120px);
+  min-height: clamp(86px, 7.4vw, 126px);
 }
 
 .page-home .hero-story-fade-item {
@@ -9054,23 +9059,26 @@ body {
   width: min(100%, 1040px);
   margin: 0;
   text-align: center;
-  will-change: opacity, filter;
-  transition:
-    opacity 420ms ease,
-    filter 420ms ease;
+  will-change: opacity;
 }
 
 .page-home .hero-story-fade-item.is-visible {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
-  filter: blur(0);
+  transition:
+    opacity 220ms ease 220ms,
+    visibility 0s linear 0s;
   z-index: 2;
 }
 
 .page-home .hero-story-fade-item.is-hidden {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  filter: blur(2px);
+  transition:
+    opacity 220ms ease 0ms,
+    visibility 0s linear 220ms;
   z-index: 1;
 }
 
@@ -9199,6 +9207,7 @@ body {
 
   .page-home .hero-story-fade-stage {
     width: min(100%, 680px);
+    min-height: clamp(72px, 13vw, 112px);
   }
 
   .page-home .hero-story-title {
