@@ -8982,11 +8982,17 @@ body {
 
 .page-home .hero-story-title {
   margin: 0;
-  max-width: 18ch;
+  max-width: none;
   font-size: clamp(1.48rem, 3vw, 2.52rem);
   line-height: 1.12;
   letter-spacing: -0.02em;
   color: #f8f8f8;
+}
+
+@media (min-width: 901px) {
+  .page-home .hero-story-title {
+    white-space: nowrap;
+  }
 }
 
 .page-home .hero-story-highlight {
@@ -9031,6 +9037,11 @@ body {
     gap: 7px;
     padding: 18px 12px 14px;
     border-radius: 16px;
+  }
+
+  .page-home .hero-story-title {
+    max-width: 18ch;
+    white-space: normal;
   }
 
   .page-home .hero-story-btn {
