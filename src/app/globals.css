@@ -6765,6 +6765,25 @@ html[data-theme="light"] .theme-toggle-thumb {
   gap: 10px;
 }
 
+.post-pitch-section-title {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.post-pitch-bullet-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.post-pitch-bullet-list li {
+  line-height: 1.28;
+}
+
 .post-pitch-input-block {
   display: grid;
   gap: 6px;

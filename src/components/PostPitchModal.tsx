@@ -16,7 +16,7 @@ type PostPitchModalProps = {
 };
 
 type AuthStatus = "idle" | "loading" | "authed" | "error";
-type RevenueMode = "self_reported" | "razorpay";
+type RevenueMode = "pre_revenue" | "self_reported" | "razorpay";
 
 type FormErrors = Partial<
   Record<"startupName" | "startupOneLiner" | "pitchVideo" | "razorpayKey", string>
@@ -85,7 +85,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
-  const [revenueMode, setRevenueMode] = useState<RevenueMode>("self_reported");
+  const [revenueMode, setRevenueMode] = useState<RevenueMode>("pre_revenue");
   const [razorpayKey, setRazorpayKey] = useState("");
   const [revMessage, setRevMessage] = useState<string | null>(null);
   const [revStatus, setRevStatus] = useState<"idle" | "ready" | "error" | "saved">("idle");
@@ -102,7 +102,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   const authHelperText = useMemo(() => {
     if (isAuthed && sessionEmail) return `Signed in as ${sessionEmail}`;
     if (authStatus === "loading") return "Checking session...";
-    return "Sign in to post your pitch.";
+    return null;
   }, [authStatus, isAuthed, sessionEmail]);
 
   const videoHint = videoFile
@@ -143,7 +143,13 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
         ...current,
         ...parsed.startup,
       }));
-      setRevenueMode(parsed.revenueMode === "razorpay" ? "razorpay" : "self_reported");
+      setRevenueMode(
+        parsed.revenueMode === "razorpay"
+          ? "razorpay"
+          : parsed.revenueMode === "pre_revenue"
+            ? "pre_revenue"
+            : "self_reported"
+      );
     } catch {
       window.localStorage.removeItem(DRAFT_STORAGE_KEY);
     } finally {
@@ -154,7 +160,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
   const resetForm = () => {
     setStartup({ ...DEFAULT_STARTUP_PROFILE_FORM_VALUES });
     setVideoFile(null);
-    setRevenueMode("self_reported");
+    setRevenueMode("pre_revenue");
     setRazorpayKey("");
     setRevStatus("idle");
     setRevMessage(null);
@@ -399,7 +405,12 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
         founder_story: "",
         city: "",
         currency_code: "INR",
-        monthly_revenue: revenueMode === "self_reported" ? "Self-reported by founder" : "",
+        monthly_revenue:
+          revenueMode === "pre_revenue"
+            ? "Pre-revenue"
+            : revenueMode === "self_reported"
+              ? "Self-reported revenue"
+              : "",
       });
 
       const startupRes = await fetch("/api/startups", {
@@ -514,24 +525,34 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
         </button>
 
         <header className="post-pitch-modal-header">
-          <h3 id="post-pitch-modal-title">Post a Pitch</h3>
-          <p>Share essentials only. Stay in flow.</p>
+          <h3 id="post-pitch-modal-title">Start Your Journey</h3>
+          <p>
+            Document your startup in public.
+            <br />
+            Share progress. Stay consistent.
+          </p>
         </header>
 
         <div className="post-pitch-modal-grid">
           <section className="post-pitch-modal-media" aria-label="Pitch media">
+            <h4 className="post-pitch-section-title">Upload Your First 60-Second Update</h4>
+            <p className="post-pitch-note">
+              This is Episode 1 of your startup journey.
+              <br />
+              Keep it simple. Be real.
+            </p>
             <div className="post-pitch-preview-tile">
               {videoPreviewUrl ? (
                 <video src={videoPreviewUrl} controls muted playsInline preload="metadata" />
               ) : (
                 <div className="post-pitch-preview-empty">
-                  <p>Upload your 60-second pitch video</p>
-                  <span>{videoHint}</span>
+                  <p>Upload Your First 60-Second Update</p>
+                  <span>(Video up to 50MB)</span>
                 </div>
               )}
             </div>
             <label className="post-pitch-input-block">
-              <span>Pitch video (required)</span>
+              <span>Episode 1 video (required)</span>
               <input
                 type="file"
                 accept="video/mp4,video/*"
@@ -549,8 +570,8 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
           <section className="post-pitch-modal-form" aria-label="Pitch details">
             <div className="post-pitch-auth-card">
               <div className="post-pitch-auth-head">
-                <h4>Sign in</h4>
-                <span>{authHelperText}</span>
+                <h4>Create Your Founder Account</h4>
+                <span>Sign in to start your public timeline.</span>
               </div>
               {!isAuthed ? (
                 <div className="post-pitch-auth-fields">
@@ -586,10 +607,12 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                   </button>
                 </div>
               )}
+              {authHelperText ? <p className="post-pitch-note">{authHelperText}</p> : null}
               {authError ? <p className="form-error">{authError}</p> : null}
             </div>
 
             <div className="post-pitch-form-grid">
+              <h4 className="post-pitch-section-title">What are you building?</h4>
               <label className="post-pitch-input-block">
                 <span>Startup Name</span>
                 <input
@@ -615,13 +638,20 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 />
               </label>
               {formErrors.startupOneLiner ? <p className="form-error">{formErrors.startupOneLiner}</p> : null}
+              <p className="post-pitch-note">What does it do? Who is it for?</p>
 
+              <h4 className="post-pitch-section-title">Show Your Progress (Optional)</h4>
               <label className="post-pitch-input-block">
-                <span>Revenue verification</span>
+                <span>Revenue status</span>
                 <select
                   value={revenueMode}
                   onChange={(event) => {
-                    const nextMode = event.target.value === "razorpay" ? "razorpay" : "self_reported";
+                    const nextMode =
+                      event.target.value === "razorpay"
+                        ? "razorpay"
+                        : event.target.value === "self_reported"
+                          ? "self_reported"
+                          : "pre_revenue";
                     setRevenueMode(nextMode);
                     setRevStatus("idle");
                     setRevMessage(null);
@@ -629,16 +659,14 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                     saveDraft(startup, nextMode);
                   }}
                 >
-                  <option value="self_reported">Self-Reported Revenue</option>
-                  <option value="razorpay">Razorpay Verified (read-only)</option>
+                  <option value="pre_revenue">Pre-revenue</option>
+                  <option value="self_reported">Self-reported revenue</option>
+                  <option value="razorpay">Razorpay verified</option>
                 </select>
               </label>
+              <p className="post-pitch-note">Transparency builds trust.</p>
 
-              {revenueMode === "self_reported" ? (
-                <p className="post-pitch-note">
-                  Self-reported revenue is shown with a grey badge and founder disclaimer.
-                </p>
-              ) : (
+              {revenueMode === "razorpay" ? (
                 <>
                   <a
                     href={RAZORPAY_KEYS_URL}
@@ -682,13 +710,26 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                     </button>
                   </div>
                 </>
-              )}
+              ) : null}
 
               {revMessage ? (
                 <p className={`post-pitch-note ${revStatus === "error" ? "is-error" : ""}`}>
                   {revMessage}
                 </p>
               ) : null}
+
+              <h4 className="post-pitch-section-title">🎬 What to Say in Your First Update</h4>
+              <ul className="post-pitch-bullet-list">
+                <li>What problem are you solving?</li>
+                <li>Who is it for?</li>
+                <li>What stage are you in?</li>
+                <li>What&apos;s your next milestone?</li>
+              </ul>
+              <p className="post-pitch-note">
+                This is not a polished pitch.
+                <br />
+                It&apos;s your build log.
+              </p>
             </div>
 
             <div className="post-pitch-submit-row">
@@ -698,14 +739,15 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 onClick={() => void handleSubmit()}
                 disabled={submitStatus === "submitting" || authBusy || !isAuthed}
               >
-                {submitStatus === "submitting" ? "Submitting..." : "Submit pitch"}
+                {submitStatus === "submitting" ? "Posting Episode 1..." : "▶ Post Episode 1"}
               </button>
-              {!isAuthed ? <p className="post-pitch-note">Sign in to enable submission.</p> : null}
+              {!isAuthed ? <p className="post-pitch-note">Sign in to start your public timeline.</p> : null}
               {submitMessage ? (
                 <p className={`post-pitch-note ${submitStatus === "error" ? "is-error" : ""}`}>
                   {submitMessage}
                 </p>
               ) : null}
+              <p className="post-pitch-note">Your journey starts here.</p>
             </div>
           </section>
         </div>
