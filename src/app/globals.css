@@ -8945,20 +8945,20 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   text-align: center;
-  border-radius: 30px;
+  border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background-color: #09090d !important;
-  padding: 52px 28px 48px;
+  padding: 34px 20px 30px;
   overflow: hidden;
 }
 
 .page-home .hero-story-kicker {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: 0.78rem;
   letter-spacing: 0.14em;
-  color: #f1cf95;
+  color: #ff4d40;
   font-weight: 700;
 }
 
@@ -8966,52 +8966,38 @@ body {
   color: #b4b4b4;
 }
 
-.page-home .hero-story-watermark {
-  position: absolute;
-  left: 50%;
-  top: 52%;
-  transform: translate(-50%, -50%);
-  z-index: -1;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.05);
-  font-size: clamp(2.5rem, 11vw, 10rem);
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-  font-weight: 700;
-}
-
 .page-home .hero-story-title {
   margin: 0;
-  font-size: clamp(2.35rem, 5.6vw, 5.1rem);
-  line-height: 1.03;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.86rem, 4.2vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
   color: #f8f8f8;
 }
 
 .page-home .hero-story-highlight {
-  color: #f1cf95;
+  color: #ff4d40;
 }
 
 .page-home .hero-story-subline {
   margin: 0;
-  max-width: 860px;
-  font-size: clamp(1.1rem, 2.2vw, 1.9rem);
-  line-height: 1.35;
+  max-width: 760px;
+  font-size: clamp(0.98rem, 1.45vw, 1.5rem);
+  line-height: 1.32;
   color: #f0f0f0;
 }
 
 .page-home .hero-story-btn {
-  margin-top: 8px;
-  border-radius: 16px;
+  margin-top: 6px;
+  border-radius: 14px;
   border: 1px solid #ff6b5a;
   background: #e53b2e;
   color: #ffffff;
-  font-size: clamp(1.05rem, 2vw, 1.6rem);
+  font-size: clamp(0.96rem, 1.4vw, 1.25rem);
   font-weight: 700;
   letter-spacing: 0.01em;
-  padding: 14px 28px;
-  min-width: 310px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.44);
+  padding: 11px 24px;
+  min-width: 248px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.38);
 }
 
 .page-home .hero-story-btn:hover {
@@ -9020,15 +9006,15 @@ body {
 }
 
 .page-home .hero-story-meta {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: #d0d0d0;
-  font-size: 0.96rem;
+  font-size: 0.84rem;
 }
 
 @media (max-width: 900px) {
   .page-home .hero.hero-story {
-    padding: 42px 18px 36px;
-    border-radius: 22px;
+    padding: 28px 14px 24px;
+    border-radius: 18px;
   }
 
   .page-home .hero-story-btn {

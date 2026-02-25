@@ -8,9 +8,6 @@ export default function HomeHero({ onPostPitch }: HomeHeroProps) {
   return (
     <section className="hero hero-story">
       <p className="hero-story-kicker">FOR EVERY INDIAN FOUNDER</p>
-      <p className="hero-story-watermark" aria-hidden="true">
-        BUILD IN PUBLIC
-      </p>
       <div className="hero-brand hero-story-brand">
         <span className="brand-star">✦</span>
         <span>StartupManch</span>
