@@ -5,7 +5,6 @@ import HomeHero from "@/components/HomeHero";
 import PostPitchModal from "@/components/PostPitchModal";
 import PitchFeed from "@/components/PitchFeed";
 import RankingsTable from "@/components/RankingsTable";
-import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
 import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
 import { POST_PITCH_OPEN_EVENT } from "@/lib/post-pitch";
@@ -86,7 +85,6 @@ export default function HomeCenterPanel() {
           {postPitchToast}
         </div>
       ) : null}
-      <SiteFooter />
     </>
   );
 }
