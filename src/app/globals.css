@@ -8606,13 +8606,16 @@ body {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  touch-action: pan-x;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
+  touch-action: pan-x pan-y;
+  scroll-snap-type: none;
 }
 
 .page-home .community-rail::-webkit-scrollbar {
   display: none;
+}
+
+.page-home .community-rail.is-interacting {
+  scroll-snap-type: x mandatory;
 }
 
 .page-home .community-rail-track {
@@ -8741,7 +8744,8 @@ body {
   }
 
   .page-home .community-rail {
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 }
 
@@ -8770,7 +8774,8 @@ body {
   }
 
   .page-home .community-rail {
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .page-home .community-rail-item {
@@ -8788,8 +8793,10 @@ body {
 
   .page-home .community-rail {
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    scroll-snap-type: x mandatory;
   }
 
   .page-home .community-rail::-webkit-scrollbar {

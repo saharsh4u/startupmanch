@@ -2145,7 +2145,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               {communityRails.map((rail, railIndex) => (
                 <section key={rail.id} className="community-rail-block" aria-label={rail.title}>
                   <div
-                    className={`community-rail${prefersReducedMotion ? " is-static" : ""}`}
+                    className={`community-rail${prefersReducedMotion ? " is-static" : ""}${
+                      isCommunityRailInteracting ? " is-interacting" : ""
+                    }`}
                     aria-label={rail.title}
                     ref={(node) => {
                       communityRailRefs.current[railIndex] = node;
