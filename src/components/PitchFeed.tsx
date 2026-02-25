@@ -2068,9 +2068,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
             <div className="community-rails">
               {communityRails.map((rail, railIndex) => (
                 <section key={rail.id} className="community-rail-block" aria-label={rail.title}>
-                  <div className="community-rail-header">
-                    <h4>{rail.title}</h4>
-                  </div>
                   <div
                     className={`community-rail${prefersReducedMotion ? " is-static" : ""}`}
                     aria-label={rail.title}

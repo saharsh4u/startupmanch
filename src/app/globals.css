@@ -8580,7 +8580,7 @@ body {
 
 .page-home .community-rail-block {
   display: grid;
-  gap: 10px;
+  gap: 0;
 }
 
 .page-home .community-rail-header {
