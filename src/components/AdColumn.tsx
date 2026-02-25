@@ -45,11 +45,27 @@ const placeholderCopy = (isBack: boolean) => {
   };
 };
 
-const AdFaceContent = ({ item, isBack = false }: { item: AdItem; isBack?: boolean }) => {
+type AdFaceCopyOverride = {
+  badge: string;
+  name: string;
+  tagline: string;
+};
+
+const AdFaceContent = ({
+  item,
+  isBack = false,
+  copyOverride,
+}: {
+  item: AdItem;
+  isBack?: boolean;
+  copyOverride?: AdFaceCopyOverride;
+}) => {
   const campaign = isCampaignItem(item);
-  const copy = campaign
-    ? { badge: item.badge ?? "AD", name: item.name, tagline: item.tagline }
-    : placeholderCopy(isBack);
+  const copy =
+    copyOverride ??
+    (campaign
+      ? { badge: item.badge ?? "AD", name: item.name, tagline: item.tagline }
+      : placeholderCopy(isBack));
 
   return (
     <>
@@ -69,6 +85,7 @@ const AdFace = ({
   suppressKeyboardFocus,
   onAdvertiseClick,
   placeholderTone,
+  copyOverride,
 }: {
   item: AdItem;
   isBack?: boolean;
@@ -76,6 +93,7 @@ const AdFace = ({
   suppressKeyboardFocus?: boolean;
   onAdvertiseClick: () => void;
   placeholderTone?: string;
+  copyOverride?: AdFaceCopyOverride;
 }) => {
   const campaign = isCampaignItem(item);
   const className = `ad-face${isBack ? " back" : ""}${campaign ? "" : " advertise"}`;
@@ -100,7 +118,7 @@ const AdFace = ({
         aria-label="Advertise on StartupManch"
         tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
-        <AdFaceContent item={item} isBack={isBack} />
+        <AdFaceContent item={item} isBack={isBack} copyOverride={copyOverride} />
       </button>
     );
   }
@@ -119,14 +137,14 @@ const AdFace = ({
         aria-label={`Visit ${item.name}`}
         tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
-        <AdFaceContent item={item} isBack={isBack} />
+        <AdFaceContent item={item} isBack={isBack} copyOverride={copyOverride} />
       </a>
     );
   }
 
   return (
     <div className={`${className} ad-face-static`} style={style}>
-      <AdFaceContent item={item} isBack={isBack} />
+      <AdFaceContent item={item} isBack={isBack} copyOverride={copyOverride} />
     </div>
   );
 };
@@ -156,6 +174,12 @@ export default function AdColumn({
     const placeholderTone =
       placeholderTonePalette[(index + toneOffset) % placeholderTonePalette.length];
     const isPlaceholderSlot = !isCampaignItem(slot.front) && !isCampaignItem(slot.back);
+    const showTopLeftQuote = side === "left" && index === 0;
+    const topLeftQuoteCopy: AdFaceCopyOverride = {
+      badge: "QUOTE",
+      name: "It's not about ideas.",
+      tagline: "It's about making ideas happen.",
+    };
 
     return (
       <div
@@ -172,6 +196,7 @@ export default function AdColumn({
             suppressKeyboardFocus={isClone}
             onAdvertiseClick={handleAdvertiseClick}
             placeholderTone={placeholderTone}
+            copyOverride={showTopLeftQuote ? topLeftQuoteCopy : undefined}
           />
           <AdFace
             item={slot.back}
