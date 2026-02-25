@@ -88,6 +88,8 @@ type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: stri
 type MobileStackItem =
   | { type: "approved"; id: string; pitch: FeedPitch }
   | { type: "open"; id: string };
+type CommunityRailItem = RowSlot;
+type CommunityRail = { id: string; title: string; items: CommunityRailItem[] };
 
 const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
@@ -107,6 +109,9 @@ const SLOT_REORDER_MAX_MS = 16_000;
 const HOT_AUTOPLAY_INTERVAL_MS = 2600;
 const HOT_AUTOPLAY_RESUME_DELAY_MS = 1600;
 const HOT_WHEEL_SETTLE_MS = 560;
+const COMMUNITY_FEATURED_ROTATE_MS = 4000;
+const COMMUNITY_RAIL_COUNT = 3;
+const COMMUNITY_RAIL_SIZE = 10;
 
 const accentPalette = [
   "#42d6ff",
@@ -162,6 +167,8 @@ const slotOpenCopyVariants = [
     cta: "Pitch Now",
   },
 ] as const;
+
+const communityRailTitles = ["Fresh picks", "Builder spotlight", "Just shipped"] as const;
 
 const normalizeCategory = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
 
@@ -398,6 +405,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [hotAutoplayPaused, setHotAutoplayPaused] = useState(false);
   const [isDocumentHidden, setIsDocumentHidden] = useState(false);
   const [moreSectionInView, setMoreSectionInView] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [isCommunityFilterOpen, setIsCommunityFilterOpen] = useState(false);
+  const [communityFeaturedIndex, setCommunityFeaturedIndex] = useState(0);
+  const communityRailRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
     [selectedCategory]
@@ -795,6 +806,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   }, []);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncPreference = () => setPrefersReducedMotion(mediaQuery.matches);
+    syncPreference();
+    mediaQuery.addEventListener("change", syncPreference);
+    return () => mediaQuery.removeEventListener("change", syncPreference);
+  }, []);
+
+  useEffect(() => {
     const syncVisibility = () => {
       setIsDocumentHidden(document.hidden);
     };
@@ -947,6 +966,46 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     return shuffleItems(slots, slotShuffleSeed);
   }, [approvedVisible, slotFilter, slotShuffleSeed]);
 
+  const communityRailSource = useMemo<CommunityRailItem[]>(() => {
+    if (rowSlots.length) return rowSlots;
+    return Array.from({ length: ROW_SIZE }, (_, index) => ({
+      type: "open" as const,
+      id: `community-open-slot-${index + 1}`,
+    }));
+  }, [rowSlots]);
+
+  const communityRails = useMemo<CommunityRail[]>(() => {
+    if (!communityRailSource.length) return [];
+
+    const expanded: CommunityRailItem[] = [];
+    const totalNeeded = COMMUNITY_RAIL_COUNT * COMMUNITY_RAIL_SIZE;
+    for (let index = 0; index < totalNeeded; index += 1) {
+      expanded.push(communityRailSource[index % communityRailSource.length]);
+    }
+
+    return Array.from({ length: COMMUNITY_RAIL_COUNT }, (_, railIndex) => {
+      const start = railIndex * COMMUNITY_RAIL_SIZE;
+      return {
+        id: `community-rail-${railIndex + 1}`,
+        title: communityRailTitles[railIndex] ?? `Rail ${railIndex + 1}`,
+        items: expanded.slice(start, start + COMMUNITY_RAIL_SIZE),
+      };
+    });
+  }, [communityRailSource]);
+
+  const communityFeaturedItems = useMemo<CommunityRailItem[]>(() => {
+    const featuredApproved = approvedVisible.slice(0, 6).map((pitch) => ({
+      type: "approved" as const,
+      pitch,
+    }));
+    if (featuredApproved.length) return featuredApproved;
+
+    const openSlots = rowSlots.filter((slot): slot is { type: "open"; id: string } => slot.type === "open");
+    if (openSlots.length) return openSlots.slice(0, 3);
+
+    return [{ type: "open", id: "community-featured-open-1" }];
+  }, [approvedVisible, rowSlots]);
+
   const columnGroups = useMemo(() => {
     const distributed = distributeByColumn(rowSlots, MORE_PITCH_COLUMN_COUNT);
     return distributed.map((column, columnIndex) => {
@@ -1029,6 +1088,43 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     }
     setMobileStackIndex((current) => wrapIndex(current, mobileStackItems.length));
   }, [mobileStackItems]);
+
+  useEffect(() => {
+    if (!communityFeaturedItems.length) {
+      setCommunityFeaturedIndex(0);
+      return;
+    }
+    setCommunityFeaturedIndex((current) => wrapIndex(current, communityFeaturedItems.length));
+  }, [communityFeaturedItems]);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    if (isDocumentHidden) return;
+    if (communityFeaturedItems.length <= 1) return;
+
+    const timer = window.setInterval(() => {
+      setCommunityFeaturedIndex((current) => wrapIndex(current + 1, communityFeaturedItems.length));
+    }, COMMUNITY_FEATURED_ROTATE_MS);
+
+    return () => window.clearInterval(timer);
+  }, [communityFeaturedItems.length, isDocumentHidden, prefersReducedMotion]);
+
+  const registerCommunityRailRef = useCallback((railId: string, node: HTMLDivElement | null) => {
+    communityRailRefs.current[railId] = node;
+  }, []);
+
+  const scrollCommunityRail = useCallback(
+    (railId: string, direction: -1 | 1) => {
+      const rail = communityRailRefs.current[railId];
+      if (!rail) return;
+      const distance = Math.max(220, Math.round(rail.clientWidth * 0.78));
+      rail.scrollBy({
+        left: distance * direction,
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+    },
+    [prefersReducedMotion]
+  );
 
   const setHotCarouselTo = useCallback(
     (index: number) => {
@@ -1805,6 +1901,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         ? "Reshuffling slots…"
         : null;
 
+  const activeCommunityFeaturedItem = communityFeaturedItems[communityFeaturedIndex] ?? null;
+  const activeCommunityFeaturedPitch =
+    activeCommunityFeaturedItem?.type === "approved" ? activeCommunityFeaturedItem.pitch : null;
+  const activeCommunityOpenSlotCopy =
+    activeCommunityFeaturedItem && activeCommunityFeaturedItem.type === "open"
+      ? slotOpenCopyVariants[hashString(activeCommunityFeaturedItem.id) % slotOpenCopyVariants.length]
+      : slotOpenCopyVariants[0];
+
   const showHotPitches = false;
   const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
 
@@ -1962,240 +2066,173 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           </div>
 
           <div
-            className={`pitch-mosaic more-band${loaded ? " is-loaded" : ""}${moreSectionInView ? " is-visible" : ""}`}
+            className={`community-cinema${loaded ? " is-loaded" : ""}${moreSectionInView ? " is-visible" : ""}`}
             ref={moreSectionRef}
           >
-            {SLOT_UPGRADE_ENABLED ? (
-              <>
-                <div className="slot-controls">
-                  <label className="slot-search" aria-label="Search pitches">
-                    <span>⌕</span>
-                    <input
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      placeholder="Search pitches"
+            <div className="community-cinema-header">
+              <div className="community-cinema-copy">
+                <p className="community-cinema-kicker">Fresh from the community</p>
+                <h3>Discover startups as they build in public</h3>
+                <p className="pitch-subtext">
+                  {teaserItems.length
+                    ? `${teaserItems.length} recent submissions from founders.`
+                    : "Real 60-second startup updates from active builders."}
+                </p>
+              </div>
+              <button
+                type="button"
+                className={`community-filter-toggle${isCommunityFilterOpen ? " is-open" : ""}`}
+                aria-expanded={isCommunityFilterOpen}
+                aria-controls="community-filter-drawer"
+                onClick={() => setIsCommunityFilterOpen((current) => !current)}
+              >
+                Filters
+              </button>
+            </div>
+
+            <div
+              id="community-filter-drawer"
+              className={`community-filter-drawer${isCommunityFilterOpen ? " is-open" : ""}`}
+            >
+              <label className="community-search" aria-label="Search pitches">
+                <span>⌕</span>
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search startups, tags, or category"
+                />
+              </label>
+              <div className="community-filter-chip-row" role="tablist" aria-label="Slot filters">
+                {([
+                  { id: "all", label: "All" },
+                  { id: "approved", label: "Approved" },
+                  { id: "open", label: "Open slots" },
+                ] as Array<{ id: SlotFilter; label: string }>).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`slot-filter-chip community-filter-chip${slotFilter === item.id ? " is-active" : ""}`}
+                    onClick={() => setSlotFilter(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              {SLOT_UPGRADE_ENABLED ? (
+                <p className="community-filter-note">
+                  Positions reshuffle at random intervals, plus a full network shuffle every 5 min.
+                </p>
+              ) : null}
+            </div>
+
+            <article className="community-featured" aria-live="polite">
+              {activeCommunityFeaturedPitch ? (
+                <button
+                  type="button"
+                  className="community-featured-card"
+                  onClick={() => handleExpand(activeCommunityFeaturedPitch)}
+                  aria-label={`Open featured pitch from ${activeCommunityFeaturedPitch.name}`}
+                >
+                  {activeCommunityFeaturedPitch.video && !prefersReducedMotion ? (
+                    <video
+                      className="community-featured-media"
+                      src={activeCommunityFeaturedPitch.video}
+                      poster={activeCommunityFeaturedPitch.poster}
+                      muted
+                      playsInline
+                      autoPlay
+                      loop
+                      preload="metadata"
                     />
-                  </label>
-                  <div className="slot-filter-chips" role="tablist" aria-label="Slot filters">
-                    {([
-                      { id: "all", label: "All" },
-                      { id: "approved", label: "Approved" },
-                      { id: "open", label: "Open slots" },
-                    ] as Array<{ id: SlotFilter; label: string }>).map((item) => (
+                  ) : (
+                    <span
+                      className="community-featured-media"
+                      style={{
+                        backgroundImage: activeCommunityFeaturedPitch.poster
+                          ? `url(${activeCommunityFeaturedPitch.poster})`
+                          : undefined,
+                      }}
+                    />
+                  )}
+                  <span className="community-featured-overlay" />
+                  <span className="community-featured-content">
+                    <span className="community-featured-badge">Featured pitch</span>
+                    <span className="community-featured-title">{activeCommunityFeaturedPitch.name}</span>
+                    <span className="community-featured-meta">
+                      <span>{activeCommunityFeaturedPitch.category ?? "Pitch"}</span>
+                      <span>Score {asNumber(activeCommunityFeaturedPitch.score).toFixed(1)}</span>
+                      <span>Updated {relativeTime(activeCommunityFeaturedPitch.approvedAt)}</span>
+                    </span>
+                    <span className="community-featured-copy">{activeCommunityFeaturedPitch.tagline}</span>
+                    <span className="community-featured-actions">
+                      <span className="community-featured-cta is-primary">▶ Watch pitch</span>
+                      <span className="community-featured-cta is-secondary">+ Add to watchlist</span>
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                <a
+                  href={POST_PITCH_FALLBACK_HREF}
+                  className="community-featured-card is-open-slot"
+                  aria-label="Submit your pitch"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    triggerPostPitchEntry();
+                  }}
+                >
+                  <span className="community-featured-overlay" />
+                  <span className="community-featured-content">
+                    <span className="community-featured-badge">Open slot</span>
+                    <span className="community-featured-title">{activeCommunityOpenSlotCopy.title}</span>
+                    <span className="community-featured-copy">{activeCommunityOpenSlotCopy.description}</span>
+                    <span className="community-featured-actions">
+                      <span className="community-featured-cta is-primary">{activeCommunityOpenSlotCopy.cta}</span>
+                    </span>
+                  </span>
+                </a>
+              )}
+            </article>
+
+            <div className="community-rails">
+              {communityRails.map((rail, railIndex) => (
+                <section key={rail.id} className="community-rail-block" aria-label={rail.title}>
+                  <div className="community-rail-header">
+                    <h4>{rail.title}</h4>
+                    <div className="community-rail-controls">
                       <button
-                        key={item.id}
                         type="button"
-                        className={`slot-filter-chip${slotFilter === item.id ? " is-active" : ""}`}
-                        onClick={() => setSlotFilter(item.id)}
+                        className="community-rail-arrow"
+                        aria-label={`Scroll ${rail.title} left`}
+                        onClick={() => scrollCommunityRail(rail.id, -1)}
                       >
-                        {item.label}
+                        ←
                       </button>
+                      <button
+                        type="button"
+                        className="community-rail-arrow"
+                        aria-label={`Scroll ${rail.title} right`}
+                        onClick={() => scrollCommunityRail(rail.id, 1)}
+                      >
+                        →
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    className="community-rail"
+                    ref={(node) => registerCommunityRailRef(rail.id, node)}
+                    aria-label={rail.title}
+                  >
+                    {rail.items.map((slot, slotIndex) => (
+                      <div
+                        key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}`}
+                        className="community-rail-item"
+                      >
+                        {renderRowSlot(slot, railIndex, slotIndex, "primary")}
+                      </div>
                     ))}
                   </div>
-                  <p className="slot-random-note">
-                    Positions reshuffle at random intervals, plus a full network shuffle every 5 min.
-                  </p>
-                </div>
-
-                <div className="slot-teaser-strip" aria-label="Recent uploads teasers">
-                  {teaserItems.map((entry) =>
-                    entry.type === "approved" ? (
-                      <article key={`teaser-approved-${entry.item.id}`} className="slot-teaser approved">
-                        <div className="slot-teaser-media" style={{ backgroundImage: entry.item.poster_url ? `url(${entry.item.poster_url})` : undefined }} />
-                        <div className="slot-teaser-body">
-                          <p className="slot-teaser-kicker">Approved {relativeTime(entry.item.approved_at)}</p>
-                          <h4>{entry.item.startup_name}</h4>
-                          <p>{entry.item.one_liner ?? entry.item.category ?? "New approved pitch"}</p>
-                        </div>
-                      </article>
-                    ) : (
-                      <article key={`teaser-pending-${entry.item.id}`} className="slot-teaser pending">
-                        <div className="slot-teaser-media is-anon" style={{ backgroundImage: entry.item.poster_url ? `url(${entry.item.poster_url})` : undefined }} />
-                        <div className="slot-teaser-body">
-                          <p className="slot-teaser-kicker">Pending {relativeTime(entry.item.created_at)}</p>
-                          <h4>New submission</h4>
-                          <p>{entry.item.category ?? "Category pending"}</p>
-                        </div>
-                      </article>
-                    )
-                  )}
-                </div>
-              </>
-            ) : null}
-
-            <div className={`pitch-columns${isMobileViewport ? " is-mobile" : " is-desktop"}`}>
-              {loadingInitial
-                ? isMobileViewport
-                  ? (
-                      <div className="pitch-mobile-stack is-loading" aria-hidden="true">
-                        <article className="pitch-mobile-stack-skeleton pos-back" />
-                        <article className="pitch-mobile-stack-skeleton pos-mid" />
-                        <article className="pitch-mobile-stack-skeleton pos-front" />
-                      </div>
-                    )
-                  : Array.from({ length: MORE_PITCH_COLUMN_COUNT }, (_, columnIndex) => (
-                      <div
-                        key={`initial-loading-column-${columnIndex}`}
-                        className="pitch-column is-loading"
-                        aria-hidden="true"
-                      >
-                        {Array.from({ length: INITIAL_SKELETON_ROWS + 1 }, (_, cardIndex) => (
-                          <article
-                            key={`initial-loading-card-${columnIndex}-${cardIndex}`}
-                            className="pitch-show-card row skeleton"
-                          />
-                        ))}
-                      </div>
-                    ))
-                : isMobileViewport
-                  ? (
-                      <div
-                        className={`pitch-mobile-stack${mobileStackDragging ? " is-dragging" : ""}`}
-                        tabIndex={0}
-                        onKeyDown={handleMobileStackKeyDown}
-                        onPointerDown={handleMobileStackPointerDown}
-                        onPointerMove={handleMobileStackPointerMove}
-                        onPointerUp={finishMobileStackPointer}
-                        onPointerCancel={finishMobileStackPointer}
-                        onLostPointerCapture={handleMobileStackPointerCaptureLost}
-                        aria-label="More pitches mobile stack"
-                      >
-                        {mobileStackVisibleOffsets.map((offset) => {
-                          if (!mobileStackItems.length) return null;
-                          const targetIndex = wrapIndex(mobileStackIndex + offset, mobileStackItems.length);
-                          const item = mobileStackItems[targetIndex];
-                          const distance = Math.min(2, Math.abs(offset));
-                          const isCenter = offset === 0;
-                          const yShift = offset * 88;
-                          const zIndex = 100 - distance * 16;
-                          const baseScale = isCenter ? 1 : distance === 1 ? 0.87 : 0.75;
-                          const baseOpacity = isCenter ? 1 : distance === 1 ? 0.64 : 0.34;
-                          const angle = isCenter ? 0 : offset < 0 ? -2 : 2;
-
-                          if (item.type === "approved") {
-                            const pitch = item.pitch;
-                            const onCardClick = () => {
-                              if (mobileStackPointerSuppressClickRef.current) return;
-                              if (!isCenter) {
-                                setMobileStackIndex(targetIndex);
-                                return;
-                              }
-                              handleExpand(pitch);
-                            };
-
-                            return (
-                              <button
-                                key={`mobile-stack-${pitch.id}-${offset}`}
-                                type="button"
-                                className={`pitch-mobile-stack-card is-approved${isCenter ? " is-active" : ""}`}
-                                data-stack-depth={distance}
-                                style={
-                                  {
-                                    ["--stack-y" as string]: `${yShift}px`,
-                                    ["--stack-scale" as string]: baseScale,
-                                    ["--stack-opacity" as string]: baseOpacity,
-                                    ["--stack-rotate" as string]: `${angle}deg`,
-                                    ["--stack-z" as string]: zIndex,
-                                    ["--stack-drag-y" as string]: `${mobileStackDragOffsetY}px`,
-                                  } as CSSProperties
-                                }
-                                onClick={onCardClick}
-                                aria-label={isCenter ? `Open pitch from ${pitch.name}` : `Focus pitch from ${pitch.name}`}
-                              >
-                                {isCenter && pitch.video ? (
-                                  <video
-                                    className="pitch-mobile-stack-media"
-                                    src={pitch.video}
-                                    poster={pitch.poster}
-                                    muted
-                                    playsInline
-                                    autoPlay
-                                    loop
-                                    preload="metadata"
-                                  />
-                                ) : (
-                                  <span
-                                    className="pitch-mobile-stack-media"
-                                    style={{ backgroundImage: pitch.poster ? `url(${pitch.poster})` : undefined }}
-                                  />
-                                )}
-                                <span className="pitch-mobile-stack-overlay" />
-                                {isCenter ? (
-                                  <span className="pitch-mobile-stack-info">
-                                    <span className="pitch-mobile-stack-title">{pitch.name}</span>
-                                    <span className="pitch-mobile-stack-meta">
-                                      <span>{pitch.category ?? "Pitch"}</span>
-                                      <span>60s pitch</span>
-                                    </span>
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          }
-
-                          const slotCopy = slotOpenCopyVariants[hashString(item.id) % slotOpenCopyVariants.length];
-                          return (
-                            <button
-                              key={`mobile-stack-open-${item.id}-${offset}`}
-                              type="button"
-                              className={`pitch-mobile-stack-card is-open-slot${isCenter ? " is-active" : ""}`}
-                              data-stack-depth={distance}
-                              style={
-                                {
-                                  ["--stack-y" as string]: `${yShift}px`,
-                                  ["--stack-scale" as string]: baseScale,
-                                  ["--stack-opacity" as string]: baseOpacity,
-                                  ["--stack-rotate" as string]: `${angle}deg`,
-                                  ["--stack-z" as string]: zIndex,
-                                  ["--stack-drag-y" as string]: `${mobileStackDragOffsetY}px`,
-                                } as CSSProperties
-                              }
-                              onClick={() => {
-                                if (mobileStackPointerSuppressClickRef.current) return;
-                                if (!isCenter) {
-                                  setMobileStackIndex(targetIndex);
-                                  return;
-                                }
-                                triggerPostPitchEntry();
-                              }}
-                              aria-label={isCenter ? "Submit your pitch" : "Focus open slot card"}
-                            >
-                              <span className="pitch-mobile-stack-open-kicker">Slot open</span>
-                              <span className="pitch-mobile-stack-open-title">{slotCopy.title}</span>
-                              {isCenter ? (
-                                <>
-                                  <span className="pitch-mobile-stack-open-copy">{slotCopy.description}</span>
-                                  <span className="pitch-mobile-stack-open-cta">{slotCopy.cta}</span>
-                                </>
-                              ) : null}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )
-                  : columnGroups.map((group, columnIndex) => (
-                      <div
-                        key={`column-group-${columnIndex}`}
-                        className={`pitch-column ${columnIndex % 2 === 0 ? "is-up" : "is-down"}`}
-                      >
-                        <div className="pitch-column-track">
-                          <div className="pitch-column-segment" data-column-segment="primary">
-                            {group.map((slot, slotIndex) =>
-                              renderRowSlot(slot, columnIndex, slotIndex, "primary")
-                            )}
-                          </div>
-                          <div
-                            className="pitch-column-segment is-clone"
-                            data-column-segment="clone"
-                            aria-hidden="true"
-                          >
-                            {group.map((slot, slotIndex) =>
-                              renderRowSlot(slot, columnIndex, slotIndex, "clone")
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                </section>
+              ))}
             </div>
 
             {statusMessage ? (
@@ -2217,7 +2254,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
             </div>
 
             {SLOT_UPGRADE_ENABLED ? (
-              <div className="slot-testimonials" aria-label="Founder testimonials">
+              <div className="slot-testimonials community-testimonials" aria-label="Founder testimonials">
                 <div className="slot-testimonials-header">
                   <h4>Founder voices</h4>
                   {founderAvatarStack.length ? (
