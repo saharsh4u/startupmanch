@@ -7026,6 +7026,33 @@ html[data-theme="light"] .theme-toggle-thumb {
   overflow: hidden;
 }
 
+.page-home .ad-face.advertise.is-quote-face {
+  align-items: flex-start;
+  text-align: left;
+  gap: 6px;
+  padding: 12px 12px 10px;
+}
+
+.page-home .ad-face.advertise.is-quote-face .ad-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 0.62rem;
+}
+
+.page-home .ad-face.advertise.is-quote-face h4 {
+  font-size: 0.9rem;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.page-home .ad-face.advertise.is-quote-face p {
+  max-width: 24ch;
+  font-size: 0.78rem;
+  line-height: 1.24;
+  -webkit-line-clamp: 3;
+}
+
 @media (max-width: 1180px) {
   .page-home .ad-slot.is-placeholder {
     width: auto;
@@ -7057,6 +7084,19 @@ html[data-theme="light"] .theme-toggle-thumb {
   .page-home .ad-face.advertise p {
     font-size: 0.68rem;
     max-width: none;
+  }
+
+  .page-home .ad-face.advertise.is-quote-face {
+    gap: 8px;
+  }
+
+  .page-home .ad-face.advertise.is-quote-face h4 {
+    font-size: 0.78rem;
+  }
+
+  .page-home .ad-face.advertise.is-quote-face p {
+    font-size: 0.64rem;
+    -webkit-line-clamp: 2;
   }
 }
 

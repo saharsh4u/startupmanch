@@ -86,6 +86,7 @@ const AdFace = ({
   onAdvertiseClick,
   placeholderTone,
   copyOverride,
+  extraClassName,
 }: {
   item: AdItem;
   isBack?: boolean;
@@ -94,9 +95,12 @@ const AdFace = ({
   onAdvertiseClick: () => void;
   placeholderTone?: string;
   copyOverride?: AdFaceCopyOverride;
+  extraClassName?: string;
 }) => {
   const campaign = isCampaignItem(item);
-  const className = `ad-face${isBack ? " back" : ""}${campaign ? "" : " advertise"}`;
+  const className = `ad-face${isBack ? " back" : ""}${campaign ? "" : " advertise"}${
+    extraClassName ? ` ${extraClassName}` : ""
+  }`;
 
   const style = {
     "--ad-accent": item.accent,
@@ -197,6 +201,7 @@ export default function AdColumn({
             onAdvertiseClick={handleAdvertiseClick}
             placeholderTone={placeholderTone}
             copyOverride={showTopLeftQuote ? topLeftQuoteCopy : undefined}
+            extraClassName={showTopLeftQuote ? "is-quote-face" : undefined}
           />
           <AdFace
             item={slot.back}

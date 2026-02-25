@@ -101,7 +101,16 @@ const buildRailSlots = (
 
   const slots: AdSlot[] = [
     {
-      front: { ...advertiseItem },
+      front: {
+        name: "StartupManch",
+        tagline: "Promote Your Startup",
+        accent: advertiseItem.accent,
+        badge: "SM",
+        kind: "placeholder",
+        isAdvertise: false,
+        href: null,
+        campaignId: null,
+      },
       back: { ...advertiseItem },
     },
   ];

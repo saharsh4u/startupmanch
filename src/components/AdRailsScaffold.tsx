@@ -122,9 +122,28 @@ export default function AdRailsScaffold({
 
     let previousPair: FlipPair | null = null;
     let resetTimer: ReturnType<typeof setTimeout> | null = null;
+    const hasTopPair = leftFlippableIndexes.includes(0) && rightFlippableIndexes.includes(0);
+    let forceTopPairNext = hasTopPair;
 
     const selectPair = () => {
-      const nextPair = pickRandomPair(leftFlippableIndexes, rightFlippableIndexes, previousPair);
+      let nextPair: FlipPair | null = null;
+
+      if (
+        forceTopPairNext &&
+        (!previousPair || previousPair.left !== 0 || previousPair.right !== 0)
+      ) {
+        nextPair = { left: 0, right: 0 };
+        forceTopPairNext = false;
+      } else {
+        nextPair = pickRandomPair(leftFlippableIndexes, rightFlippableIndexes, previousPair);
+        if (hasTopPair) {
+          forceTopPairNext = true;
+        }
+      }
+
+      if (!nextPair && hasTopPair) {
+        nextPair = { left: 0, right: 0 };
+      }
       if (!nextPair) return;
       previousPair = nextPair;
       setActiveFlipPair(nextPair);
