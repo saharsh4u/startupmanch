@@ -537,20 +537,15 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
         <header className="post-pitch-modal-header">
           <h3 id="post-pitch-modal-title">Start Your Journey</h3>
           <p>
-            Document your startup in public.
+            Post your first 60-second update.
             <br />
-            Share progress. Stay consistent.
+            Be real. Show progress.
           </p>
         </header>
 
         <div className="post-pitch-modal-grid">
           <section className="post-pitch-modal-media" aria-label="Pitch media">
-            <h4 className="post-pitch-section-title">Upload Your First 60-Second Update</h4>
-            <p className="post-pitch-note">
-              This is Episode 1 of your startup journey.
-              <br />
-              Keep it simple. Be real.
-            </p>
+            <h4 className="post-pitch-section-title">Upload Video</h4>
             <input
               ref={videoInputRef}
               className="post-pitch-file-input-hidden"
@@ -576,12 +571,11 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 aria-label="Upload your first 60-second update"
               >
                 <div className="post-pitch-preview-empty">
-                  <p>Upload Your First 60-Second Update</p>
-                  <span>(Video up to 50MB)</span>
+                  <p>Upload Video</p>
                 </div>
               </button>
             )}
-            <p className="post-pitch-note">{videoHint}</p>
+            {videoFile ? <p className="post-pitch-note">{videoHint}</p> : null}
             {formErrors.pitchVideo ? <p className="form-error">{formErrors.pitchVideo}</p> : null}
 
           </section>
@@ -589,8 +583,8 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
           <section className="post-pitch-modal-form" aria-label="Pitch details">
             <div className="post-pitch-auth-card">
               <div className="post-pitch-auth-head">
-                <h4>Create Your Founder Account</h4>
-                <span>Sign in to start your public timeline.</span>
+                <h4>Sign in</h4>
+                <span>Required to post Episode 1.</span>
               </div>
               {!isAuthed ? (
                 <div className="post-pitch-auth-fields">
@@ -657,9 +651,8 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 />
               </label>
               {formErrors.startupOneLiner ? <p className="form-error">{formErrors.startupOneLiner}</p> : null}
-              <p className="post-pitch-note">What does it do? Who is it for?</p>
 
-              <h4 className="post-pitch-section-title">Show Your Progress (Optional)</h4>
+              <h4 className="post-pitch-section-title">Revenue (Optional)</h4>
               <label className="post-pitch-input-block">
                 <span>Revenue status</span>
                 <select
@@ -679,11 +672,10 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                   }}
                 >
                   <option value="pre_revenue">Pre-revenue</option>
-                  <option value="self_reported">Self-reported revenue</option>
-                  <option value="razorpay">Razorpay verified</option>
+                  <option value="self_reported">Self-reported</option>
+                  <option value="razorpay">Verified</option>
                 </select>
               </label>
-              <p className="post-pitch-note">Transparency builds trust.</p>
 
               {revenueMode === "razorpay" ? (
                 <>
@@ -737,17 +729,10 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                 </p>
               ) : null}
 
-              <h4 className="post-pitch-section-title">🎬 What to Say in Your First Update</h4>
-              <ul className="post-pitch-bullet-list">
-                <li>What problem are you solving?</li>
-                <li>Who is it for?</li>
-                <li>What stage are you in?</li>
-                <li>What&apos;s your next milestone?</li>
-              </ul>
               <p className="post-pitch-note">
-                This is not a polished pitch.
+                🎬 Not a polished pitch.
                 <br />
-                It&apos;s your build log.
+                Just your build log.
               </p>
             </div>
 
@@ -766,7 +751,6 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
                   {submitMessage}
                 </p>
               ) : null}
-              <p className="post-pitch-note">Your journey starts here.</p>
             </div>
           </section>
         </div>
