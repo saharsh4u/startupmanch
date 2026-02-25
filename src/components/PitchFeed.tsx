@@ -1805,36 +1805,11 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         ? "Reshuffling slots…"
         : null;
 
+  const showHotPitches = false;
   const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
 
   return (
-    <section className="pitch-section" ref={sectionRef}>
-      <div className="pitch-header">
-        <div className="pitch-header-spacer" aria-hidden="true" />
-        <div className="pitch-header-copy">
-          <p className="pitch-kicker">Hot Pitches</p>
-          <h3>Today&apos;s top 4</h3>
-          <p className="pitch-subtext">Featured by votes and freshness.</p>
-        </div>
-        <label className="pitch-category-picker">
-          <span>Category</span>
-          <select
-            value={selectedCategory ?? ""}
-            onChange={(event) => {
-              const next = event.target.value.trim();
-              setSelectedCategory(next.length ? next : null);
-            }}
-          >
-            <option value="">All categories</option>
-            {availableCategories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
+    <section className={`pitch-section${showHotPitches ? "" : " is-more-only"}`} ref={sectionRef}>
       {!hasVisiblePitches && !loadingInitial ? (
         <div className="pitch-empty">
           <p className="pitch-subtext">
@@ -1845,111 +1820,141 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         </div>
       ) : (
         <>
-          <div className={`pitch-mosaic hot-band${loaded ? " is-loaded" : ""}`}>
-            <div
-              className="hot-cinema"
-              tabIndex={0}
-              onKeyDown={handleHotCarouselKeyDown}
-              onMouseEnter={handleHotCinemaMouseEnter}
-              onMouseLeave={handleHotCinemaMouseLeave}
-              onFocus={handleHotCinemaFocus}
-              onBlur={handleHotCinemaBlur}
-            >
-              <div
-                className={`hot-cinema-glow-layer${hotGlowActiveLayer === "a" ? " is-active" : ""}`}
-                style={{ background: hotGlowBackgroundA }}
-                aria-hidden="true"
-              />
-              <div
-                className={`hot-cinema-glow-layer${hotGlowActiveLayer === "b" ? " is-active" : ""}`}
-                style={{ background: hotGlowBackgroundB }}
-                aria-hidden="true"
-              />
-              <div
-                className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}${hotCarouselWheeling ? " is-wheeling" : ""}`}
-                aria-label="Hot pitches carousel"
-                onWheel={handleHotCarouselWheel}
-                onPointerDown={handleHotCarouselPointerDown}
-                onPointerMove={handleHotCarouselPointerMove}
-                onPointerUp={finishHotCarouselPointer}
-                onPointerCancel={finishHotCarouselPointer}
-                onLostPointerCapture={handleHotCarouselPointerCaptureLost}
-              >
-                {hotCinemaVisibleOffsets.map((offset) => {
-                  if (!carouselPitches.length) return null;
-                  const targetIndex = wrapIndex(hotCarouselIndex + offset, carouselPitches.length);
-                  const pitch = carouselPitches[targetIndex];
-                  const distance = Math.min(3, Math.abs(offset));
-                  const posClass = hotCinemaPosClassForDistance(distance);
-                  const isCenter = offset === 0;
-                  const platform = platformForKey(pitch.id);
-                  const rating = (7 + asNumber(pitch.score) * 0.1 + (hashString(pitch.id) % 20) / 100).toFixed(1);
-                  const horizontalSpacing = isDesktopHotViewport ? 246 : isMobileViewport ? 110 : 178;
-                  const xShift = offset * horizontalSpacing;
-                  const yShift = isDesktopHotViewport ? hotCinemaFlatOffsets[distance] : hotCinemaDropOffsets[distance];
-                  const zIndex = 120 - distance * 20;
-
-                  return (
-                    <button
-                      key={`hot-cinema-${pitch.id}-${offset}`}
-                      type="button"
-                      className={`hot-cinema-card ${posClass}${isCenter ? " active" : ""}`}
-                      style={
-                        {
-                          ["--hot-x" as string]: `${xShift}px`,
-                          ["--hot-y" as string]: `${yShift}px`,
-                          ["--hot-drag-x" as string]: `${hotCarouselDragOffset}px`,
-                          zIndex,
-                        } as CSSProperties
-                      }
-                      aria-label={`Open pitch from ${pitch.name}`}
-                      onClick={(event) => {
-                        const clickTarget = event.target as HTMLElement | null;
-                        const clickedPlayTrigger = Boolean(clickTarget?.closest(".hot-cinema-play-trigger"));
-                        if (clickedPlayTrigger) {
-                          handleExpand(pitch);
-                          return;
-                        }
-                        if (hotPointerSuppressClickRef.current) return;
-                        if (isDesktopHotViewport) {
-                          pauseHotAutoplay();
-                          resumeHotAutoplaySoon(700);
-                        }
-                        if (isCenter) {
-                          handleExpand(pitch);
-                          return;
-                        }
-                        setHotCarouselTo(targetIndex);
-                      }}
-                    >
-                      <span
-                        className="hot-cinema-poster"
-                        style={{ backgroundImage: pitch.poster ? `url(${pitch.poster})` : undefined }}
-                      />
-                      <span className="hot-cinema-overlay" />
-                      <span className="hot-cinema-play hot-cinema-play-trigger" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </span>
-                      <span className={`hot-cinema-platform ${platform.badgeClassName}`}>{platform.label}</span>
-                      <span className="hot-cinema-rating">
-                        {rating}
-                        <span className="star">★</span>
-                      </span>
-                      <span className="hot-cinema-info">
-                        <span className="hot-cinema-title">{pitch.name}</span>
-                        <span className="hot-cinema-meta">
-                          <span className="hot-cinema-meta-tag">{pitch.category ?? "Pitch"}</span>
-                          <span className="hot-cinema-meta-tag">60s pitch</span>
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
+          {showHotPitches ? (
+            <>
+              <div className="pitch-header">
+                <div className="pitch-header-spacer" aria-hidden="true" />
+                <div className="pitch-header-copy">
+                  <p className="pitch-kicker">Hot Pitches</p>
+                  <h3>Today&apos;s top 4</h3>
+                  <p className="pitch-subtext">Featured by votes and freshness.</p>
+                </div>
+                <label className="pitch-category-picker">
+                  <span>Category</span>
+                  <select
+                    value={selectedCategory ?? ""}
+                    onChange={(event) => {
+                      const next = event.target.value.trim();
+                      setSelectedCategory(next.length ? next : null);
+                    }}
+                  >
+                    <option value="">All categories</option>
+                    {availableCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
-            </div>
-          </div>
+
+              <div className={`pitch-mosaic hot-band${loaded ? " is-loaded" : ""}`}>
+                <div
+                  className="hot-cinema"
+                  tabIndex={0}
+                  onKeyDown={handleHotCarouselKeyDown}
+                  onMouseEnter={handleHotCinemaMouseEnter}
+                  onMouseLeave={handleHotCinemaMouseLeave}
+                  onFocus={handleHotCinemaFocus}
+                  onBlur={handleHotCinemaBlur}
+                >
+                  <div
+                    className={`hot-cinema-glow-layer${hotGlowActiveLayer === "a" ? " is-active" : ""}`}
+                    style={{ background: hotGlowBackgroundA }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className={`hot-cinema-glow-layer${hotGlowActiveLayer === "b" ? " is-active" : ""}`}
+                    style={{ background: hotGlowBackgroundB }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}${hotCarouselWheeling ? " is-wheeling" : ""}`}
+                    aria-label="Hot pitches carousel"
+                    onWheel={handleHotCarouselWheel}
+                    onPointerDown={handleHotCarouselPointerDown}
+                    onPointerMove={handleHotCarouselPointerMove}
+                    onPointerUp={finishHotCarouselPointer}
+                    onPointerCancel={finishHotCarouselPointer}
+                    onLostPointerCapture={handleHotCarouselPointerCaptureLost}
+                  >
+                    {hotCinemaVisibleOffsets.map((offset) => {
+                      if (!carouselPitches.length) return null;
+                      const targetIndex = wrapIndex(hotCarouselIndex + offset, carouselPitches.length);
+                      const pitch = carouselPitches[targetIndex];
+                      const distance = Math.min(3, Math.abs(offset));
+                      const posClass = hotCinemaPosClassForDistance(distance);
+                      const isCenter = offset === 0;
+                      const platform = platformForKey(pitch.id);
+                      const rating = (7 + asNumber(pitch.score) * 0.1 + (hashString(pitch.id) % 20) / 100).toFixed(1);
+                      const horizontalSpacing = isDesktopHotViewport ? 246 : isMobileViewport ? 110 : 178;
+                      const xShift = offset * horizontalSpacing;
+                      const yShift = isDesktopHotViewport ? hotCinemaFlatOffsets[distance] : hotCinemaDropOffsets[distance];
+                      const zIndex = 120 - distance * 20;
+
+                      return (
+                        <button
+                          key={`hot-cinema-${pitch.id}-${offset}`}
+                          type="button"
+                          className={`hot-cinema-card ${posClass}${isCenter ? " active" : ""}`}
+                          style={
+                            {
+                              ["--hot-x" as string]: `${xShift}px`,
+                              ["--hot-y" as string]: `${yShift}px`,
+                              ["--hot-drag-x" as string]: `${hotCarouselDragOffset}px`,
+                              zIndex,
+                            } as CSSProperties
+                          }
+                          aria-label={`Open pitch from ${pitch.name}`}
+                          onClick={(event) => {
+                            const clickTarget = event.target as HTMLElement | null;
+                            const clickedPlayTrigger = Boolean(clickTarget?.closest(".hot-cinema-play-trigger"));
+                            if (clickedPlayTrigger) {
+                              handleExpand(pitch);
+                              return;
+                            }
+                            if (hotPointerSuppressClickRef.current) return;
+                            if (isDesktopHotViewport) {
+                              pauseHotAutoplay();
+                              resumeHotAutoplaySoon(700);
+                            }
+                            if (isCenter) {
+                              handleExpand(pitch);
+                              return;
+                            }
+                            setHotCarouselTo(targetIndex);
+                          }}
+                        >
+                          <span
+                            className="hot-cinema-poster"
+                            style={{ backgroundImage: pitch.poster ? `url(${pitch.poster})` : undefined }}
+                          />
+                          <span className="hot-cinema-overlay" />
+                          <span className="hot-cinema-play hot-cinema-play-trigger" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </span>
+                          <span className={`hot-cinema-platform ${platform.badgeClassName}`}>{platform.label}</span>
+                          <span className="hot-cinema-rating">
+                            {rating}
+                            <span className="star">★</span>
+                          </span>
+                          <span className="hot-cinema-info">
+                            <span className="hot-cinema-title">{pitch.name}</span>
+                            <span className="hot-cinema-meta">
+                              <span className="hot-cinema-meta-tag">{pitch.category ?? "Pitch"}</span>
+                              <span className="hot-cinema-meta-tag">60s pitch</span>
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
 
           <div className="pitch-divider labeled">
             <span>More pitches</span>

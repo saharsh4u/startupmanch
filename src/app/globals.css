@@ -7590,6 +7590,16 @@ body {
   box-shadow: 0 20px 34px rgba(0, 0, 0, 0.5);
 }
 
+.page-home .pitch-section.is-more-only {
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.page-home .pitch-section.is-more-only .pitch-divider.labeled {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
 .page-home .hot-band,
 .page-home .more-band {
   background:
@@ -8921,6 +8931,10 @@ body {
 
   .page-home .pitch-section {
     padding: 28px 30px 38px;
+  }
+
+  .page-home .pitch-section.is-more-only {
+    padding-top: 14px;
   }
 
   .page-home .hot-band {
