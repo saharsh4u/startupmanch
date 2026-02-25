@@ -1708,7 +1708,7 @@ button:disabled {
   padding: 16px;
   background: none,
     none,
-    #9a0002;
+    #7b5a12;
   border: 1px solid rgba(239, 230, 222, 0.25);
   border-radius: 22px;
   margin-bottom: 28px;
@@ -7501,15 +7501,15 @@ html[data-theme="dark"] {
   --text-light: #ffffff;
   --muted: #b3b3b3;
   --muted-light: #8f8f8f;
-  --accent: #e50914;
-  --accent-2: #b20710;
-  --primary: #e50914;
-  --primary-foreground: #ffffff;
+  --accent: #f2b13d;
+  --accent-2: #c5891f;
+  --primary: #f2b13d;
+  --primary-foreground: #16120a;
   --placeholder-light: #8c8c8c;
   --placeholder-dark: #8c8c8c;
   --shadow: 0 14px 28px rgba(0, 0, 0, 0.45);
   --shadow-soft: 0 8px 18px rgba(0, 0, 0, 0.28);
-  --focus-ring: rgba(229, 9, 20, 0.36);
+  --focus-ring: rgba(242, 177, 61, 0.36);
   --field-bg: #101010;
   --interactive-bg: #1e1e1e;
   --interactive-bg-strong: #252525;
@@ -7645,9 +7645,9 @@ body {
 }
 
 .page-home .ad-face.advertise .ad-icon {
-  background: #e50914;
-  border-color: #e50914;
-  color: #ffffff;
+  background: #f2b13d;
+  border-color: #f2b13d;
+  color: #1b1407;
 }
 
 .page-home .ad-face.advertise h4 {
@@ -7685,7 +7685,7 @@ body {
 }
 
 .page-home .pitch-kicker {
-  color: #e50914;
+  color: #f2b13d;
 }
 
 .page-home .pitch-header h3 {
@@ -7714,9 +7714,9 @@ body {
 }
 
 .page-home .pitch-show-card.is-hot {
-  border-color: rgba(229, 9, 20, 0.7);
+  border-color: rgba(242, 177, 61, 0.7);
   box-shadow:
-    0 0 0 1px rgba(229, 9, 20, 0.2),
+    0 0 0 1px rgba(242, 177, 61, 0.2),
     0 18px 34px rgba(0, 0, 0, 0.55);
   background: none;
 }
@@ -7733,17 +7733,17 @@ body {
 
 .page-home .pitch-show-badge {
   background: rgba(13, 13, 13, 0.9);
-  border: 1px solid rgba(229, 9, 20, 0.45);
+  border: 1px solid rgba(242, 177, 61, 0.45);
   color: #ffffff;
 }
 
 .page-home .pitch-slot-approved .pitch-show-card.row {
-  border-color: rgba(229, 9, 20, 0.42);
-  box-shadow: 0 0 0 1px rgba(229, 9, 20, 0.16), 0 14px 24px rgba(0, 0, 0, 0.34);
+  border-color: rgba(242, 177, 61, 0.42);
+  box-shadow: 0 0 0 1px rgba(242, 177, 61, 0.16), 0 14px 24px rgba(0, 0, 0, 0.34);
 }
 
 .page-home .pitch-slot-open-card {
-  border-color: rgba(229, 9, 20, 0.44);
+  border-color: rgba(242, 177, 61, 0.44);
   background:
     none,
     none,
@@ -7752,18 +7752,18 @@ body {
 
 .page-home .pitch-slot-open-card:hover,
 .page-home .pitch-slot-open-card:focus-visible {
-  border-color: rgba(229, 9, 20, 0.7);
+  border-color: rgba(242, 177, 61, 0.7);
 }
 
 .page-home .pitch-slot-open-badge {
-  border-color: rgba(229, 9, 20, 0.45);
+  border-color: rgba(242, 177, 61, 0.45);
   color: #e8e8e8;
 }
 
 .page-home .pitch-slot-open-action,
 .page-home .pitch-slot-share {
-  border-color: rgba(229, 9, 20, 0.5);
-  background: rgba(229, 9, 20, 0.14);
+  border-color: rgba(242, 177, 61, 0.5);
+  background: rgba(242, 177, 61, 0.14);
   color: #ffffff;
 }
 
@@ -7979,8 +7979,8 @@ body {
 }
 
 .page-home .hot-cinema-platform.is-netflix {
-  background: #e50914;
-  color: #ffffff;
+  background: #f2b13d;
+  color: #1b1407;
 }
 
 .page-home .hot-cinema-platform.is-hbo {
@@ -8878,7 +8878,7 @@ body {
 }
 
 .page-home .pitch-divider.labeled span {
-  border: 1px solid rgba(229, 9, 20, 0.42);
+  border: 1px solid rgba(242, 177, 61, 0.42);
   background:
     none,
     #111111;
@@ -8957,7 +8957,7 @@ body {
 }
 
 .page-home .slot-filter-chip.is-active {
-  border-color: rgba(229, 9, 20, 0.72);
+  border-color: rgba(242, 177, 61, 0.72);
   background:
     none,
     #181818;
@@ -8985,9 +8985,9 @@ body {
 
 .page-home .slot-teaser:hover {
   transform: translateY(-3px);
-  border-color: rgba(229, 9, 20, 0.56);
+  border-color: rgba(242, 177, 61, 0.56);
   box-shadow:
-    0 0 0 1px rgba(229, 9, 20, 0.2),
+    0 0 0 1px rgba(242, 177, 61, 0.2),
     0 18px 28px rgba(0, 0, 0, 0.5);
 }
 
@@ -9030,10 +9030,10 @@ body {
 
 .page-home .pitch-slot-approved .pitch-show-card.row {
   border-radius: 16px;
-  border: 1px solid rgba(229, 9, 20, 0.44);
+  border: 1px solid rgba(242, 177, 61, 0.44);
   background: #141414;
   box-shadow:
-    0 0 0 1px rgba(229, 9, 20, 0.2),
+    0 0 0 1px rgba(242, 177, 61, 0.2),
     0 18px 30px rgba(0, 0, 0, 0.5);
   transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
 }
@@ -9041,9 +9041,9 @@ body {
 .page-home .pitch-slot-approved:hover .pitch-show-card.row,
 .page-home .pitch-slot-approved:focus-within .pitch-show-card.row {
   transform: translateY(-4px) scale(1.024);
-  border-color: rgba(229, 9, 20, 0.74);
+  border-color: rgba(242, 177, 61, 0.74);
   box-shadow:
-    0 0 0 1px rgba(229, 9, 20, 0.34),
+    0 0 0 1px rgba(242, 177, 61, 0.34),
     0 26px 36px rgba(0, 0, 0, 0.56);
 }
 
@@ -9054,7 +9054,7 @@ body {
 }
 
 .page-home .pitch-show-card.row .pitch-show-badge {
-  border-color: rgba(229, 9, 20, 0.7);
+  border-color: rgba(242, 177, 61, 0.7);
   background: rgba(15, 15, 15, 0.86);
 }
 
@@ -9072,13 +9072,13 @@ body {
 }
 
 .page-home .pitch-show-card.row .pitch-engage-btn:hover:not(:disabled) {
-  border-color: rgba(229, 9, 20, 0.56);
+  border-color: rgba(242, 177, 61, 0.56);
   background: rgba(20, 20, 20, 0.74);
 }
 
 .page-home .pitch-show-card.row .pitch-show-footer {
-  border: 1px solid rgba(229, 9, 20, 0.58);
-  background: rgba(229, 9, 20, 0.2);
+  border: 1px solid rgba(242, 177, 61, 0.58);
+  background: rgba(242, 177, 61, 0.2);
   color: #ffffff;
 }
 
@@ -9087,12 +9087,12 @@ body {
 }
 
 .page-home .pitch-slot-share {
-  border-color: rgba(229, 9, 20, 0.56);
-  background: rgba(229, 9, 20, 0.16);
+  border-color: rgba(242, 177, 61, 0.56);
+  background: rgba(242, 177, 61, 0.16);
 }
 
 .page-home .pitch-slot-open-card {
-  border-color: rgba(229, 9, 20, 0.52);
+  border-color: rgba(242, 177, 61, 0.52);
   background:
     none,
     none;
@@ -9100,9 +9100,9 @@ body {
 
 .page-home .pitch-slot-open-card:hover,
 .page-home .pitch-slot-open-card:focus-visible {
-  border-color: rgba(229, 9, 20, 0.78);
+  border-color: rgba(242, 177, 61, 0.78);
   box-shadow:
-    0 0 0 1px rgba(229, 9, 20, 0.3),
+    0 0 0 1px rgba(242, 177, 61, 0.3),
     0 20px 30px rgba(0, 0, 0, 0.48);
 }
 
@@ -9265,9 +9265,9 @@ body {
   }
 
   .page-home .pitch-mobile-stack-card.is-active {
-    border-color: rgba(229, 9, 20, 0.78);
+    border-color: rgba(242, 177, 61, 0.78);
     box-shadow:
-      0 0 0 1px rgba(229, 9, 20, 0.34),
+      0 0 0 1px rgba(242, 177, 61, 0.34),
       0 26px 42px rgba(0, 0, 0, 0.62);
   }
 
@@ -9328,7 +9328,7 @@ body {
   }
 
   .page-home .pitch-mobile-stack-card.is-open-slot {
-    border-color: rgba(229, 9, 20, 0.56);
+    border-color: rgba(242, 177, 61, 0.56);
     background:
       none,
       none;
@@ -9366,9 +9366,9 @@ body {
 
   .page-home .pitch-mobile-stack-open-cta {
     width: fit-content;
-    border: 1px solid rgba(229, 9, 20, 0.7);
+    border: 1px solid rgba(242, 177, 61, 0.7);
     border-radius: 999px;
-    background: rgba(229, 9, 20, 0.2);
+    background: rgba(242, 177, 61, 0.2);
     color: #ffffff;
     padding: 7px 12px;
     font-size: 0.74rem;
@@ -9566,7 +9566,7 @@ body {
   margin: 0;
   font-size: 0.78rem;
   letter-spacing: 0.14em;
-  color: #ff4d40;
+  color: #f2b13d;
   font-weight: 700;
 }
 
@@ -9688,7 +9688,7 @@ body {
   top: 0.06em;
   bottom: 0.06em;
   border-radius: 999px;
-  background: rgba(229, 57, 53, 0.18);
+  background: rgba(242, 177, 61, 0.18);
   filter: blur(9px);
   z-index: -2;
 }
@@ -9706,10 +9706,10 @@ body {
   background:
     linear-gradient(
       92deg,
-      rgba(235, 59, 46, 0.31) 0%,
-      rgba(235, 59, 46, 0.45) 30%,
-      rgba(235, 59, 46, 0.4) 62%,
-      rgba(235, 59, 46, 0.32) 100%
+      rgba(242, 177, 61, 0.31) 0%,
+      rgba(242, 177, 61, 0.45) 30%,
+      rgba(242, 177, 61, 0.4) 62%,
+      rgba(242, 177, 61, 0.32) 100%
     ),
     repeating-linear-gradient(
       -17deg,
@@ -9725,7 +9725,7 @@ body {
 }
 
 .page-home .hero-story-highlight {
-  color: #ff4d40;
+  color: #f2b13d;
 }
 
 .page-home .hero-story-subline {
@@ -9739,9 +9739,9 @@ body {
 .page-home .hero-story-btn {
   margin-top: 4px;
   border-radius: 12px;
-  border: 1px solid #ff6b5a;
-  background: #e53b2e;
-  color: #ffffff;
+  border: 1px solid #f5cc72;
+  background: #f2b13d;
+  color: #1b1407;
   font-size: clamp(0.9rem, 1vw, 1.04rem);
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -9751,8 +9751,8 @@ body {
 }
 
 .page-home .hero-story-btn:hover {
-  background: #f04a3e;
-  border-color: #ff7b6c;
+  background: #f6bc4f;
+  border-color: #f8d487;
 }
 
 .page-home .hero-story-meta {
