@@ -109,7 +109,6 @@ const SLOT_REORDER_MAX_MS = 16_000;
 const HOT_AUTOPLAY_INTERVAL_MS = 2600;
 const HOT_AUTOPLAY_RESUME_DELAY_MS = 1600;
 const HOT_WHEEL_SETTLE_MS = 560;
-const COMMUNITY_FEATURED_ROTATE_MS = 4000;
 const COMMUNITY_RAIL_COUNT = 3;
 const COMMUNITY_RAIL_SIZE = 10;
 
@@ -407,7 +406,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [moreSectionInView, setMoreSectionInView] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [isCommunityFilterOpen, setIsCommunityFilterOpen] = useState(false);
-  const [communityFeaturedIndex, setCommunityFeaturedIndex] = useState(0);
   const communityRailRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
@@ -993,18 +991,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     });
   }, [communityRailSource]);
 
-  const communityFeaturedItems = useMemo<CommunityRailItem[]>(() => {
-    const featuredApproved = approvedVisible.slice(0, 6).map((pitch) => ({
-      type: "approved" as const,
-      pitch,
-    }));
-    if (featuredApproved.length) return featuredApproved;
-
-    const openSlots = rowSlots.filter((slot): slot is { type: "open"; id: string } => slot.type === "open");
-    if (openSlots.length) return openSlots.slice(0, 3);
-
-    return [{ type: "open", id: "community-featured-open-1" }];
-  }, [approvedVisible, rowSlots]);
 
   const columnGroups = useMemo(() => {
     const distributed = distributeByColumn(rowSlots, MORE_PITCH_COLUMN_COUNT);
@@ -1088,26 +1074,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     }
     setMobileStackIndex((current) => wrapIndex(current, mobileStackItems.length));
   }, [mobileStackItems]);
-
-  useEffect(() => {
-    if (!communityFeaturedItems.length) {
-      setCommunityFeaturedIndex(0);
-      return;
-    }
-    setCommunityFeaturedIndex((current) => wrapIndex(current, communityFeaturedItems.length));
-  }, [communityFeaturedItems]);
-
-  useEffect(() => {
-    if (prefersReducedMotion) return;
-    if (isDocumentHidden) return;
-    if (communityFeaturedItems.length <= 1) return;
-
-    const timer = window.setInterval(() => {
-      setCommunityFeaturedIndex((current) => wrapIndex(current + 1, communityFeaturedItems.length));
-    }, COMMUNITY_FEATURED_ROTATE_MS);
-
-    return () => window.clearInterval(timer);
-  }, [communityFeaturedItems.length, isDocumentHidden, prefersReducedMotion]);
 
   const registerCommunityRailRef = useCallback((railId: string, node: HTMLDivElement | null) => {
     communityRailRefs.current[railId] = node;
@@ -1901,14 +1867,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         ? "Reshuffling slots…"
         : null;
 
-  const activeCommunityFeaturedItem = communityFeaturedItems[communityFeaturedIndex] ?? null;
-  const activeCommunityFeaturedPitch =
-    activeCommunityFeaturedItem?.type === "approved" ? activeCommunityFeaturedItem.pitch : null;
-  const activeCommunityOpenSlotCopy =
-    activeCommunityFeaturedItem && activeCommunityFeaturedItem.type === "open"
-      ? slotOpenCopyVariants[hashString(activeCommunityFeaturedItem.id) % slotOpenCopyVariants.length]
-      : slotOpenCopyVariants[0];
-
   const showHotPitches = false;
   const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
 
@@ -2124,74 +2082,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                 </p>
               ) : null}
             </div>
-
-            <article className="community-featured" aria-live="polite">
-              {activeCommunityFeaturedPitch ? (
-                <button
-                  type="button"
-                  className="community-featured-card"
-                  onClick={() => handleExpand(activeCommunityFeaturedPitch)}
-                  aria-label={`Open featured pitch from ${activeCommunityFeaturedPitch.name}`}
-                >
-                  {activeCommunityFeaturedPitch.video && !prefersReducedMotion ? (
-                    <video
-                      className="community-featured-media"
-                      src={activeCommunityFeaturedPitch.video}
-                      poster={activeCommunityFeaturedPitch.poster}
-                      muted
-                      playsInline
-                      autoPlay
-                      loop
-                      preload="metadata"
-                    />
-                  ) : (
-                    <span
-                      className="community-featured-media"
-                      style={{
-                        backgroundImage: activeCommunityFeaturedPitch.poster
-                          ? `url(${activeCommunityFeaturedPitch.poster})`
-                          : undefined,
-                      }}
-                    />
-                  )}
-                  <span className="community-featured-overlay" />
-                  <span className="community-featured-content">
-                    <span className="community-featured-badge">Featured pitch</span>
-                    <span className="community-featured-title">{activeCommunityFeaturedPitch.name}</span>
-                    <span className="community-featured-meta">
-                      <span>{activeCommunityFeaturedPitch.category ?? "Pitch"}</span>
-                      <span>Score {asNumber(activeCommunityFeaturedPitch.score).toFixed(1)}</span>
-                      <span>Updated {relativeTime(activeCommunityFeaturedPitch.approvedAt)}</span>
-                    </span>
-                    <span className="community-featured-copy">{activeCommunityFeaturedPitch.tagline}</span>
-                    <span className="community-featured-actions">
-                      <span className="community-featured-cta is-primary">▶ Watch pitch</span>
-                      <span className="community-featured-cta is-secondary">+ Add to watchlist</span>
-                    </span>
-                  </span>
-                </button>
-              ) : (
-                <a
-                  href={POST_PITCH_FALLBACK_HREF}
-                  className="community-featured-card is-open-slot"
-                  aria-label="Submit your pitch"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    triggerPostPitchEntry();
-                  }}
-                >
-                  <span className="community-featured-overlay" />
-                  <span className="community-featured-content">
-                    <span className="community-featured-badge">Open slot</span>
-                    <span className="community-featured-title">{activeCommunityOpenSlotCopy.title}</span>
-                    <span className="community-featured-copy">{activeCommunityOpenSlotCopy.description}</span>
-                    <span className="community-featured-actions">
-                      <span className="community-featured-cta is-primary">{activeCommunityOpenSlotCopy.cta}</span>
-                    </span>
-                  </span>
-                </a>
-              )}
-            </article>
 
             <div className="community-rails">
               {communityRails.map((rail, railIndex) => (
