@@ -409,6 +409,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [isCommunityRailInteracting, setIsCommunityRailInteracting] = useState(false);
   const communityRailRefs = useRef<Array<HTMLDivElement | null>>([]);
   const communityRailResumeTimerRef = useRef<number | null>(null);
+  const communityRailCarryRef = useRef<number[]>([]);
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
     [selectedCategory]
@@ -1017,6 +1018,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     if (prefersReducedMotion || isDocumentHidden || !communityRails.length) return;
     const rails = communityRailRefs.current.filter((node): node is HTMLDivElement => Boolean(node));
     if (!rails.length) return;
+    communityRailCarryRef.current = rails.map(() => 0);
 
     rails.forEach((rail, railIndex) => {
       const halfWidth = rail.scrollWidth / 2;
@@ -1039,8 +1041,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           if (halfWidth <= rail.clientWidth + 1) return;
 
           const direction = railIndex % 2 === 1 ? -1 : 1;
-          const speedPxPerMs = 0.024 + railIndex * 0.003;
-          let nextLeft = rail.scrollLeft + direction * speedPxPerMs * deltaMs;
+          const speedPxPerMs = 0.058 + railIndex * 0.006;
+          const carry = (communityRailCarryRef.current[railIndex] ?? 0) + direction * speedPxPerMs * deltaMs;
+          const wholePixels = carry >= 0 ? Math.floor(carry) : Math.ceil(carry);
+          communityRailCarryRef.current[railIndex] = carry - wholePixels;
+          if (wholePixels === 0) return;
+
+          let nextLeft = rail.scrollLeft + wholePixels;
 
           if (direction > 0 && nextLeft >= halfWidth) {
             nextLeft -= halfWidth;
