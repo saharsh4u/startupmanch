@@ -1130,6 +1130,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       if (halfWidth <= rail.clientWidth + 1) return;
       if (railIndex % 2 === 1 && rail.scrollLeft <= 1) {
         rail.scrollLeft = Math.max(1, halfWidth - 1);
+      } else if (railIndex % 2 === 0 && rail.scrollLeft <= 0) {
+        rail.scrollLeft = 1;
       }
     });
 
@@ -1146,6 +1148,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           if (halfWidth <= rail.clientWidth + 1) return;
 
           const direction = railIndex % 2 === 1 ? -1 : 1;
+          if (direction > 0 && rail.scrollLeft <= 0) {
+            rail.scrollLeft = 1;
+          }
           const speedPxPerMs = 0.058 + railIndex * 0.006;
           const carry = (communityRailCarryRef.current[railIndex] ?? 0) + direction * speedPxPerMs * deltaMs;
           const wholePixels = carry >= 0 ? Math.floor(carry) : Math.ceil(carry);
