@@ -12,6 +12,7 @@ export type PitchShow = {
   tagline: string;
   poster: string;
   video?: string | null;
+  instagramUrl?: string | null;
   isFallback?: boolean;
   category?: string | null;
   upvotes?: number;

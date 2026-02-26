@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
+import { isExternalMediaUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
 
 export const runtime = "nodejs";
 
@@ -139,13 +140,23 @@ export async function GET(request: Request) {
         : startup?.profiles;
 
       let video_url: string | null = null;
+      let instagram_url: string | null = null;
       let poster_url: string | null = null;
 
       if (row.video_path) {
-        const { data: signedVideo } = await supabaseAdmin.storage
-          .from("pitch-videos")
-          .createSignedUrl(row.video_path, 60 * 60);
-        video_url = signedVideo?.signedUrl ?? null;
+        if (isExternalMediaUrl(row.video_path)) {
+          const normalizedInstagram = normalizeInstagramUrl(row.video_path);
+          if (normalizedInstagram) {
+            instagram_url = normalizedInstagram;
+          } else {
+            video_url = row.video_path;
+          }
+        } else {
+          const { data: signedVideo } = await supabaseAdmin.storage
+            .from("pitch-videos")
+            .createSignedUrl(row.video_path, 60 * 60);
+          video_url = signedVideo?.signedUrl ?? null;
+        }
       }
 
       if (row.poster_path) {
@@ -176,6 +187,7 @@ export async function GET(request: Request) {
         video_processing_status: row.video_processing_status ?? null,
         video_error: row.video_error ?? null,
         video_url,
+        instagram_url,
         poster_url,
       };
     })

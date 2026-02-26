@@ -1388,6 +1388,11 @@ button:disabled {
   justify-content: center;
 }
 
+.expand-media-embed {
+  border: 0;
+  background: #000;
+}
+
 .expand-video::after {
   content: "";
   position: absolute;

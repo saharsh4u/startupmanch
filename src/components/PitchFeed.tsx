@@ -35,12 +35,21 @@ type ApiPitch = {
   comment_count?: number;
   score?: number;
   video_url?: string | null;
+  instagram_url?: string | null;
 };
 
 type FeedResponsePayload = {
   data?: ApiPitch[];
   window_id?: number | null;
   next_shuffle_at?: string | null;
+};
+
+type LiveApprovalPayload = {
+  items?: Array<{
+    id: string;
+    startup_name: string;
+    approved_at: string;
+  }>;
 };
 
 type TeaserApproved = {
@@ -55,6 +64,7 @@ type TeaserApproved = {
   created_at: string;
   poster_url: string | null;
   video_url: string | null;
+  instagram_url: string | null;
 };
 
 type TeaserPending = {
@@ -410,6 +420,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const communityRailRefs = useRef<Array<HTMLDivElement | null>>([]);
   const communityRailResumeTimerRef = useRef<number | null>(null);
   const communityRailCarryRef = useRef<number[]>([]);
+  const liveApprovalCursorRef = useRef<string | null>(null);
+  const liveApprovalPollBusyRef = useRef(false);
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
     [selectedCategory]
@@ -434,7 +446,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         approvedAt: null,
         founderPhotoUrl: null,
         founderName: null,
-        founderStory: null,
+      founderStory: null,
+      instagramUrl: null,
       })),
     []
   );
@@ -454,6 +467,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       tagline: item.one_liner ?? item.category ?? "New pitch",
       poster: item.poster_url ?? item.founder_photo_url ?? fallbackPoster,
       video: item.video_url ?? null,
+      instagramUrl: item.instagram_url ?? null,
       isFallback: false,
       category: item.category ?? null,
       upvotes: asNumber(item.in_count),
@@ -516,6 +530,23 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         .catch(() => null);
 
       const feedPayload = await fetchInitialFeedPage();
+      const pushLiveApprovalCursor = (candidate: string | null | undefined) => {
+        const next = (candidate ?? "").trim();
+        if (!next) return;
+        const nextMs = Date.parse(next);
+        if (!Number.isFinite(nextMs)) return;
+
+        const current = liveApprovalCursorRef.current;
+        if (!current) {
+          liveApprovalCursorRef.current = next;
+          return;
+        }
+
+        const currentMs = Date.parse(current);
+        if (!Number.isFinite(currentMs) || nextMs > currentMs) {
+          liveApprovalCursorRef.current = next;
+        }
+      };
 
       if (!feedPayload.data.length) {
         setWeekPicks([]);
@@ -523,6 +554,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
       const weekData: ApiPitch[] = [];
       const feedData = feedPayload.data;
+      feedData.forEach((item) => pushLiveApprovalCursor(item.approved_at ?? null));
+      weekData.forEach((item) => pushLiveApprovalCursor(item.approved_at ?? null));
       const discoveredCategories = Array.from(
         new Set(
           [...weekData, ...feedData]
@@ -588,6 +621,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         }
 
         const asyncMappedWeek = asyncWeekData.map((item, index) => mapPitch(item, index)).slice(0, 4);
+        asyncWeekData.forEach((item) => pushLiveApprovalCursor(item.approved_at ?? null));
         const asyncFilteredWeek = asyncMappedWeek.filter((item) => matchesCategory(item, selectedCategory));
         const asyncWeekIds = new Set(asyncFilteredWeek.map((item) => item.id));
         const asyncFilteredFeed = dedupePitches(
@@ -617,6 +651,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
             const approved = ((teaserPayload.approved ?? []) as TeaserApproved[])
               .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
               .slice(0, 8);
+            approved.forEach((item) => pushLiveApprovalCursor(item.approved_at ?? null));
 
             const pending = ((teaserPayload.pending ?? []) as TeaserPending[])
               .filter((item) => matchesCategory({ category: item.category }, selectedCategory))
@@ -795,6 +830,65 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     }, 4200);
     return () => window.clearTimeout(timer);
   }, [liveToast]);
+
+  useEffect(() => {
+    if (loadingInitial) return;
+
+    const pollLiveApprovals = async () => {
+      if (liveApprovalPollBusyRef.current) return;
+      liveApprovalPollBusyRef.current = true;
+
+      try {
+        const params = new URLSearchParams();
+        params.set("limit", "20");
+        const cursor = liveApprovalCursorRef.current;
+        if (cursor) {
+          params.set("after", cursor);
+        }
+
+        const res = await fetch(`/api/pitches/approvals/live?${params.toString()}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+
+        const payload = (await res.json()) as LiveApprovalPayload;
+        const items = (payload.items ?? []).filter((item) => Boolean(item.approved_at));
+        if (!items.length) return;
+
+        const latestApprovedAt = items.reduce((latest, item) => {
+          const itemMs = Date.parse(item.approved_at);
+          const latestMs = Date.parse(latest);
+          if (!Number.isFinite(itemMs)) return latest;
+          if (!Number.isFinite(latestMs) || itemMs > latestMs) return item.approved_at;
+          return latest;
+        }, liveApprovalCursorRef.current ?? "");
+
+        if (latestApprovedAt) {
+          liveApprovalCursorRef.current = latestApprovedAt;
+        }
+
+        if (!cursor) return;
+
+        const refreshController = new AbortController();
+        await loadSectionData(refreshController.signal, { refreshOnly: true });
+        if (items.length === 1) {
+          setLiveToast(`${items[0]?.startup_name ?? "Startup"} just went live`);
+        } else {
+          setLiveToast(`${items.length} new pitches just went live`);
+        }
+      } catch {
+        // Keep existing UI and retry on next poll.
+      } finally {
+        liveApprovalPollBusyRef.current = false;
+      }
+    };
+
+    const timer = window.setInterval(() => {
+      void pollLiveApprovals();
+    }, 12_000);
+
+    return () => window.clearInterval(timer);
+  }, [loadSectionData, loadingInitial]);
 
   useEffect(() => {
     const updateViewport = () => {

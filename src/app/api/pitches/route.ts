@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { isExternalMediaUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
 import { pitches as fallbackPitches } from "@/data/pitches";
 
 export const runtime = "nodejs";
@@ -455,6 +456,7 @@ export async function GET(request: Request) {
   const enriched = await Promise.all(
     rows.map(async (item: PitchFeedItem, index: number) => {
       let video_url: string | null = null;
+      let instagram_url: string | null = null;
       let poster_url: string | null = null;
 
       const videoState = videoStateByPitchId.get(item.pitch_id);
@@ -466,10 +468,19 @@ export async function GET(request: Request) {
       if (videoState?.video_processing_status === "ready" && muxPlaybackUrl) {
         video_url = muxPlaybackUrl;
       } else if (item.video_path) {
-        const { data: signedVideo } = await supabaseAdmin.storage
-          .from("pitch-videos")
-          .createSignedUrl(item.video_path, 60 * 60);
-        video_url = signedVideo?.signedUrl ?? null;
+        if (isExternalMediaUrl(item.video_path)) {
+          const normalizedInstagram = normalizeInstagramUrl(item.video_path);
+          if (normalizedInstagram) {
+            instagram_url = normalizedInstagram;
+          } else {
+            video_url = item.video_path;
+          }
+        } else {
+          const { data: signedVideo } = await supabaseAdmin.storage
+            .from("pitch-videos")
+            .createSignedUrl(item.video_path, 60 * 60);
+          video_url = signedVideo?.signedUrl ?? null;
+        }
       }
 
       if (item.poster_path) {
@@ -492,6 +503,7 @@ export async function GET(request: Request) {
         founder_name: founderName,
         slot_index: offset + index + 1,
         video_url,
+        instagram_url,
         poster_url,
       };
     })

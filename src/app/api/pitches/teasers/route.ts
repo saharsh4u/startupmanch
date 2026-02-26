@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { isExternalMediaUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,6 +98,7 @@ export async function GET() {
     approvedRows.map(async (row) => {
       let posterUrl: string | null = null;
       let videoUrl: string | null = null;
+      let instagramUrl: string | null = null;
 
       if (row.poster_path) {
         const { data: posterData } = await supabaseAdmin.storage
@@ -109,10 +111,19 @@ export async function GET() {
       if (muxVideo) {
         videoUrl = muxVideo;
       } else if (row.video_path) {
-        const { data: videoData } = await supabaseAdmin.storage
-          .from("pitch-videos")
-          .createSignedUrl(row.video_path, 60 * 60);
-        videoUrl = videoData?.signedUrl ?? null;
+        if (isExternalMediaUrl(row.video_path)) {
+          const normalizedInstagram = normalizeInstagramUrl(row.video_path);
+          if (normalizedInstagram) {
+            instagramUrl = normalizedInstagram;
+          } else {
+            videoUrl = row.video_path;
+          }
+        } else {
+          const { data: videoData } = await supabaseAdmin.storage
+            .from("pitch-videos")
+            .createSignedUrl(row.video_path, 60 * 60);
+          videoUrl = videoData?.signedUrl ?? null;
+        }
       }
 
       const founderId = row.startups?.founder_id ?? null;
@@ -130,6 +141,7 @@ export async function GET() {
         created_at: row.created_at,
         poster_url: posterUrl,
         video_url: videoUrl,
+        instagram_url: instagramUrl,
       };
     })
   );

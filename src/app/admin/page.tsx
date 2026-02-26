@@ -22,6 +22,7 @@ type QueueItem = {
   video_processing_status: string | null;
   video_error: string | null;
   video_url: string | null;
+  instagram_url: string | null;
   poster_url: string | null;
 };
 
@@ -33,6 +34,14 @@ type ModerationItem = QueueItem & {
 };
 
 type AuthStatus = "idle" | "loading" | "authed" | "error";
+
+type AdminStartupOption = {
+  id: string;
+  name: string;
+  status: string | null;
+  category: string | null;
+  city: string | null;
+};
 
 const AUTH_UNAVAILABLE_MESSAGE = "Admin sign-in is temporarily unavailable. Please try again shortly.";
 const VIDEO_PROCESSING_STATES = new Set(["queued", "processing"]);
@@ -53,6 +62,12 @@ export default function AdminPage() {
   const [queueNote, setQueueNote] = useState<string | null>(null);
   const [moderationNote, setModerationNote] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [startupOptions, setStartupOptions] = useState<AdminStartupOption[]>([]);
+  const [startupOptionsError, setStartupOptionsError] = useState<string | null>(null);
+  const [embedStartupId, setEmbedStartupId] = useState("");
+  const [embedInstagramUrl, setEmbedInstagramUrl] = useState("");
+  const [embedNote, setEmbedNote] = useState<string | null>(null);
+  const [embedError, setEmbedError] = useState<string | null>(null);
 
   const loadQueue = useCallback(async (token: string) => {
     setQueueError(null);
@@ -78,15 +93,39 @@ export default function AdminPage() {
     setModeration((payload.items ?? []) as ModerationItem[]);
   }, []);
 
+  const loadApprovedStartups = useCallback(async (token: string) => {
+    setStartupOptionsError(null);
+    const res = await fetch("/api/admin/startups?status=approved&limit=400", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload.error ?? "Unable to load startup list.");
+    }
+    const items = (payload.items ?? []) as AdminStartupOption[];
+    setStartupOptions(items);
+    setEmbedStartupId((current) => {
+      if (current && items.some((item) => item.id === current)) return current;
+      return items[0]?.id ?? "";
+    });
+  }, []);
+
   const refreshAdminData = useCallback(async (token: string) => {
-    const [queueResult, moderationResult] = await Promise.allSettled([loadQueue(token), loadModeration(token)]);
+    const [queueResult, moderationResult, startupsResult] = await Promise.allSettled([
+      loadQueue(token),
+      loadModeration(token),
+      loadApprovedStartups(token),
+    ]);
     if (queueResult.status === "rejected") {
       setQueueError(errorMessage(queueResult.reason, "Unable to load queue."));
     }
     if (moderationResult.status === "rejected") {
       setModerationError(errorMessage(moderationResult.reason, "Unable to load moderation feed."));
     }
-  }, [loadModeration, loadQueue]);
+    if (startupsResult.status === "rejected") {
+      setStartupOptionsError(errorMessage(startupsResult.reason, "Unable to load startup list."));
+    }
+  }, [loadApprovedStartups, loadModeration, loadQueue]);
 
   useEffect(() => {
     const init = async () => {
@@ -193,6 +232,52 @@ export default function AdminPage() {
       await refreshAdminData(sessionToken);
     } catch (error) {
       setQueueError(errorMessage(error, "Action failed."));
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handlePublishInstagramEmbed = async () => {
+    if (!sessionToken) return;
+    if (!embedStartupId.trim()) {
+      setEmbedError("Select a startup first.");
+      return;
+    }
+    if (!embedInstagramUrl.trim()) {
+      setEmbedError("Instagram URL is required.");
+      return;
+    }
+
+    const nextActionId = "embed-publish";
+    setActionId(nextActionId);
+    setEmbedError(null);
+    setEmbedNote(null);
+
+    try {
+      const res = await fetch("/api/admin/pitches/embed", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          startup_id: embedStartupId,
+          instagram_url: embedInstagramUrl,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error ?? "Unable to publish Instagram embed.");
+
+      const startupName = payload?.pitch?.startup_name;
+      setEmbedNote(
+        startupName
+          ? `Published Instagram embed for ${startupName}. It should appear live shortly.`
+          : "Published Instagram embed. It should appear live shortly."
+      );
+      setEmbedInstagramUrl("");
+      await refreshAdminData(sessionToken);
+    } catch (error) {
+      setEmbedError(errorMessage(error, "Unable to publish Instagram embed."));
     } finally {
       setActionId(null);
     }
@@ -359,6 +444,57 @@ export default function AdminPage() {
 
         <section className="admin-card">
           <div className="admin-card-header">
+            <h3>Publish Instagram embed</h3>
+            <span>Auto-publishes to live feed</span>
+          </div>
+          <p className="admin-section-note">
+            Paste an Instagram Reel/Post URL and publish it instantly from admin. This bypasses queue and goes live.
+          </p>
+          {startupOptionsError ? <p className="submit-error">{startupOptionsError}</p> : null}
+          {embedError ? <p className="submit-error">{embedError}</p> : null}
+          {embedNote ? <p className="submit-note">{embedNote}</p> : null}
+          <div className="submit-grid">
+            <div className="form-field">
+              <label>Startup</label>
+              <select
+                value={embedStartupId}
+                onChange={(event) => setEmbedStartupId(event.target.value)}
+                disabled={!sessionToken || hasActionInFlight}
+              >
+                {startupOptions.length === 0 ? <option value="">No approved startups found</option> : null}
+                {startupOptions.map((startup) => (
+                  <option key={startup.id} value={startup.id}>
+                    {startup.name}
+                    {startup.category ? ` · ${startup.category}` : ""}
+                    {startup.city ? ` · ${startup.city}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Instagram URL</label>
+              <input
+                type="url"
+                placeholder="https://www.instagram.com/reel/..."
+                value={embedInstagramUrl}
+                onChange={(event) => setEmbedInstagramUrl(event.target.value)}
+                disabled={!sessionToken || hasActionInFlight}
+              />
+            </div>
+            <div className="submit-actions">
+              <button
+                type="button"
+                disabled={!sessionToken || hasActionInFlight}
+                onClick={() => void handlePublishInstagramEmbed()}
+              >
+                {actionId === "embed-publish" ? "Publishing…" : "Publish embed"}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="admin-card">
+          <div className="admin-card-header">
             <h3>Pending approvals</h3>
             <span>{queue.length} items</span>
           </div>
@@ -392,6 +528,7 @@ export default function AdminPage() {
                         {item.ask ? <span>Ask {item.ask}</span> : null}
                         {item.equity ? <span>{item.equity} equity</span> : null}
                         {item.valuation ? <span>{item.valuation} valuation</span> : null}
+                        {item.instagram_url ? <span>Source: Instagram embed</span> : null}
                         {processingStatus && processingStatus !== "pending" ? (
                           <span>Video: {processingStatus}</span>
                         ) : null}
@@ -403,6 +540,10 @@ export default function AdminPage() {
                         <video controls preload="none" poster={item.poster_url ?? undefined}>
                           <source src={item.video_url} />
                         </video>
+                      ) : item.instagram_url ? (
+                        <a href={item.instagram_url} target="_blank" rel="noreferrer noopener">
+                          Open Instagram post
+                        </a>
                       ) : (
                         <div className="admin-placeholder">No video</div>
                       )}
@@ -486,6 +627,7 @@ export default function AdminPage() {
                       <div className="admin-tags">
                         <span>Live status: {item.pitch_status ?? "approved"}</span>
                         <span>Startup: {item.startup_status ?? "approved"}</span>
+                        {item.instagram_url ? <span>Source: Instagram embed</span> : null}
                         {item.duration_sec ? <span>{item.duration_sec}s</span> : null}
                         {item.ask ? <span>Ask {item.ask}</span> : null}
                         {item.approved_at ? (
@@ -498,6 +640,10 @@ export default function AdminPage() {
                         <video controls preload="none" poster={item.poster_url ?? undefined}>
                           <source src={item.video_url} />
                         </video>
+                      ) : item.instagram_url ? (
+                        <a href={item.instagram_url} target="_blank" rel="noreferrer noopener">
+                          Open Instagram post
+                        </a>
                       ) : (
                         <div className="admin-placeholder">No video</div>
                       )}

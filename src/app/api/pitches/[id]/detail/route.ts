@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { isExternalMediaUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ type DetailResponse = {
     equity: string | null;
     valuation: string | null;
     video_url: string | null;
+    instagram_url: string | null;
     poster_url: string | null;
     created_at: string;
   };
@@ -76,6 +78,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   }
 
   let video_url: string | null = null;
+  let instagram_url: string | null = null;
   let poster_url: string | null = null;
 
   let videoProcessingStatus: string | null = null;
@@ -100,10 +103,19 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   if (videoProcessingStatus === "ready" && muxPlaybackUrl) {
     video_url = muxPlaybackUrl;
   } else if (pitchRow.video_path) {
-    const { data } = await supabaseAdmin.storage
-      .from("pitch-videos")
-      .createSignedUrl(pitchRow.video_path, 60 * 60);
-    video_url = data?.signedUrl ?? null;
+    if (isExternalMediaUrl(pitchRow.video_path)) {
+      const normalizedInstagram = normalizeInstagramUrl(pitchRow.video_path);
+      if (normalizedInstagram) {
+        instagram_url = normalizedInstagram;
+      } else {
+        video_url = pitchRow.video_path;
+      }
+    } else {
+      const { data } = await supabaseAdmin.storage
+        .from("pitch-videos")
+        .createSignedUrl(pitchRow.video_path, 60 * 60);
+      video_url = data?.signedUrl ?? null;
+    }
   }
 
   if (pitchRow.poster_path) {
@@ -138,6 +150,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       equity: pitchRow.equity,
       valuation: pitchRow.valuation,
       video_url,
+      instagram_url,
       poster_url,
       created_at: pitchRow.created_at,
     },
