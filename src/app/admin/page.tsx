@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
@@ -45,6 +45,7 @@ type AdminStartupOption = {
 
 const AUTH_UNAVAILABLE_MESSAGE = "Admin sign-in is temporarily unavailable. Please try again shortly.";
 const VIDEO_PROCESSING_STATES = new Set(["queued", "processing"]);
+const CATEGORY_MAX_LENGTH = 80;
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message.trim().length ? error.message : fallback;
@@ -66,9 +67,11 @@ export default function AdminPage() {
   const [startupOptionsError, setStartupOptionsError] = useState<string | null>(null);
   const [embedStartupId, setEmbedStartupId] = useState("");
   const [embedStartupName, setEmbedStartupName] = useState("");
+  const [embedCategory, setEmbedCategory] = useState("");
   const [embedInstagramUrl, setEmbedInstagramUrl] = useState("");
   const [embedNote, setEmbedNote] = useState<string | null>(null);
   const [embedError, setEmbedError] = useState<string | null>(null);
+  const [categoryDraftByStartup, setCategoryDraftByStartup] = useState<Record<string, string>>({});
 
   const loadQueue = useCallback(async (token: string) => {
     setQueueError(null);
@@ -84,7 +87,7 @@ export default function AdminPage() {
 
   const loadModeration = useCallback(async (token: string) => {
     setModerationError(null);
-    const res = await fetch("/api/admin/moderation?limit=60", {
+    const res = await fetch("/api/admin/moderation?limit=400", {
       headers: { Authorization: `Bearer ${token}` },
     });
     const payload = await res.json().catch(() => ({}));
@@ -128,6 +131,18 @@ export default function AdminPage() {
     }
   }, [loadApprovedStartups, loadModeration, loadQueue]);
 
+  const knownCategories = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          startupOptions
+            .map((item) => (item.category ?? "").trim())
+            .filter((value) => value.length > 0)
+        )
+      ).sort((left, right) => left.localeCompare(right)),
+    [startupOptions]
+  );
+
   useEffect(() => {
     const init = async () => {
       if (!hasBrowserSupabaseEnv) {
@@ -169,6 +184,13 @@ export default function AdminPage() {
     return () => window.clearInterval(intervalId);
   }, [actionId, authStatus, queue, refreshAdminData, sessionToken]);
 
+  useEffect(() => {
+    if (!embedStartupId) return;
+    const selected = startupOptions.find((item) => item.id === embedStartupId);
+    if (!selected?.category) return;
+    setEmbedCategory((current) => (current.trim().length ? current : selected.category ?? ""));
+  }, [embedStartupId, startupOptions]);
+
   const handleSignIn = async () => {
     if (!hasBrowserSupabaseEnv) {
       setAuthStatus("error");
@@ -207,9 +229,11 @@ export default function AdminPage() {
     setStartupOptions([]);
     setEmbedStartupId("");
     setEmbedStartupName("");
+    setEmbedCategory("");
     setEmbedInstagramUrl("");
     setEmbedNote(null);
     setEmbedError(null);
+    setCategoryDraftByStartup({});
     setAuthStatus("idle");
   };
 
@@ -278,6 +302,11 @@ export default function AdminPage() {
       setEmbedError("Instagram Reel/Post URL is required.");
       return;
     }
+    const category = embedCategory.trim().slice(0, CATEGORY_MAX_LENGTH);
+    if (!category.length) {
+      setEmbedError("Category is required. Choose one or type manually.");
+      return;
+    }
 
     const startupInput = resolveStartupFromInput();
     if (!startupInput) {
@@ -300,6 +329,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           startup_id: startupInput.id,
           startup_name: startupInput.name,
+          category,
           instagram_url: embedInstagramUrl,
         }),
       });
@@ -313,10 +343,86 @@ export default function AdminPage() {
           : "Published Instagram embed. It should appear live shortly."
       );
       setEmbedStartupName("");
+      setEmbedCategory("");
       setEmbedInstagramUrl("");
       await refreshAdminData(sessionToken);
     } catch (error) {
       setEmbedError(errorMessage(error, "Unable to publish Instagram embed."));
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const categoryDraftValue = (startupId: string, fallbackCategory: string | null) => {
+    if (Object.prototype.hasOwnProperty.call(categoryDraftByStartup, startupId)) {
+      return categoryDraftByStartup[startupId] ?? "";
+    }
+    return fallbackCategory ?? "";
+  };
+
+  const handleCategoryDraftChange = (startupId: string, value: string) => {
+    setCategoryDraftByStartup((current) => ({
+      ...current,
+      [startupId]: value.slice(0, CATEGORY_MAX_LENGTH),
+    }));
+  };
+
+  const handleSaveStartupCategory = async (
+    startupId: string,
+    startupName: string,
+    fallbackCategory: string | null,
+    noteTarget: "queue" | "moderation"
+  ) => {
+    if (!sessionToken) return;
+    const category = categoryDraftValue(startupId, fallbackCategory).trim().slice(0, CATEGORY_MAX_LENGTH);
+    if (!category.length) {
+      if (noteTarget === "queue") {
+        setQueueError("Category is required.");
+      } else {
+        setModerationError("Category is required.");
+      }
+      return;
+    }
+
+    const nextActionId = `category-save-${noteTarget}-${startupId}`;
+    setActionId(nextActionId);
+    if (noteTarget === "queue") {
+      setQueueError(null);
+      setQueueNote(null);
+    } else {
+      setModerationError(null);
+      setModerationNote(null);
+    }
+
+    try {
+      const res = await fetch(`/api/admin/startups/${startupId}/category`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ category }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error ?? "Unable to update category.");
+
+      const savedCategory = payload?.startup?.category ?? category;
+      setCategoryDraftByStartup((current) => ({
+        ...current,
+        [startupId]: savedCategory,
+      }));
+      if (noteTarget === "queue") {
+        setQueueNote(`Updated category for "${startupName}" to ${savedCategory}.`);
+      } else {
+        setModerationNote(`Updated category for "${startupName}" to ${savedCategory}.`);
+      }
+      await refreshAdminData(sessionToken);
+    } catch (error) {
+      if (noteTarget === "queue") {
+        setQueueError(errorMessage(error, "Unable to update category."));
+      } else {
+        setModerationError(errorMessage(error, "Unable to update category."));
+      }
     } finally {
       setActionId(null);
     }
@@ -362,6 +468,7 @@ export default function AdminPage() {
       setEmbedNote(`Deleted ${payload?.startup?.name ?? "startup"} from database.`);
       setEmbedStartupId("");
       setEmbedStartupName("");
+      setEmbedCategory("");
       await refreshAdminData(sessionToken);
     } catch (error) {
       setEmbedError(errorMessage(error, "Unable to delete startup."));
@@ -545,7 +652,14 @@ export default function AdminPage() {
               <label>Startup (optional picker)</label>
               <select
                 value={embedStartupId}
-                onChange={(event) => setEmbedStartupId(event.target.value)}
+                onChange={(event) => {
+                  const nextStartupId = event.target.value;
+                  setEmbedStartupId(nextStartupId);
+                  const selected = startupOptions.find((item) => item.id === nextStartupId);
+                  if (selected?.category) {
+                    setEmbedCategory(selected.category);
+                  }
+                }}
                 disabled={!sessionToken || hasActionInFlight}
               >
                 <option value="">
@@ -573,6 +687,22 @@ export default function AdminPage() {
               <datalist id="admin-startup-names">
                 {startupOptions.map((startup) => (
                   <option key={`name-${startup.id}`} value={startup.name} />
+                ))}
+              </datalist>
+            </div>
+            <div className="form-field">
+              <label>Category</label>
+              <input
+                type="text"
+                list="admin-startup-categories"
+                placeholder="Fintech, AI, SaaS..."
+                value={embedCategory}
+                onChange={(event) => setEmbedCategory(event.target.value.slice(0, CATEGORY_MAX_LENGTH))}
+                disabled={!sessionToken || hasActionInFlight}
+              />
+              <datalist id="admin-startup-categories">
+                {knownCategories.map((category) => (
+                  <option key={`category-${category}`} value={category} />
                 ))}
               </datalist>
             </div>
@@ -624,6 +754,7 @@ export default function AdminPage() {
                 const approveActionId = `queue-approve-${item.pitch_id}`;
                 const rejectActionId = `queue-reject-${item.pitch_id}`;
                 const retryActionId = `queue-retry-${item.pitch_id}`;
+                const categoryActionId = `category-save-queue-${item.startup_id}`;
                 const approveDisabled = hasActionInFlight || isProcessing;
                 const rejectDisabled = hasActionInFlight;
 
@@ -646,6 +777,19 @@ export default function AdminPage() {
                           <span>Video: {processingStatus}</span>
                         ) : null}
                         {isFailed && item.video_error ? <span>Reason: {item.video_error}</span> : null}
+                      </div>
+                      <div className="admin-inline-category">
+                        <label htmlFor={`queue-category-${item.pitch_id}`}>Category</label>
+                        <input
+                          id={`queue-category-${item.pitch_id}`}
+                          type="text"
+                          list="admin-startup-categories"
+                          value={categoryDraftValue(item.startup_id, item.category)}
+                          onChange={(event) =>
+                            handleCategoryDraftChange(item.startup_id, event.target.value)
+                          }
+                          disabled={!sessionToken || hasActionInFlight}
+                        />
                       </div>
                     </div>
                     <div className="admin-media">
@@ -703,6 +847,21 @@ export default function AdminPage() {
                           {actionId === retryActionId ? "Retrying…" : "Retry transcode"}
                         </button>
                       ) : null}
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={!sessionToken || hasActionInFlight}
+                        onClick={() =>
+                          void handleSaveStartupCategory(
+                            item.startup_id,
+                            item.startup_name,
+                            item.category,
+                            "queue"
+                          )
+                        }
+                      >
+                        {actionId === categoryActionId ? "Saving…" : "Save category"}
+                      </button>
                     </div>
                   </div>
                 );
@@ -728,6 +887,7 @@ export default function AdminPage() {
               {moderation.map((item) => {
                 const removeActionId = `mod-remove-${item.pitch_id}`;
                 const blockActionId = `mod-block-${item.startup_id}`;
+                const categoryActionId = `category-save-moderation-${item.startup_id}`;
 
                 return (
                   <div className="admin-row" key={`mod-${item.pitch_id}`}>
@@ -746,6 +906,19 @@ export default function AdminPage() {
                         {item.approved_at ? (
                           <span>Approved: {new Date(item.approved_at).toLocaleString()}</span>
                         ) : null}
+                      </div>
+                      <div className="admin-inline-category">
+                        <label htmlFor={`mod-category-${item.pitch_id}`}>Category</label>
+                        <input
+                          id={`mod-category-${item.pitch_id}`}
+                          type="text"
+                          list="admin-startup-categories"
+                          value={categoryDraftValue(item.startup_id, item.category)}
+                          onChange={(event) =>
+                            handleCategoryDraftChange(item.startup_id, event.target.value)
+                          }
+                          disabled={!sessionToken || hasActionInFlight}
+                        />
                       </div>
                     </div>
                     <div className="admin-media">
@@ -774,6 +947,21 @@ export default function AdminPage() {
                       )}
                     </div>
                     <div className="admin-actions">
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={!sessionToken || hasActionInFlight}
+                        onClick={() =>
+                          void handleSaveStartupCategory(
+                            item.startup_id,
+                            item.startup_name,
+                            item.category,
+                            "moderation"
+                          )
+                        }
+                      >
+                        {actionId === categoryActionId ? "Saving…" : "Save category"}
+                      </button>
                       <button
                         type="button"
                         className="danger"

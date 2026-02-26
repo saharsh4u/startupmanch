@@ -28,6 +28,9 @@ export async function POST(request: Request) {
     payload && typeof payload.startup_id === "string" ? payload.startup_id.trim() : "";
   const startupNameInput =
     payload && typeof payload.startup_name === "string" ? payload.startup_name.trim() : "";
+  const categoryInput =
+    payload && typeof payload.category === "string" ? payload.category.trim().slice(0, 80) : "";
+  const requestedCategory = categoryInput.length ? categoryInput : null;
   const instagramUrl = normalizeInstagramUrl(
     payload && typeof payload.instagram_url === "string" ? payload.instagram_url : null
   );
@@ -50,13 +53,14 @@ export async function POST(request: Request) {
         id: string;
         name: string | null;
         status: string | null;
+        category: string | null;
       }
     | null = null;
 
   if (startupIdInput) {
     const { data, error } = await supabaseAdmin
       .from("startups")
-      .select("id,name,status")
+      .select("id,name,status,category")
       .eq("id", startupIdInput)
       .single();
     if (error || !data) {
@@ -66,7 +70,7 @@ export async function POST(request: Request) {
   } else {
     const { data, error } = await supabaseAdmin
       .from("startups")
-      .select("id,name,status")
+      .select("id,name,status,category")
       .ilike("name", startupNameInput)
       .limit(2);
 
@@ -89,10 +93,10 @@ export async function POST(request: Request) {
         .insert({
           founder_id: authContext.userId,
           name: startupNameInput,
-          category: "General",
+          category: requestedCategory ?? "General",
           status: "approved",
         })
-        .select("id,name,status")
+        .select("id,name,status,category")
         .single();
 
       if (createdStartupError || !createdStartup) {
@@ -109,10 +113,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Startup not found" }, { status: 404 });
   }
 
-  if (startup.status !== "approved") {
+  if (startup.status !== "approved" || (requestedCategory && startup.category !== requestedCategory)) {
+    const startupPatch: { status?: string; category?: string } = {};
+    if (startup.status !== "approved") startupPatch.status = "approved";
+    if (requestedCategory && startup.category !== requestedCategory) {
+      startupPatch.category = requestedCategory;
+    }
+
     const { error: startupUpdateError } = await supabaseAdmin
       .from("startups")
-      .update({ status: "approved" })
+      .update(startupPatch)
       .eq("id", startup.id);
     if (startupUpdateError) {
       return NextResponse.json({ error: startupUpdateError.message }, { status: 500 });

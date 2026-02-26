@@ -685,6 +685,34 @@ button:disabled {
   color: rgba(235, 235, 235, 0.75);
 }
 
+.admin-inline-category {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 280px;
+}
+
+.admin-inline-category label {
+  font-size: 0.75rem;
+  color: rgba(235, 235, 235, 0.68);
+}
+
+.admin-inline-category input {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 8, 8, 0.92);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+}
+
+.admin-inline-category input:focus-visible {
+  outline: none;
+  border-color: rgba(255, 159, 63, 0.7);
+  box-shadow: 0 0 0 3px rgba(255, 159, 63, 0.2);
+}
+
 .admin-media {
   display: flex;
   flex-direction: column;

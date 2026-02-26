@@ -36,9 +36,9 @@ const isMissingVideoProcessingColumnError = (message: string | null | undefined)
 };
 
 const parseLimit = (value: string | null) => {
-  const parsed = Number(value ?? "40");
-  if (!Number.isFinite(parsed)) return 40;
-  return Math.min(Math.max(Math.floor(parsed), 1), 100);
+  const parsed = Number(value ?? "200");
+  if (!Number.isFinite(parsed)) return 200;
+  return Math.min(Math.max(Math.floor(parsed), 1), 500);
 };
 
 export async function GET(request: Request) {
