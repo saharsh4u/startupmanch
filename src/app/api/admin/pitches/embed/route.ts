@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
-import { normalizeInstagramUrl } from "@/lib/video/instagram";
+import { fetchInstagramThumbnailUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
 
 export const runtime = "nodejs";
 
@@ -120,6 +120,7 @@ export async function POST(request: Request) {
   }
 
   const nowIso = new Date().toISOString();
+  const instagramThumbnailUrl = await fetchInstagramThumbnailUrl(instagramUrl);
   const insertWithProcessing = {
     startup_id: startup.id,
     type: "elevator" as const,
@@ -128,6 +129,7 @@ export async function POST(request: Request) {
     approved_at: nowIso,
     approved_by: authContext.userId,
     video_path: instagramUrl,
+    poster_path: instagramThumbnailUrl,
     video_processing_status: "ready",
     video_ready_at: nowIso,
     video_error: null,
@@ -143,6 +145,7 @@ export async function POST(request: Request) {
     approved_at: nowIso,
     approved_by: authContext.userId,
     video_path: instagramUrl,
+    poster_path: instagramThumbnailUrl,
   };
 
   let inserted: { id: string; startup_id: string; approved_at: string | null } | null = null;

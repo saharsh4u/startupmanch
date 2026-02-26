@@ -12,17 +12,17 @@ export const isExternalMediaUrl = (value: string | null | undefined) => {
   return /^https?:\/\//i.test(normalized);
 };
 
+const decodeHtmlEntities = (input: string) =>
+  input
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+
 export const normalizeInstagramUrl = (value: string | null | undefined) => {
   const normalized = trimToNull(value);
   if (!normalized) return null;
-
-  const decodeHtmlEntities = (input: string) =>
-    input
-      .replace(/&amp;/gi, "&")
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-      .replace(/&lt;/gi, "<")
-      .replace(/&gt;/gi, ">");
 
   const extractUrlFromEmbedSnippet = (input: string) => {
     const decoded = decodeHtmlEntities(input);
@@ -105,5 +105,54 @@ export const buildInstagramEmbedUrl = (value: string | null | undefined) => {
     return `https://www.instagram.com/${kind}/${code}/embed/`;
   } catch {
     return null;
+  }
+};
+
+const parseOpenGraphImage = (html: string) => {
+  const matchByPropertyFirst = html.match(
+    /<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)["'][^>]*>/i
+  );
+  if (matchByPropertyFirst?.[1]) {
+    return decodeHtmlEntities(matchByPropertyFirst[1]);
+  }
+
+  const matchByContentFirst = html.match(
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::url)?["'][^>]*>/i
+  );
+  if (matchByContentFirst?.[1]) {
+    return decodeHtmlEntities(matchByContentFirst[1]);
+  }
+
+  return null;
+};
+
+export const fetchInstagramThumbnailUrl = async (value: string | null | undefined) => {
+  const normalized = normalizeInstagramUrl(value);
+  if (!normalized) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const res = await fetch(normalized, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "accept-language": "en-US,en;q=0.9",
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const ogImage = parseOpenGraphImage(html);
+    if (!ogImage || !isExternalMediaUrl(ogImage)) return null;
+    return ogImage;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 };

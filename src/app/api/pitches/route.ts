@@ -4,7 +4,11 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
-import { isExternalMediaUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
+import {
+  fetchInstagramThumbnailUrl,
+  isExternalMediaUrl,
+  normalizeInstagramUrl,
+} from "@/lib/video/instagram";
 import { pitches as fallbackPitches } from "@/data/pitches";
 
 export const runtime = "nodejs";
@@ -484,10 +488,25 @@ export async function GET(request: Request) {
       }
 
       if (item.poster_path) {
-        const { data: signedPoster } = await supabaseAdmin.storage
-          .from("pitch-posters")
-          .createSignedUrl(item.poster_path, 60 * 60);
-        poster_url = signedPoster?.signedUrl ?? null;
+        if (isExternalMediaUrl(item.poster_path)) {
+          poster_url = item.poster_path;
+        } else {
+          const { data: signedPoster } = await supabaseAdmin.storage
+            .from("pitch-posters")
+            .createSignedUrl(item.poster_path, 60 * 60);
+          poster_url = signedPoster?.signedUrl ?? null;
+        }
+      } else if (instagram_url) {
+        const fetchedPoster = await fetchInstagramThumbnailUrl(instagram_url);
+        if (fetchedPoster) {
+          poster_url = fetchedPoster;
+          void (async () => {
+            await supabaseAdmin
+              .from("pitches")
+              .update({ poster_path: fetchedPoster })
+              .eq("id", item.pitch_id);
+          })();
+        }
       }
 
       return {

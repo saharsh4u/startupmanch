@@ -160,10 +160,14 @@ export async function GET(request: Request) {
       }
 
       if (row.poster_path) {
-        const { data: signedPoster } = await supabaseAdmin.storage
-          .from("pitch-posters")
-          .createSignedUrl(row.poster_path, 60 * 60);
-        poster_url = signedPoster?.signedUrl ?? null;
+        if (isExternalMediaUrl(row.poster_path)) {
+          poster_url = row.poster_path;
+        } else {
+          const { data: signedPoster } = await supabaseAdmin.storage
+            .from("pitch-posters")
+            .createSignedUrl(row.poster_path, 60 * 60);
+          poster_url = signedPoster?.signedUrl ?? null;
+        }
       }
 
       return {

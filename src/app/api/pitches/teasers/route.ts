@@ -101,10 +101,14 @@ export async function GET() {
       let instagramUrl: string | null = null;
 
       if (row.poster_path) {
-        const { data: posterData } = await supabaseAdmin.storage
-          .from("pitch-posters")
-          .createSignedUrl(row.poster_path, 60 * 60);
-        posterUrl = posterData?.signedUrl ?? null;
+        if (isExternalMediaUrl(row.poster_path)) {
+          posterUrl = row.poster_path;
+        } else {
+          const { data: posterData } = await supabaseAdmin.storage
+            .from("pitch-posters")
+            .createSignedUrl(row.poster_path, 60 * 60);
+          posterUrl = posterData?.signedUrl ?? null;
+        }
       }
 
       const muxVideo = buildMuxPlaybackUrl(row.video_mux_playback_id ?? null);
@@ -150,10 +154,14 @@ export async function GET() {
     pendingRows.map(async (row, index) => {
       let posterUrl: string | null = null;
       if (row.poster_path) {
-        const { data: posterData } = await supabaseAdmin.storage
-          .from("pitch-posters")
-          .createSignedUrl(row.poster_path, 20 * 60);
-        posterUrl = posterData?.signedUrl ?? null;
+        if (isExternalMediaUrl(row.poster_path)) {
+          posterUrl = row.poster_path;
+        } else {
+          const { data: posterData } = await supabaseAdmin.storage
+            .from("pitch-posters")
+            .createSignedUrl(row.poster_path, 20 * 60);
+          posterUrl = posterData?.signedUrl ?? null;
+        }
       }
 
       return {

@@ -119,10 +119,14 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   }
 
   if (pitchRow.poster_path) {
-    const { data } = await supabaseAdmin.storage
-      .from("pitch-posters")
-      .createSignedUrl(pitchRow.poster_path, 60 * 60);
-    poster_url = data?.signedUrl ?? null;
+    if (isExternalMediaUrl(pitchRow.poster_path)) {
+      poster_url = pitchRow.poster_path;
+    } else {
+      const { data } = await supabaseAdmin.storage
+        .from("pitch-posters")
+        .createSignedUrl(pitchRow.poster_path, 60 * 60);
+      poster_url = data?.signedUrl ?? null;
+    }
   }
 
   const { data: statsRow } = await supabaseAdmin

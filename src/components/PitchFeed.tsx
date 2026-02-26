@@ -1009,7 +1009,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     [filteredWeekPicks, filteredItems, filteredFallback]
   );
 
-  const topPitches = fixedTopPitches ?? dynamicTopPitches;
+  const topPitches = SHOW_HOT_PITCHES ? fixedTopPitches ?? dynamicTopPitches : [];
   const topIds = useMemo(
     () => new Set((SHOW_HOT_PITCHES ? topPitches : []).map((item) => item.id)),
     [topPitches]
@@ -1099,7 +1099,14 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
     const expanded: CommunityRailItem[] = [];
     const totalNeeded = COMMUNITY_RAIL_COUNT * COMMUNITY_RAIL_SIZE;
     for (let index = 0; index < totalNeeded; index += 1) {
-      expanded.push(communityRailSource[index % communityRailSource.length]);
+      if (index < communityRailSource.length) {
+        expanded.push(communityRailSource[index]);
+      } else {
+        expanded.push({
+          type: "open" as const,
+          id: `community-open-slot-fill-${index + 1}`,
+        });
+      }
     }
 
     return Array.from({ length: COMMUNITY_RAIL_COUNT }, (_, railIndex) => {
