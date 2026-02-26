@@ -178,12 +178,6 @@ export default function AdColumn({
     const placeholderTone =
       placeholderTonePalette[(index + toneOffset) % placeholderTonePalette.length];
     const isPlaceholderSlot = !isCampaignItem(slot.front) && !isCampaignItem(slot.back);
-    const showTopLeftQuote = side === "left" && index === 0;
-    const topLeftQuoteCopy: AdFaceCopyOverride = {
-      badge: "QUOTE",
-      name: "It's not about ideas.",
-      tagline: "It's about making ideas happen.",
-    };
 
     return (
       <div
@@ -200,8 +194,6 @@ export default function AdColumn({
             suppressKeyboardFocus={isClone}
             onAdvertiseClick={handleAdvertiseClick}
             placeholderTone={placeholderTone}
-            copyOverride={showTopLeftQuote ? topLeftQuoteCopy : undefined}
-            extraClassName={showTopLeftQuote ? "is-quote-face" : undefined}
           />
           <AdFace
             item={slot.back}

@@ -420,6 +420,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [isCommunityRailInteracting, setIsCommunityRailInteracting] = useState(false);
   const communityRailRefs = useRef<Array<HTMLDivElement | null>>([]);
   const communityRailResumeTimerRef = useRef<number | null>(null);
+  const communityRailInteractingRef = useRef(false);
+  const communityRailPauseUntilRef = useRef(0);
   const communityRailCarryRef = useRef<number[]>([]);
   const liveApprovalCursorRef = useRef<string | null>(null);
   const liveApprovalPollBusyRef = useRef(false);
@@ -951,8 +953,12 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       window.clearTimeout(communityRailResumeTimerRef.current);
       communityRailResumeTimerRef.current = null;
     }
+    communityRailInteractingRef.current = true;
+    communityRailPauseUntilRef.current = Date.now() + Math.max(350, resumeDelayMs);
     setIsCommunityRailInteracting(true);
     communityRailResumeTimerRef.current = window.setTimeout(() => {
+      communityRailInteractingRef.current = false;
+      communityRailPauseUntilRef.current = 0;
       setIsCommunityRailInteracting(false);
       communityRailResumeTimerRef.current = null;
     }, resumeDelayMs);
@@ -963,6 +969,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       if (communityRailResumeTimerRef.current !== null) {
         window.clearTimeout(communityRailResumeTimerRef.current);
       }
+      communityRailInteractingRef.current = false;
+      communityRailPauseUntilRef.current = 0;
     };
   }, []);
 
@@ -1121,48 +1129,63 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
   useEffect(() => {
     if (prefersReducedMotion || isDocumentHidden || !communityRails.length) return;
-    const rails = communityRailRefs.current.filter((node): node is HTMLDivElement => Boolean(node));
-    if (!rails.length) return;
-    communityRailCarryRef.current = rails.map(() => 0);
 
-    rails.forEach((rail, railIndex) => {
-      const halfWidth = rail.scrollWidth / 2;
-      if (halfWidth <= rail.clientWidth + 1) return;
-      if (railIndex % 2 === 1 && rail.scrollLeft <= 1) {
-        rail.scrollLeft = Math.max(1, halfWidth - 1);
-      } else if (railIndex % 2 === 0 && rail.scrollLeft <= 0) {
-        rail.scrollLeft = 1;
+    const syncCarryLength = (railCount: number) => {
+      const current = communityRailCarryRef.current;
+      if (current.length === railCount) return current;
+      if (current.length > railCount) {
+        communityRailCarryRef.current = current.slice(0, railCount);
+        return communityRailCarryRef.current;
       }
-    });
+      communityRailCarryRef.current = [...current, ...Array.from({ length: railCount - current.length }, () => 0)];
+      return communityRailCarryRef.current;
+    };
 
     let rafId = 0;
     let lastTime = performance.now();
 
     const tick = (time: number) => {
-      const deltaMs = Math.min(42, time - lastTime);
+      const deltaMs = Math.min(42, Math.max(0, time - lastTime));
       lastTime = time;
 
-      if (!isCommunityRailInteracting) {
+      const rails = communityRailRefs.current.filter((node): node is HTMLDivElement => Boolean(node));
+      const carry = syncCarryLength(rails.length);
+
+      const isPausedByInteraction =
+        communityRailInteractingRef.current && Date.now() < communityRailPauseUntilRef.current;
+
+      if (!isPausedByInteraction) {
+        if (communityRailInteractingRef.current) {
+          communityRailInteractingRef.current = false;
+          communityRailPauseUntilRef.current = 0;
+          setIsCommunityRailInteracting(false);
+        }
+
         rails.forEach((rail, railIndex) => {
           const halfWidth = rail.scrollWidth / 2;
-          if (halfWidth <= rail.clientWidth + 1) return;
+          if (halfWidth <= rail.clientWidth + 1) {
+            carry[railIndex] = 0;
+            return;
+          }
 
           const direction = railIndex % 2 === 1 ? -1 : 1;
           if (direction > 0 && rail.scrollLeft <= 0) {
             rail.scrollLeft = 1;
+          } else if (direction < 0 && rail.scrollLeft <= 1) {
+            rail.scrollLeft = Math.max(1, halfWidth - 1);
           }
+
           const speedPxPerMs = 0.058 + railIndex * 0.006;
-          const carry = (communityRailCarryRef.current[railIndex] ?? 0) + direction * speedPxPerMs * deltaMs;
-          const wholePixels = carry >= 0 ? Math.floor(carry) : Math.ceil(carry);
-          communityRailCarryRef.current[railIndex] = carry - wholePixels;
+          const nextCarry = (carry[railIndex] ?? 0) + direction * speedPxPerMs * deltaMs;
+          const wholePixels = nextCarry >= 0 ? Math.floor(nextCarry) : Math.ceil(nextCarry);
+          carry[railIndex] = nextCarry - wholePixels;
           if (wholePixels === 0) return;
 
           let nextLeft = rail.scrollLeft + wholePixels;
-
-          if (direction > 0 && nextLeft >= halfWidth) {
-            nextLeft -= halfWidth;
-          } else if (direction < 0 && nextLeft <= 0) {
-            nextLeft += halfWidth;
+          if (direction > 0) {
+            while (nextLeft >= halfWidth) nextLeft -= halfWidth;
+          } else {
+            while (nextLeft <= 0) nextLeft += halfWidth;
           }
 
           rail.scrollLeft = nextLeft;
@@ -1174,7 +1197,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
-  }, [communityRails, isCommunityRailInteracting, isDocumentHidden, prefersReducedMotion]);
+  }, [communityRails.length, isDocumentHidden, prefersReducedMotion]);
 
 
   const columnGroups = useMemo(() => {
