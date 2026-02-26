@@ -16,6 +16,28 @@ export const normalizeInstagramUrl = (value: string | null | undefined) => {
   const normalized = trimToNull(value);
   if (!normalized) return null;
 
+  const decodeHtmlEntities = (input: string) =>
+    input
+      .replace(/&amp;/gi, "&")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">");
+
+  const extractUrlFromEmbedSnippet = (input: string) => {
+    const decoded = decodeHtmlEntities(input);
+    const permalinkMatch = decoded.match(/data-instgrm-permalink\s*=\s*["']([^"']+)["']/i);
+    if (permalinkMatch?.[1]) return permalinkMatch[1];
+
+    const hrefMatch = decoded.match(/href\s*=\s*["']([^"']+)["']/i);
+    if (hrefMatch?.[1]) return hrefMatch[1];
+
+    const inlineUrlMatch = decoded.match(/https?:\/\/(?:www\.)?instagram\.com\/[^\s"'<>]+/i);
+    if (inlineUrlMatch?.[0]) return inlineUrlMatch[0];
+
+    return null;
+  };
+
   const toCanonical = (kind: string, code: string) => {
     const normalizedKind = kind.trim().toLowerCase();
     const normalizedCode = code.trim();
@@ -35,7 +57,12 @@ export const normalizeInstagramUrl = (value: string | null | undefined) => {
   };
 
   try {
-    const url = new URL(normalized);
+    const embedCandidate = normalized.includes("<")
+      ? extractUrlFromEmbedSnippet(normalized)
+      : null;
+    const candidate = embedCandidate ?? normalized;
+
+    const url = new URL(candidate);
     const host = url.hostname.toLowerCase();
     if (!INSTAGRAM_HOSTS.has(host)) return null;
 
@@ -45,7 +72,12 @@ export const normalizeInstagramUrl = (value: string | null | undefined) => {
       .filter(Boolean);
     return parseSegments(segments);
   } catch {
-    const stripped = normalized
+    const embedCandidate = normalized.includes("<")
+      ? extractUrlFromEmbedSnippet(normalized)
+      : null;
+    const source = embedCandidate ?? normalized;
+
+    const stripped = source
       .replace(/^https?:\/\//i, "")
       .replace(/^((www|m)\.)?instagram\.com\//i, "")
       .replace(/^\/+/, "");

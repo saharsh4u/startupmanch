@@ -284,10 +284,6 @@ export default function AdminPage() {
       setEmbedError("Select or enter a startup name first.");
       return;
     }
-    if (!startupInput.id && startupInput.name) {
-      setEmbedError("Startup name did not match a unique startup. Select from dropdown.");
-      return;
-    }
 
     const nextActionId = "embed-publish";
     setActionId(nextActionId);
@@ -583,8 +579,8 @@ export default function AdminPage() {
             <div className="form-field">
               <label>Instagram URL / shorthand</label>
               <input
-                type="url"
-                placeholder="https://www.instagram.com/reel/... or reel/ABC123"
+                type="text"
+                placeholder="URL, reel/ABC123, or Instagram embed code"
                 value={embedInstagramUrl}
                 onChange={(event) => setEmbedInstagramUrl(event.target.value)}
                 disabled={!sessionToken || hasActionInFlight}

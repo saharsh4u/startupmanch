@@ -75,16 +75,35 @@ export async function POST(request: Request) {
     }
 
     const rows = data ?? [];
-    if (rows.length === 0) {
-      return NextResponse.json({ error: "Startup not found for the provided name." }, { status: 404 });
-    }
     if (rows.length > 1) {
       return NextResponse.json(
         { error: "Multiple startups match this name. Select one from dropdown." },
         { status: 409 }
       );
     }
-    startup = rows[0];
+    if (rows.length === 1) {
+      startup = rows[0];
+    } else {
+      const { data: createdStartup, error: createdStartupError } = await supabaseAdmin
+        .from("startups")
+        .insert({
+          founder_id: authContext.userId,
+          owner_id: authContext.userId,
+          name: startupNameInput,
+          category: "General",
+          status: "approved",
+        })
+        .select("id,name,status")
+        .single();
+
+      if (createdStartupError || !createdStartup) {
+        return NextResponse.json(
+          { error: createdStartupError?.message ?? "Unable to create startup for this embed." },
+          { status: 500 }
+        );
+      }
+      startup = createdStartup;
+    }
   }
 
   if (!startup) {
