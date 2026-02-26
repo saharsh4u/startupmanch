@@ -65,6 +65,7 @@ export default function AdminPage() {
   const [startupOptions, setStartupOptions] = useState<AdminStartupOption[]>([]);
   const [startupOptionsError, setStartupOptionsError] = useState<string | null>(null);
   const [embedStartupId, setEmbedStartupId] = useState("");
+  const [embedStartupName, setEmbedStartupName] = useState("");
   const [embedInstagramUrl, setEmbedInstagramUrl] = useState("");
   const [embedNote, setEmbedNote] = useState<string | null>(null);
   const [embedError, setEmbedError] = useState<string | null>(null);
@@ -106,7 +107,7 @@ export default function AdminPage() {
     setStartupOptions(items);
     setEmbedStartupId((current) => {
       if (current && items.some((item) => item.id === current)) return current;
-      return items[0]?.id ?? "";
+      return "";
     });
   }, []);
 
@@ -203,7 +204,41 @@ export default function AdminPage() {
     setModerationError(null);
     setQueueNote(null);
     setModerationNote(null);
+    setStartupOptions([]);
+    setEmbedStartupId("");
+    setEmbedStartupName("");
+    setEmbedInstagramUrl("");
+    setEmbedNote(null);
+    setEmbedError(null);
     setAuthStatus("idle");
+  };
+
+  const resolveStartupFromInput = () => {
+    const selectedId = embedStartupId.trim();
+    if (selectedId.length) {
+      const selected = startupOptions.find((item) => item.id === selectedId);
+      return { id: selectedId, name: selected?.name ?? null };
+    }
+
+    const typed = embedStartupName.trim();
+    if (!typed.length) return null;
+
+    const normalized = typed.toLowerCase();
+    const exactMatches = startupOptions.filter(
+      (item) => item.name?.trim().toLowerCase() === normalized
+    );
+    if (exactMatches.length === 1) {
+      return { id: exactMatches[0].id, name: exactMatches[0].name ?? null };
+    }
+
+    const partialMatches = startupOptions.filter((item) =>
+      (item.name ?? "").toLowerCase().includes(normalized)
+    );
+    if (partialMatches.length === 1) {
+      return { id: partialMatches[0].id, name: partialMatches[0].name ?? null };
+    }
+
+    return { id: null, name: typed };
   };
 
   const handleDecision = async (item: QueueItem, action: "approve" | "reject") => {
@@ -239,12 +274,18 @@ export default function AdminPage() {
 
   const handlePublishInstagramEmbed = async () => {
     if (!sessionToken) return;
-    if (!embedStartupId.trim()) {
-      setEmbedError("Select a startup first.");
+    if (!embedInstagramUrl.trim()) {
+      setEmbedError("Instagram Reel/Post URL is required.");
       return;
     }
-    if (!embedInstagramUrl.trim()) {
-      setEmbedError("Instagram URL is required.");
+
+    const startupInput = resolveStartupFromInput();
+    if (!startupInput) {
+      setEmbedError("Select or enter a startup name first.");
+      return;
+    }
+    if (!startupInput.id && startupInput.name) {
+      setEmbedError("Startup name did not match a unique startup. Select from dropdown.");
       return;
     }
 
@@ -261,7 +302,8 @@ export default function AdminPage() {
           Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({
-          startup_id: embedStartupId,
+          startup_id: startupInput.id,
+          startup_name: startupInput.name,
           instagram_url: embedInstagramUrl,
         }),
       });
@@ -274,10 +316,59 @@ export default function AdminPage() {
           ? `Published Instagram embed for ${startupName}. It should appear live shortly.`
           : "Published Instagram embed. It should appear live shortly."
       );
+      setEmbedStartupName("");
       setEmbedInstagramUrl("");
       await refreshAdminData(sessionToken);
     } catch (error) {
       setEmbedError(errorMessage(error, "Unable to publish Instagram embed."));
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDeleteStartupPermanently = async () => {
+    if (!sessionToken) return;
+
+    const startupInput = resolveStartupFromInput();
+    if (!startupInput) {
+      setEmbedError("Select or enter a startup name first.");
+      return;
+    }
+    if (!startupInput.id) {
+      setEmbedError("Startup name did not match a unique startup. Select from dropdown.");
+      return;
+    }
+
+    const startup = startupOptions.find((item) => item.id === startupInput.id);
+    const startupLabel = startup?.name ?? startupInput.name ?? "this startup";
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `Delete ${startupLabel} permanently from database? This also deletes its pitches.`
+      );
+      if (!confirmed) return;
+    }
+
+    const nextActionId = "startup-delete";
+    setActionId(nextActionId);
+    setEmbedError(null);
+    setEmbedNote(null);
+
+    try {
+      const res = await fetch(`/api/admin/startups/${startupInput.id}/delete`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error ?? "Unable to delete startup.");
+
+      setEmbedNote(`Deleted ${payload?.startup?.name ?? "startup"} from database.`);
+      setEmbedStartupId("");
+      setEmbedStartupName("");
+      await refreshAdminData(sessionToken);
+    } catch (error) {
+      setEmbedError(errorMessage(error, "Unable to delete startup."));
     } finally {
       setActionId(null);
     }
@@ -455,13 +546,15 @@ export default function AdminPage() {
           {embedNote ? <p className="submit-note">{embedNote}</p> : null}
           <div className="submit-grid">
             <div className="form-field">
-              <label>Startup</label>
+              <label>Startup (optional picker)</label>
               <select
                 value={embedStartupId}
                 onChange={(event) => setEmbedStartupId(event.target.value)}
                 disabled={!sessionToken || hasActionInFlight}
               >
-                {startupOptions.length === 0 ? <option value="">No approved startups found</option> : null}
+                <option value="">
+                  {startupOptions.length === 0 ? "No approved startups found" : "Select startup"}
+                </option>
                 {startupOptions.map((startup) => (
                   <option key={startup.id} value={startup.id}>
                     {startup.name}
@@ -472,10 +565,26 @@ export default function AdminPage() {
               </select>
             </div>
             <div className="form-field">
-              <label>Instagram URL</label>
+              <label>Startup name (or type and publish)</label>
+              <input
+                type="text"
+                list="admin-startup-names"
+                placeholder="Saharash"
+                value={embedStartupName}
+                onChange={(event) => setEmbedStartupName(event.target.value)}
+                disabled={!sessionToken || hasActionInFlight}
+              />
+              <datalist id="admin-startup-names">
+                {startupOptions.map((startup) => (
+                  <option key={`name-${startup.id}`} value={startup.name} />
+                ))}
+              </datalist>
+            </div>
+            <div className="form-field">
+              <label>Instagram URL / shorthand</label>
               <input
                 type="url"
-                placeholder="https://www.instagram.com/reel/..."
+                placeholder="https://www.instagram.com/reel/... or reel/ABC123"
                 value={embedInstagramUrl}
                 onChange={(event) => setEmbedInstagramUrl(event.target.value)}
                 disabled={!sessionToken || hasActionInFlight}
@@ -488,6 +597,14 @@ export default function AdminPage() {
                 onClick={() => void handlePublishInstagramEmbed()}
               >
                 {actionId === "embed-publish" ? "Publishing…" : "Publish embed"}
+              </button>
+              <button
+                type="button"
+                className="danger"
+                disabled={!sessionToken || hasActionInFlight}
+                onClick={() => void handleDeleteStartupPermanently()}
+              >
+                {actionId === "startup-delete" ? "Deleting…" : "Delete startup permanently"}
               </button>
             </div>
           </div>

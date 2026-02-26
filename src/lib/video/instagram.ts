@@ -16,6 +16,24 @@ export const normalizeInstagramUrl = (value: string | null | undefined) => {
   const normalized = trimToNull(value);
   if (!normalized) return null;
 
+  const toCanonical = (kind: string, code: string) => {
+    const normalizedKind = kind.trim().toLowerCase();
+    const normalizedCode = code.trim();
+    if (!INSTAGRAM_PATH_PREFIXES.has(normalizedKind)) return null;
+    if (!normalizedCode.length) return null;
+    return `https://www.instagram.com/${normalizedKind}/${normalizedCode}/`;
+  };
+
+  const parseSegments = (segments: string[]) => {
+    if (segments.length >= 2 && INSTAGRAM_PATH_PREFIXES.has(segments[0]?.toLowerCase() ?? "")) {
+      return toCanonical(segments[0], segments[1]);
+    }
+    if (segments.length >= 3 && INSTAGRAM_PATH_PREFIXES.has(segments[1]?.toLowerCase() ?? "")) {
+      return toCanonical(segments[1], segments[2]);
+    }
+    return null;
+  };
+
   try {
     const url = new URL(normalized);
     const host = url.hostname.toLowerCase();
@@ -25,15 +43,17 @@ export const normalizeInstagramUrl = (value: string | null | undefined) => {
       .split("/")
       .map((part) => part.trim())
       .filter(Boolean);
-    if (segments.length < 2) return null;
-
-    const kind = segments[0]?.toLowerCase();
-    const code = segments[1];
-    if (!kind || !code || !INSTAGRAM_PATH_PREFIXES.has(kind)) return null;
-
-    return `https://www.instagram.com/${kind}/${code}/`;
+    return parseSegments(segments);
   } catch {
-    return null;
+    const stripped = normalized
+      .replace(/^https?:\/\//i, "")
+      .replace(/^((www|m)\.)?instagram\.com\//i, "")
+      .replace(/^\/+/, "");
+    const segments = stripped
+      .split("/")
+      .map((part) => part.trim().replace(/^@/, ""))
+      .filter(Boolean);
+    return parseSegments(segments);
   }
 };
 

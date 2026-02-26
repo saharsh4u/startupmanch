@@ -24,29 +24,70 @@ export async function POST(request: Request) {
   }
 
   const payload = await request.json().catch(() => null);
-  const startupId =
+  const startupIdInput =
     payload && typeof payload.startup_id === "string" ? payload.startup_id.trim() : "";
+  const startupNameInput =
+    payload && typeof payload.startup_name === "string" ? payload.startup_name.trim() : "";
   const instagramUrl = normalizeInstagramUrl(
     payload && typeof payload.instagram_url === "string" ? payload.instagram_url : null
   );
 
-  if (!startupId) {
-    return NextResponse.json({ error: "startup_id is required" }, { status: 400 });
+  if (!startupIdInput && !startupNameInput) {
+    return NextResponse.json({ error: "startup_id or startup_name is required" }, { status: 400 });
   }
   if (!instagramUrl) {
     return NextResponse.json(
-      { error: "Valid Instagram Reel/Post URL is required (instagram.com/reel/... or /p/...)." },
+      {
+        error:
+          "Valid Instagram Reel/Post URL is required. You can paste full URL or shorthand like reel/ABC123.",
+      },
       { status: 400 }
     );
   }
 
-  const { data: startup, error: startupError } = await supabaseAdmin
-    .from("startups")
-    .select("id,name,status")
-    .eq("id", startupId)
-    .single();
+  let startup:
+    | {
+        id: string;
+        name: string | null;
+        status: string | null;
+      }
+    | null = null;
 
-  if (startupError || !startup) {
+  if (startupIdInput) {
+    const { data, error } = await supabaseAdmin
+      .from("startups")
+      .select("id,name,status")
+      .eq("id", startupIdInput)
+      .single();
+    if (error || !data) {
+      return NextResponse.json({ error: "Startup not found" }, { status: 404 });
+    }
+    startup = data;
+  } else {
+    const { data, error } = await supabaseAdmin
+      .from("startups")
+      .select("id,name,status")
+      .ilike("name", startupNameInput)
+      .limit(2);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const rows = data ?? [];
+    if (rows.length === 0) {
+      return NextResponse.json({ error: "Startup not found for the provided name." }, { status: 404 });
+    }
+    if (rows.length > 1) {
+      return NextResponse.json(
+        { error: "Multiple startups match this name. Select one from dropdown." },
+        { status: 409 }
+      );
+    }
+    startup = rows[0];
+  }
+
+  if (!startup) {
     return NextResponse.json({ error: "Startup not found" }, { status: 404 });
   }
 
@@ -54,7 +95,7 @@ export async function POST(request: Request) {
     const { error: startupUpdateError } = await supabaseAdmin
       .from("startups")
       .update({ status: "approved" })
-      .eq("id", startupId);
+      .eq("id", startup.id);
     if (startupUpdateError) {
       return NextResponse.json({ error: startupUpdateError.message }, { status: 500 });
     }
@@ -62,7 +103,7 @@ export async function POST(request: Request) {
 
   const nowIso = new Date().toISOString();
   const insertWithProcessing = {
-    startup_id: startupId,
+    startup_id: startup.id,
     type: "elevator" as const,
     duration_sec: 60,
     status: "approved" as const,
@@ -77,7 +118,7 @@ export async function POST(request: Request) {
   };
 
   const insertLegacy = {
-    startup_id: startupId,
+    startup_id: startup.id,
     type: "elevator" as const,
     duration_sec: 60,
     status: "approved" as const,
