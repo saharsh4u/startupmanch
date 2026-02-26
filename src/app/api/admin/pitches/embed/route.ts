@@ -88,7 +88,6 @@ export async function POST(request: Request) {
         .from("startups")
         .insert({
           founder_id: authContext.userId,
-          owner_id: authContext.userId,
           name: startupNameInput,
           category: "General",
           status: "approved",
