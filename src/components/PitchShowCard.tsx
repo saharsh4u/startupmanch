@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ContactModal from "./ContactModal";
 import { trackEvent } from "@/lib/analytics/events";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { buildInstagramEmbedUrl } from "@/lib/video/instagram";
 
 export type PitchShow = {
   id: string;
@@ -83,6 +84,7 @@ export default function PitchShowCard({
   const comments = localComments;
   const hasRevenue = Boolean((pitch.monthlyRevenue ?? "").trim().length);
   const scoreLabel = Number.isInteger(score) ? `${score}` : score.toFixed(1);
+  const instagramEmbedUrl = buildInstagramEmbedUrl(pitch.instagramUrl ?? null);
 
   const fetchLatestStats = useCallback(async () => {
     try {
@@ -157,6 +159,16 @@ export default function PitchShowCard({
           autoPlay
           loop
           preload={shouldLazyVideo ? "none" : "metadata"}
+        />
+      ) : instagramEmbedUrl && shouldLoadVideo ? (
+        <iframe
+          className="pitch-show-media instagram-frame"
+          src={instagramEmbedUrl}
+          title={`${pitch.name} on Instagram`}
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+          aria-hidden="true"
         />
       ) : (
         <div

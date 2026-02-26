@@ -1830,6 +1830,12 @@ button:disabled {
   filter: saturate(1.05) contrast(1.05);
 }
 
+.pitch-show-media.instagram-frame {
+  border: 0;
+  background: #090a10;
+  pointer-events: none;
+}
+
 .pitch-show-overlay {
   position: absolute;
   inset: 0;
@@ -7730,6 +7736,10 @@ body {
   filter: saturate(0.45) contrast(1.08) brightness(0.8);
 }
 
+.page-home .pitch-show-media.instagram-frame {
+  filter: none;
+}
+
 .page-home .pitch-show-overlay {
   background:
     none,
@@ -8696,7 +8706,8 @@ body {
 .page-home .community-rail-item {
   flex: 0 0 auto;
   width: clamp(176px, 15.5vw, 220px);
-  min-height: 312px;
+  aspect-ratio: 9 / 16;
+  min-height: 0;
   scroll-snap-align: start;
   scroll-snap-stop: always;
 }
@@ -8710,17 +8721,24 @@ body {
 .page-home .community-cinema .pitch-slot-approved {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
+  height: 100%;
   border: 1px solid #393c47;
   border-radius: 16px;
   background: #12141a;
-  padding: 8px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .page-home .community-cinema .pitch-slot-approved .pitch-show-card.row {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  flex: 1 1 auto;
   border: 1px solid #4a4f62;
-  background: #191c27;
-  border-radius: 14px;
+  background: #12141a;
+  border-radius: 16px;
   box-shadow: 0 14px 26px rgba(0, 0, 0, 0.42);
 }
 
@@ -8731,7 +8749,7 @@ body {
 }
 
 .page-home .community-cinema .pitch-slot-approved-meta {
-  color: #c4c7d1;
+  display: none;
 }
 
 .page-home .community-cinema .pitch-slot-share {
