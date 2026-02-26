@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
-import { isExternalMediaUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
+import {
+  fetchInstagramMediaUrls,
+  isExternalMediaUrl,
+  normalizeInstagramUrl,
+} from "@/lib/video/instagram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,6 +103,7 @@ export async function GET() {
       let posterUrl: string | null = null;
       let videoUrl: string | null = null;
       let instagramUrl: string | null = null;
+      let instagramMedia: { videoUrl: string | null; thumbnailUrl: string | null } | null = null;
 
       if (row.poster_path) {
         if (isExternalMediaUrl(row.poster_path)) {
@@ -119,6 +124,10 @@ export async function GET() {
           const normalizedInstagram = normalizeInstagramUrl(row.video_path);
           if (normalizedInstagram) {
             instagramUrl = normalizedInstagram;
+            instagramMedia = await fetchInstagramMediaUrls(normalizedInstagram);
+            if (instagramMedia.videoUrl) {
+              videoUrl = instagramMedia.videoUrl;
+            }
           } else {
             videoUrl = row.video_path;
           }
@@ -128,6 +137,10 @@ export async function GET() {
             .createSignedUrl(row.video_path, 60 * 60);
           videoUrl = videoData?.signedUrl ?? null;
         }
+      }
+
+      if (!posterUrl && instagramMedia?.thumbnailUrl) {
+        posterUrl = instagramMedia.thumbnailUrl;
       }
 
       const founderId = row.startups?.founder_id ?? null;

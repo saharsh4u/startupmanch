@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
-import { isExternalMediaUrl, normalizeInstagramUrl } from "@/lib/video/instagram";
+import {
+  fetchInstagramMediaUrls,
+  isExternalMediaUrl,
+  normalizeInstagramUrl,
+} from "@/lib/video/instagram";
 
 export const runtime = "nodejs";
 
@@ -80,6 +84,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   let video_url: string | null = null;
   let instagram_url: string | null = null;
   let poster_url: string | null = null;
+  let instagramMedia: { videoUrl: string | null; thumbnailUrl: string | null } | null = null;
 
   let videoProcessingStatus: string | null = null;
   let videoMuxPlaybackId: string | null = null;
@@ -107,6 +112,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       const normalizedInstagram = normalizeInstagramUrl(pitchRow.video_path);
       if (normalizedInstagram) {
         instagram_url = normalizedInstagram;
+        instagramMedia = await fetchInstagramMediaUrls(normalizedInstagram);
+        if (instagramMedia.videoUrl) {
+          video_url = instagramMedia.videoUrl;
+        }
       } else {
         video_url = pitchRow.video_path;
       }
@@ -127,6 +136,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
         .createSignedUrl(pitchRow.poster_path, 60 * 60);
       poster_url = data?.signedUrl ?? null;
     }
+  } else if (instagramMedia?.thumbnailUrl) {
+    poster_url = instagramMedia.thumbnailUrl;
   }
 
   const { data: statsRow } = await supabaseAdmin

@@ -6,7 +6,6 @@ import type { WheelEvent } from "react";
 import type { PitchShow } from "./PitchShowCard";
 import RevenueSparkline from "./RevenueSparkline";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { buildInstagramEmbedUrl } from "@/lib/video/instagram";
 
 type Props = {
   pitches: PitchShow[];
@@ -222,13 +221,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   const feedVideoSrc = pitch?.video ?? null;
   const detailVideoSrc = detail?.pitch.video_url ?? null;
-  const feedInstagramUrl = pitch?.instagramUrl ?? null;
-  const detailInstagramUrl = detail?.pitch.instagram_url ?? null;
-  const instagramUrl = detailInstagramUrl ?? feedInstagramUrl ?? null;
-  const instagramEmbedUrl = useMemo(
-    () => buildInstagramEmbedUrl(instagramUrl),
-    [instagramUrl]
-  );
 
   const videoSrc = activeVideoSrc ?? feedVideoSrc ?? detailVideoSrc ?? null;
   const poster = detail?.pitch.poster_url ?? pitch?.poster ?? undefined;
@@ -555,8 +547,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     }
   }, [canFetchPitchDetails, commentDraft, getAccessToken, pitchId, refreshDetail]);
 
-  const showInstagramEmbed = !videoUnavailable && !videoSrc && Boolean(instagramEmbedUrl);
-  const showVideoFallback = !showInstagramEmbed && (!videoSrc || videoUnavailable);
+  const showVideoFallback = !videoSrc || videoUnavailable;
 
   if (!pitch) return null;
 
@@ -599,16 +590,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
         <div className="expand-layout">
           <div className="expand-video expand-video-mobile" aria-label="Pitch video">
-            {showInstagramEmbed ? (
-              <iframe
-                key={instagramEmbedUrl}
-                className="expand-media expand-media-embed"
-                src={instagramEmbedUrl ?? undefined}
-                title="Instagram pitch embed"
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            ) : !showVideoFallback ? (
+            {!showVideoFallback ? (
               <video
                 key={videoSrc ?? "pitch-video"}
                 ref={videoRef}

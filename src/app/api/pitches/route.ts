@@ -5,6 +5,7 @@ import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
 import {
+  fetchInstagramMediaUrls,
   fetchInstagramThumbnailUrl,
   isExternalMediaUrl,
   normalizeInstagramUrl,
@@ -462,6 +463,7 @@ export async function GET(request: Request) {
       let video_url: string | null = null;
       let instagram_url: string | null = null;
       let poster_url: string | null = null;
+      let instagramMedia: { videoUrl: string | null; thumbnailUrl: string | null } | null = null;
 
       const videoState = videoStateByPitchId.get(item.pitch_id);
       const startupMeta = startupMetaById.get(item.startup_id);
@@ -476,6 +478,10 @@ export async function GET(request: Request) {
           const normalizedInstagram = normalizeInstagramUrl(item.video_path);
           if (normalizedInstagram) {
             instagram_url = normalizedInstagram;
+            instagramMedia = await fetchInstagramMediaUrls(normalizedInstagram);
+            if (instagramMedia.videoUrl) {
+              video_url = instagramMedia.videoUrl;
+            }
           } else {
             video_url = item.video_path;
           }
@@ -497,7 +503,8 @@ export async function GET(request: Request) {
           poster_url = signedPoster?.signedUrl ?? null;
         }
       } else if (instagram_url) {
-        const fetchedPoster = await fetchInstagramThumbnailUrl(instagram_url);
+        const fetchedPoster =
+          instagramMedia?.thumbnailUrl ?? (await fetchInstagramThumbnailUrl(instagram_url));
         if (fetchedPoster) {
           poster_url = fetchedPoster;
           void (async () => {

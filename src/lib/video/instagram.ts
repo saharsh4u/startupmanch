@@ -1,5 +1,11 @@
 const INSTAGRAM_HOSTS = new Set(["instagram.com", "www.instagram.com", "m.instagram.com"]);
 const INSTAGRAM_PATH_PREFIXES = new Set(["reel", "p", "tv"]);
+const INSTAGRAM_FETCH_HEADERS = {
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "accept-language": "en-US,en;q=0.9",
+  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+};
 
 const trimToNull = (value: string | null | undefined) => {
   const trimmed = (value ?? "").trim();
@@ -19,6 +25,21 @@ const decodeHtmlEntities = (input: string) =>
     .replace(/&#39;/gi, "'")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">");
+
+const decodeEscapedMediaUrl = (input: string) =>
+  decodeHtmlEntities(input)
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\u0025/gi, "%")
+    .replace(/\\\//g, "/")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+
+const normalizeExtractedMediaUrl = (value: string | null | undefined) => {
+  const normalized = trimToNull(value);
+  if (!normalized) return null;
+  const decoded = decodeEscapedMediaUrl(normalized);
+  return isExternalMediaUrl(decoded) ? decoded : null;
+};
 
 export const normalizeInstagramUrl = (value: string | null | undefined) => {
   const normalized = trimToNull(value);
@@ -108,51 +129,96 @@ export const buildInstagramEmbedUrl = (value: string | null | undefined) => {
   }
 };
 
-const parseOpenGraphImage = (html: string) => {
-  const matchByPropertyFirst = html.match(
-    /<meta[^>]+property=["']og:image(?::url)?["'][^>]+content=["']([^"']+)["'][^>]*>/i
-  );
-  if (matchByPropertyFirst?.[1]) {
-    return decodeHtmlEntities(matchByPropertyFirst[1]);
-  }
+const escapeRegExp = (input: string) => input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  const matchByContentFirst = html.match(
-    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::url)?["'][^>]*>/i
-  );
-  if (matchByContentFirst?.[1]) {
-    return decodeHtmlEntities(matchByContentFirst[1]);
+const parseMetaByProperties = (html: string, properties: string[]) => {
+  for (const property of properties) {
+    const escaped = escapeRegExp(property);
+    const matchByPropertyFirst = html.match(
+      new RegExp(
+        `<meta[^>]+property=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+        "i"
+      )
+    );
+    const resolvedByPropertyFirst = normalizeExtractedMediaUrl(matchByPropertyFirst?.[1] ?? null);
+    if (resolvedByPropertyFirst) return resolvedByPropertyFirst;
+
+    const matchByContentFirst = html.match(
+      new RegExp(
+        `<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${escaped}["'][^>]*>`,
+        "i"
+      )
+    );
+    const resolvedByContentFirst = normalizeExtractedMediaUrl(matchByContentFirst?.[1] ?? null);
+    if (resolvedByContentFirst) return resolvedByContentFirst;
+  }
+  return null;
+};
+
+const parseOpenGraphImage = (html: string) =>
+  parseMetaByProperties(html, ["og:image", "og:image:url"]);
+
+const parseOpenGraphVideo = (html: string) => {
+  const openGraph = parseMetaByProperties(html, [
+    "og:video:secure_url",
+    "og:video",
+    "og:video:url",
+  ]);
+  if (openGraph) return openGraph;
+
+  const jsonPatterns = [
+    /"video_url":"([^"]+)"/i,
+    /"contentUrl":"(https?:\\\/\\\/[^"]+)"/i,
+    /"video_versions":\[[^\]]*"url":"([^"]+)"/i,
+  ];
+
+  for (const pattern of jsonPatterns) {
+    const match = html.match(pattern);
+    const resolved = normalizeExtractedMediaUrl(match?.[1] ?? null);
+    if (resolved) return resolved;
   }
 
   return null;
 };
 
-export const fetchInstagramThumbnailUrl = async (value: string | null | undefined) => {
-  const normalized = normalizeInstagramUrl(value);
-  if (!normalized) return null;
-
+const fetchInstagramHtml = async (normalizedUrl: string) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const res = await fetch(normalized, {
+    const res = await fetch(normalizedUrl, {
       method: "GET",
       redirect: "follow",
       signal: controller.signal,
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "accept-language": "en-US,en;q=0.9",
-      },
+      headers: INSTAGRAM_FETCH_HEADERS,
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const html = await res.text();
-    const ogImage = parseOpenGraphImage(html);
-    if (!ogImage || !isExternalMediaUrl(ogImage)) return null;
-    return ogImage;
+    return await res.text();
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
   }
+};
+
+export const fetchInstagramMediaUrls = async (value: string | null | undefined) => {
+  const normalized = normalizeInstagramUrl(value);
+  if (!normalized) {
+    return { videoUrl: null, thumbnailUrl: null };
+  }
+
+  const html = await fetchInstagramHtml(normalized);
+  if (!html) {
+    return { videoUrl: null, thumbnailUrl: null };
+  }
+
+  const videoUrl = parseOpenGraphVideo(html);
+  const thumbnailUrl = parseOpenGraphImage(html);
+  return { videoUrl, thumbnailUrl };
+};
+
+export const fetchInstagramThumbnailUrl = async (value: string | null | undefined) => {
+  const media = await fetchInstagramMediaUrls(value);
+  return media.thumbnailUrl;
 };
