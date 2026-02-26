@@ -410,6 +410,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [hoveredPreviewPitchId, setHoveredPreviewPitchId] = useState<string | null>(null);
   const [focusedPreviewPitchId, setFocusedPreviewPitchId] = useState<string | null>(null);
   const [visiblePreviewPitchIds, setVisiblePreviewPitchIds] = useState<Set<string>>(new Set());
+  const [loadedPreviewPitchIds, setLoadedPreviewPitchIds] = useState<Set<string>>(new Set());
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isDesktopHotViewport, setIsDesktopHotViewport] = useState(false);
   const [hotAutoplayPaused, setHotAutoplayPaused] = useState(false);
@@ -1769,6 +1770,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   useEffect(() => {
     if (!SLOT_UPGRADE_ENABLED || !isMobileViewport) {
       setVisiblePreviewPitchIds(new Set());
+      setLoadedPreviewPitchIds(new Set());
       return;
     }
 
@@ -1790,10 +1792,21 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           });
           return next;
         });
+        setLoadedPreviewPitchIds((previous) => {
+          const next = new Set(previous);
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            const id = entry.target.getAttribute("data-preview-pitch-id");
+            if (!id) return;
+            next.add(id);
+          });
+          return next;
+        });
       },
       {
         root: null,
-        threshold: 0.55,
+        threshold: 0.25,
+        rootMargin: "160px 0px 160px 0px",
       }
     );
 
@@ -1918,7 +1931,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         (!SLOT_UPGRADE_ENABLED ||
           hoveredPreviewPitchId === slot.pitch.id ||
           focusedPreviewPitchId === slot.pitch.id ||
-          visiblePreviewPitchIds.has(slot.pitch.id));
+          visiblePreviewPitchIds.has(slot.pitch.id) ||
+          loadedPreviewPitchIds.has(slot.pitch.id));
 
       const displayPitch: FeedPitch = {
         ...slot.pitch,

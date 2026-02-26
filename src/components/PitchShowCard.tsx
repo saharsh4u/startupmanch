@@ -156,7 +156,7 @@ export default function PitchShowCard({
           playsInline
           autoPlay
           loop
-          preload={shouldLazyVideo ? "none" : "metadata"}
+          preload={shouldLazyVideo ? "metadata" : "auto"}
         />
       ) : (
         <div
