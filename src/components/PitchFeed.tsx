@@ -121,6 +121,7 @@ const HOT_AUTOPLAY_RESUME_DELAY_MS = 1600;
 const HOT_WHEEL_SETTLE_MS = 560;
 const COMMUNITY_RAIL_COUNT = 3;
 const COMMUNITY_RAIL_SIZE = 10;
+const SHOW_HOT_PITCHES = false;
 
 const accentPalette = [
   "#42d6ff",
@@ -1009,7 +1010,10 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   );
 
   const topPitches = fixedTopPitches ?? dynamicTopPitches;
-  const topIds = useMemo(() => new Set(topPitches.map((item) => item.id)), [topPitches]);
+  const topIds = useMemo(
+    () => new Set((SHOW_HOT_PITCHES ? topPitches : []).map((item) => item.id)),
+    [topPitches]
+  );
 
   const approvedMorePitches = useMemo(
     () => dedupePitches(baseFeed.filter((item) => !topIds.has(item.id))),
@@ -2019,7 +2023,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         ? "Reshuffling slots…"
         : null;
 
-  const showHotPitches = false;
+  const showHotPitches = SHOW_HOT_PITCHES;
   const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
 
   return (
