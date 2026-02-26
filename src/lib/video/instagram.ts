@@ -225,6 +225,31 @@ const fetchInstagramHtml = async (normalizedUrl: string) => {
   }
 };
 
+const fetchInstagramOEmbedThumbnail = async (normalizedUrl: string) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const endpoint = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(
+      normalizedUrl
+    )}`;
+    const res = await fetch(endpoint, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: INSTAGRAM_FETCH_HEADERS,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const payload = (await res.json()) as { thumbnail_url?: string | null };
+    return normalizeExtractedMediaUrl(payload?.thumbnail_url ?? null);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export const fetchInstagramMediaUrls = async (value: string | null | undefined) => {
   const normalized = normalizeInstagramUrl(value);
   if (!normalized) {
@@ -252,6 +277,10 @@ export const fetchInstagramMediaUrls = async (value: string | null | undefined) 
           parseInstagramEmbedImage(embedHtml);
       }
     }
+  }
+
+  if (!thumbnailUrl) {
+    thumbnailUrl = await fetchInstagramOEmbedThumbnail(normalized);
   }
 
   return { videoUrl, thumbnailUrl };

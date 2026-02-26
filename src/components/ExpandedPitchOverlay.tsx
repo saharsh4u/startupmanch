@@ -613,7 +613,9 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                   backgroundColor: "var(--overlay-media-fallback)",
                 }}
               >
-                <span className="expand-media-fallback-label">Video unavailable</span>
+                {!poster ? (
+                  <span className="expand-media-fallback-label">Video unavailable</span>
+                ) : null}
               </div>
             )}
             {upNextLabel ? (
