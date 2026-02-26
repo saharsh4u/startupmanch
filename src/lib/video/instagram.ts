@@ -4,7 +4,15 @@ const INSTAGRAM_FETCH_HEADERS = {
   "user-agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "accept-language": "en-US,en;q=0.9",
-  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "upgrade-insecure-requests": "1",
+  "sec-fetch-dest": "document",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "none",
+  "sec-fetch-user": "?1",
+  "cache-control": "no-cache",
+  pragma: "no-cache",
 };
 
 const trimToNull = (value: string | null | undefined) => {
@@ -30,7 +38,7 @@ const decodeEscapedMediaUrl = (input: string) =>
   decodeHtmlEntities(input)
     .replace(/\\u0026/gi, "&")
     .replace(/\\u0025/gi, "%")
-    .replace(/\\\//g, "/")
+    .replace(/\\+\//g, "/")
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, "\\");
 
@@ -166,14 +174,29 @@ const parseOpenGraphVideo = (html: string) => {
   ]);
   if (openGraph) return openGraph;
 
+  const normalizedJsonLike = html.replace(/\\"/g, '"');
+
   const jsonPatterns = [
     /"video_url":"([^"]+)"/i,
-    /"contentUrl":"(https?:\\\/\\\/[^"]+)"/i,
-    /"video_versions":\[[^\]]*"url":"([^"]+)"/i,
+    /"contentUrl":"([^"]+)"/i,
+    /"video_versions":\[[\s\S]*?"url":"([^"]+)"/i,
   ];
 
   for (const pattern of jsonPatterns) {
-    const match = html.match(pattern);
+    const match = normalizedJsonLike.match(pattern);
+    const resolved = normalizeExtractedMediaUrl(match?.[1] ?? null);
+    if (resolved) return resolved;
+  }
+
+  return null;
+};
+
+const parseInstagramEmbedImage = (html: string) => {
+  const normalizedJsonLike = html.replace(/\\"/g, '"');
+  const imagePatterns = [/"display_url":"([^"]+)"/i, /"thumbnail_src":"([^"]+)"/i];
+
+  for (const pattern of imagePatterns) {
+    const match = normalizedJsonLike.match(pattern);
     const resolved = normalizeExtractedMediaUrl(match?.[1] ?? null);
     if (resolved) return resolved;
   }
@@ -208,13 +231,29 @@ export const fetchInstagramMediaUrls = async (value: string | null | undefined) 
     return { videoUrl: null, thumbnailUrl: null };
   }
 
-  const html = await fetchInstagramHtml(normalized);
-  if (!html) {
-    return { videoUrl: null, thumbnailUrl: null };
+  let videoUrl: string | null = null;
+  let thumbnailUrl: string | null = null;
+
+  const canonicalHtml = await fetchInstagramHtml(normalized);
+  if (canonicalHtml) {
+    videoUrl = parseOpenGraphVideo(canonicalHtml);
+    thumbnailUrl = parseOpenGraphImage(canonicalHtml);
   }
 
-  const videoUrl = parseOpenGraphVideo(html);
-  const thumbnailUrl = parseOpenGraphImage(html);
+  if (!videoUrl || !thumbnailUrl) {
+    const embedUrl = buildInstagramEmbedUrl(normalized);
+    if (embedUrl) {
+      const embedHtml = await fetchInstagramHtml(embedUrl);
+      if (embedHtml) {
+        videoUrl = videoUrl ?? parseOpenGraphVideo(embedHtml);
+        thumbnailUrl =
+          thumbnailUrl ??
+          parseOpenGraphImage(embedHtml) ??
+          parseInstagramEmbedImage(embedHtml);
+      }
+    }
+  }
+
   return { videoUrl, thumbnailUrl };
 };
 
