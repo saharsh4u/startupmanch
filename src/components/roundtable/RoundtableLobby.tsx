@@ -57,10 +57,10 @@ export default function RoundtableLobby() {
 
   return (
     <div className="roundtable-shell">
-      <section className="roundtable-hero">
+      <section className="roundtable-hero roundtable-lobby-hero">
         <p className="roundtable-kicker">Roundtable</p>
         <h1>StartupManch Roundtable</h1>
-        <p>Structured text discussions with equal speaking turns, live queueing, and transparent scoring.</p>
+        <p>Roulette-style founder discussions with live queueing, timed turns, and transparent scoring.</p>
       </section>
 
       <section className="roundtable-rules" aria-label="Roundtable rules">
@@ -72,7 +72,7 @@ export default function RoundtableLobby() {
 
       <RoundtableCreateTopicForm onCreated={() => void load()} />
 
-      <section className="roundtable-panel" aria-label="Live and waiting sessions">
+      <section className="roundtable-panel roundtable-lobby-sessions" aria-label="Live and waiting sessions">
         <h4>Live / waiting sessions</h4>
         {loading ? <p className="roundtable-muted">Loading sessions...</p> : null}
         {error ? <p className="roundtable-error">{error}</p> : null}
@@ -84,7 +84,7 @@ export default function RoundtableLobby() {
         </div>
       </section>
 
-      <section className="roundtable-panel" aria-label="Weekly top contributors">
+      <section className="roundtable-panel roundtable-lobby-leaderboard" aria-label="Weekly top contributors">
         <h4>Weekly top contributors</h4>
         {!data.leaderboard.length ? <p className="roundtable-muted">Leaderboard will populate after activity.</p> : null}
         <div className="roundtable-score-list">

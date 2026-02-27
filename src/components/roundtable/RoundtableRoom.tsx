@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import RoundtableQueue from "@/components/roundtable/RoundtableQueue";
 import RoundtableScoreboard from "@/components/roundtable/RoundtableScoreboard";
-import RoundtableSeatCircle from "@/components/roundtable/RoundtableSeatCircle";
+import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import RoundtableTurnTimer from "@/components/roundtable/RoundtableTurnTimer";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 import type { RoundtableSessionSnapshot } from "@/lib/roundtable/types";
@@ -25,6 +25,16 @@ const parseError = (value: unknown, fallback: string) => {
     return (value as { error: string }).error;
   }
   return fallback;
+};
+
+const toInitials = (displayName: string) => {
+  const parts = displayName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 };
 
 export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
@@ -115,6 +125,64 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
   const activeTurn = snapshot?.active_turn ?? null;
   const canSubmit = Boolean(activeTurn && currentMember && activeTurn.member_id === currentMember.id);
+  const queuedMemberIds = useMemo(() => snapshot?.queue.map((turn) => turn.member_id) ?? [], [snapshot]);
+
+  const seats = useMemo<RoundtableSeatViewModel[]>(() => {
+    if (!snapshot) return [];
+    const bySeat = new Map<number, (typeof snapshot.members)[number]>();
+    for (const member of snapshot.members) {
+      if (member.state !== "joined") continue;
+      bySeat.set(member.seat_no, member);
+    }
+
+    const queuedSet = new Set(queuedMemberIds);
+    return Array.from({ length: snapshot.session.max_seats }, (_, index) => {
+      const seatNo = index + 1;
+      const member = bySeat.get(seatNo) ?? null;
+      const isActive = Boolean(member && member.id === activeTurn?.member_id);
+      const isQueued = Boolean(member && queuedSet.has(member.id));
+      const isMe = Boolean(member && member.id === currentMember?.id);
+      const isEmpty = !member;
+
+      return {
+        seatNo,
+        memberId: member?.id ?? null,
+        displayName: member?.display_name ?? "Open seat",
+        initials: member ? toInitials(member.display_name) : "OS",
+        isActive,
+        isQueued,
+        isMe,
+        isEmpty,
+        stateLabel: isActive ? "Speaking" : isQueued ? "Hand raised" : member ? "Listening" : "Available",
+      };
+    });
+  }, [activeTurn?.member_id, currentMember?.id, queuedMemberIds, snapshot]);
+
+  const wheelFocusSeatNo = useMemo(() => {
+    if (!seats.length) return 1;
+    const activeSeat = seats.find((seat) => seat.isActive);
+    if (activeSeat) return activeSeat.seatNo;
+
+    for (const memberId of queuedMemberIds) {
+      const queuedSeat = seats.find((seat) => seat.memberId === memberId);
+      if (queuedSeat) return queuedSeat.seatNo;
+    }
+
+    const mySeat = seats.find((seat) => seat.isMe);
+    if (mySeat) return mySeat.seatNo;
+
+    const firstTaken = seats.find((seat) => !seat.isEmpty);
+    return firstTaken?.seatNo ?? 1;
+  }, [queuedMemberIds, seats]);
+
+  const wheelFlareToken = useMemo(() => {
+    if (activeTurn?.id) {
+      return `active-${activeTurn.id}-${activeTurn.starts_at ?? ""}`;
+    }
+    const latestTurn = snapshot?.recent_turns?.[0];
+    if (!latestTurn) return null;
+    return `recent-${latestTurn.id}-${latestTurn.status}`;
+  }, [activeTurn?.id, activeTurn?.starts_at, snapshot?.recent_turns]);
 
   const callApi = async (
     path: string,
@@ -221,8 +289,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     );
   }
 
-  const queuedMemberIds = snapshot.queue.map((turn) => turn.member_id);
-
   return (
     <div className="roundtable-shell">
       <section className="roundtable-hero">
@@ -276,10 +342,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       {actionError ? <p className="roundtable-error">{actionError}</p> : null}
 
       <RoundtableSeatCircle
-        members={snapshot.members}
-        activeMemberId={activeTurn?.member_id ?? null}
-        queuedMemberIds={queuedMemberIds}
-        currentMemberId={currentMember?.id ?? null}
+        seats={seats}
+        focusSeatNo={wheelFocusSeatNo}
+        topicTitle={snapshot.topic.title}
+        sessionStatus={snapshot.session.status}
+        flareToken={wheelFlareToken}
       />
 
       <section className="roundtable-grid">
