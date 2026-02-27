@@ -76,6 +76,36 @@ type RevenueData = {
   series: { date: string; amount: number }[];
 };
 
+const toExternalUrl = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  return `https://${trimmed}`;
+};
+
+function XLogo() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M18.244 2H21l-6.56 7.49L22.5 22h-6.31l-4.94-6.45L5.6 22H2.84l7.02-8.02L1.5 2h6.47l4.46 5.89L18.244 2zm-1.11 18h1.53L7.89 3.9H6.26L17.134 20z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function InstagramLogo() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="17.5" cy="6.5" r="1.3" fill="currentColor" />
+    </svg>
+  );
+}
+
 export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -404,8 +434,16 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const website = detail?.startup.website ?? null;
   const normalizedWebsite = useMemo(() => {
     if (!website) return null;
-    return website.startsWith("http") ? website : `https://${website}`;
+    return toExternalUrl(website);
   }, [website]);
+  const twitterUrl = useMemo(
+    () => toExternalUrl(detail?.startup.social_links?.twitter ?? null),
+    [detail?.startup.social_links?.twitter]
+  );
+  const instagramUrl = useMemo(
+    () => toExternalUrl(detail?.startup.social_links?.instagram ?? detail?.pitch.instagram_url ?? null),
+    [detail?.pitch.instagram_url, detail?.startup.social_links?.instagram]
+  );
 
   const founderName = detail?.founder.display_name ?? pitch.name ?? "Founder";
   const founderCity = detail?.startup.city ?? detail?.founder.city ?? "—";
@@ -665,6 +703,34 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               <button type="button" className="trust-action ghost" onClick={handleShare}>
                 Share
               </button>
+              {twitterUrl || instagramUrl ? (
+                <div className="trust-social-links" aria-label="Startup social links">
+                  {twitterUrl ? (
+                    <a
+                      className="trust-social-link"
+                      href={twitterUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      aria-label="Open X profile"
+                      title="Open X"
+                    >
+                      <XLogo />
+                    </a>
+                  ) : null}
+                  {instagramUrl ? (
+                    <a
+                      className="trust-social-link"
+                      href={instagramUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      aria-label="Open Instagram profile"
+                      title="Open Instagram"
+                    >
+                      <InstagramLogo />
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
               {shareFeedback ? <span className="trust-action-feedback">{shareFeedback}</span> : null}
             </div>
 

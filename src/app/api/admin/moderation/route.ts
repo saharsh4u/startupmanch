@@ -23,6 +23,14 @@ type ModerationRowRaw = {
   startups: any;
 };
 
+const readSocialLink = (rawLinks: unknown, key: "twitter" | "instagram") => {
+  if (!rawLinks || typeof rawLinks !== "object" || Array.isArray(rawLinks)) return null;
+  const rawValue = (rawLinks as Record<string, unknown>)[key];
+  if (typeof rawValue !== "string") return null;
+  const trimmed = rawValue.trim();
+  return trimmed.length ? trimmed : null;
+};
+
 const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
   const normalized = (message ?? "").toLowerCase();
   return (
@@ -70,6 +78,7 @@ export async function GET(request: Request) {
       name,
       category,
       city,
+      social_links,
       status,
       profiles!startups_founder_id_fkey ( email )
     )
@@ -93,6 +102,7 @@ export async function GET(request: Request) {
       name,
       category,
       city,
+      social_links,
       status,
       profiles!startups_founder_id_fkey ( email )
     )
@@ -175,6 +185,8 @@ export async function GET(request: Request) {
         startup_name: startup?.name ?? "Unknown",
         category: startup?.category ?? null,
         city: startup?.city ?? null,
+        social_twitter: readSocialLink(startup?.social_links, "twitter"),
+        social_instagram: readSocialLink(startup?.social_links, "instagram"),
         founder_email: founderProfile?.email ?? null,
         startup_status: startup?.status ?? null,
         pitch_id: row.id,

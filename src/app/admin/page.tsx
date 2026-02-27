@@ -12,6 +12,8 @@ type QueueItem = {
   startup_name: string;
   category: string | null;
   city: string | null;
+  social_twitter: string | null;
+  social_instagram: string | null;
   founder_email: string | null;
   pitch_id: string;
   pitch_type: string;
@@ -41,11 +43,14 @@ type AdminStartupOption = {
   status: string | null;
   category: string | null;
   city: string | null;
+  social_twitter: string | null;
+  social_instagram: string | null;
 };
 
 const AUTH_UNAVAILABLE_MESSAGE = "Admin sign-in is temporarily unavailable. Please try again shortly.";
 const VIDEO_PROCESSING_STATES = new Set(["queued", "processing"]);
 const CATEGORY_MAX_LENGTH = 80;
+const SOCIAL_LINK_MAX_LENGTH = 300;
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message.trim().length ? error.message : fallback;
@@ -68,10 +73,15 @@ export default function AdminPage() {
   const [embedStartupId, setEmbedStartupId] = useState("");
   const [embedStartupName, setEmbedStartupName] = useState("");
   const [embedCategory, setEmbedCategory] = useState("");
+  const [embedSocialTwitter, setEmbedSocialTwitter] = useState("");
+  const [embedSocialInstagram, setEmbedSocialInstagram] = useState("");
   const [embedInstagramUrl, setEmbedInstagramUrl] = useState("");
   const [embedNote, setEmbedNote] = useState<string | null>(null);
   const [embedError, setEmbedError] = useState<string | null>(null);
   const [categoryDraftByStartup, setCategoryDraftByStartup] = useState<Record<string, string>>({});
+  const [socialDraftByStartup, setSocialDraftByStartup] = useState<
+    Record<string, { twitter: string; instagram: string }>
+  >({});
 
   const loadQueue = useCallback(async (token: string) => {
     setQueueError(null);
@@ -187,8 +197,13 @@ export default function AdminPage() {
   useEffect(() => {
     if (!embedStartupId) return;
     const selected = startupOptions.find((item) => item.id === embedStartupId);
-    if (!selected?.category) return;
-    setEmbedCategory((current) => (current.trim().length ? current : selected.category ?? ""));
+    setEmbedCategory((current) => (current.trim().length ? current : selected?.category ?? ""));
+    setEmbedSocialTwitter((current) =>
+      current.trim().length ? current : (selected?.social_twitter ?? "")
+    );
+    setEmbedSocialInstagram((current) =>
+      current.trim().length ? current : (selected?.social_instagram ?? "")
+    );
   }, [embedStartupId, startupOptions]);
 
   const handleSignIn = async () => {
@@ -230,10 +245,13 @@ export default function AdminPage() {
     setEmbedStartupId("");
     setEmbedStartupName("");
     setEmbedCategory("");
+    setEmbedSocialTwitter("");
+    setEmbedSocialInstagram("");
     setEmbedInstagramUrl("");
     setEmbedNote(null);
     setEmbedError(null);
     setCategoryDraftByStartup({});
+    setSocialDraftByStartup({});
     setAuthStatus("idle");
   };
 
@@ -315,6 +333,8 @@ export default function AdminPage() {
     }
 
     const nextActionId = "embed-publish";
+    const socialTwitter = embedSocialTwitter.trim().slice(0, SOCIAL_LINK_MAX_LENGTH);
+    const socialInstagram = embedSocialInstagram.trim().slice(0, SOCIAL_LINK_MAX_LENGTH);
     setActionId(nextActionId);
     setEmbedError(null);
     setEmbedNote(null);
@@ -330,6 +350,8 @@ export default function AdminPage() {
           startup_id: startupInput.id,
           startup_name: startupInput.name,
           category,
+          social_twitter: socialTwitter,
+          social_instagram: socialInstagram,
           instagram_url: embedInstagramUrl,
         }),
       });
@@ -344,6 +366,8 @@ export default function AdminPage() {
       );
       setEmbedStartupName("");
       setEmbedCategory("");
+      setEmbedSocialTwitter("");
+      setEmbedSocialInstagram("");
       setEmbedInstagramUrl("");
       await refreshAdminData(sessionToken);
     } catch (error) {
@@ -367,10 +391,39 @@ export default function AdminPage() {
     }));
   };
 
+  const socialDraftValue = (
+    startupId: string,
+    fallbackTwitter: string | null,
+    fallbackInstagram: string | null
+  ) => {
+    const draft = socialDraftByStartup[startupId];
+    return {
+      twitter: draft?.twitter ?? fallbackTwitter ?? "",
+      instagram: draft?.instagram ?? fallbackInstagram ?? "",
+    };
+  };
+
+  const handleSocialDraftChange = (
+    startupId: string,
+    key: "twitter" | "instagram",
+    value: string
+  ) => {
+    const nextValue = value.slice(0, SOCIAL_LINK_MAX_LENGTH);
+    setSocialDraftByStartup((current) => ({
+      ...current,
+      [startupId]: {
+        twitter: key === "twitter" ? nextValue : (current[startupId]?.twitter ?? ""),
+        instagram: key === "instagram" ? nextValue : (current[startupId]?.instagram ?? ""),
+      },
+    }));
+  };
+
   const handleSaveStartupCategory = async (
     startupId: string,
     startupName: string,
     fallbackCategory: string | null,
+    fallbackTwitter: string | null,
+    fallbackInstagram: string | null,
     noteTarget: "queue" | "moderation"
   ) => {
     if (!sessionToken) return;
@@ -383,6 +436,9 @@ export default function AdminPage() {
       }
       return;
     }
+    const socialDraft = socialDraftValue(startupId, fallbackTwitter, fallbackInstagram);
+    const socialTwitter = socialDraft.twitter.trim().slice(0, SOCIAL_LINK_MAX_LENGTH);
+    const socialInstagram = socialDraft.instagram.trim().slice(0, SOCIAL_LINK_MAX_LENGTH);
 
     const nextActionId = `category-save-${noteTarget}-${startupId}`;
     setActionId(nextActionId);
@@ -401,20 +457,33 @@ export default function AdminPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ category }),
+        body: JSON.stringify({
+          category,
+          social_twitter: socialTwitter,
+          social_instagram: socialInstagram,
+        }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error ?? "Unable to update category.");
 
       const savedCategory = payload?.startup?.category ?? category;
+      const savedTwitter = payload?.startup?.social_twitter ?? null;
+      const savedInstagram = payload?.startup?.social_instagram ?? null;
       setCategoryDraftByStartup((current) => ({
         ...current,
         [startupId]: savedCategory,
       }));
+      setSocialDraftByStartup((current) => ({
+        ...current,
+        [startupId]: {
+          twitter: savedTwitter ?? "",
+          instagram: savedInstagram ?? "",
+        },
+      }));
       if (noteTarget === "queue") {
-        setQueueNote(`Updated category for "${startupName}" to ${savedCategory}.`);
+        setQueueNote(`Updated startup info for "${startupName}".`);
       } else {
-        setModerationNote(`Updated category for "${startupName}" to ${savedCategory}.`);
+        setModerationNote(`Updated startup info for "${startupName}".`);
       }
       await refreshAdminData(sessionToken);
     } catch (error) {
@@ -469,6 +538,8 @@ export default function AdminPage() {
       setEmbedStartupId("");
       setEmbedStartupName("");
       setEmbedCategory("");
+      setEmbedSocialTwitter("");
+      setEmbedSocialInstagram("");
       await refreshAdminData(sessionToken);
     } catch (error) {
       setEmbedError(errorMessage(error, "Unable to delete startup."));
@@ -659,6 +730,8 @@ export default function AdminPage() {
                   if (selected?.category) {
                     setEmbedCategory(selected.category);
                   }
+                  setEmbedSocialTwitter(selected?.social_twitter ?? "");
+                  setEmbedSocialInstagram(selected?.social_instagram ?? "");
                 }}
                 disabled={!sessionToken || hasActionInFlight}
               >
@@ -705,6 +778,30 @@ export default function AdminPage() {
                   <option key={`category-${category}`} value={category} />
                 ))}
               </datalist>
+            </div>
+            <div className="form-field">
+              <label>X / Twitter URL (optional)</label>
+              <input
+                type="text"
+                placeholder="https://x.com/yourhandle"
+                value={embedSocialTwitter}
+                onChange={(event) =>
+                  setEmbedSocialTwitter(event.target.value.slice(0, SOCIAL_LINK_MAX_LENGTH))
+                }
+                disabled={!sessionToken || hasActionInFlight}
+              />
+            </div>
+            <div className="form-field">
+              <label>Instagram URL (optional)</label>
+              <input
+                type="text"
+                placeholder="https://instagram.com/yourhandle"
+                value={embedSocialInstagram}
+                onChange={(event) =>
+                  setEmbedSocialInstagram(event.target.value.slice(0, SOCIAL_LINK_MAX_LENGTH))
+                }
+                disabled={!sessionToken || hasActionInFlight}
+              />
             </div>
             <div className="form-field">
               <label>Instagram URL / shorthand</label>
@@ -757,6 +854,11 @@ export default function AdminPage() {
                 const categoryActionId = `category-save-queue-${item.startup_id}`;
                 const approveDisabled = hasActionInFlight || isProcessing;
                 const rejectDisabled = hasActionInFlight;
+                const socialDraft = socialDraftValue(
+                  item.startup_id,
+                  item.social_twitter,
+                  item.social_instagram
+                );
 
                 return (
                   <div className="admin-row" key={item.pitch_id}>
@@ -787,6 +889,32 @@ export default function AdminPage() {
                           value={categoryDraftValue(item.startup_id, item.category)}
                           onChange={(event) =>
                             handleCategoryDraftChange(item.startup_id, event.target.value)
+                          }
+                          disabled={!sessionToken || hasActionInFlight}
+                        />
+                      </div>
+                      <div className="admin-inline-category">
+                        <label htmlFor={`queue-social-twitter-${item.pitch_id}`}>X / Twitter URL</label>
+                        <input
+                          id={`queue-social-twitter-${item.pitch_id}`}
+                          type="text"
+                          placeholder="https://x.com/..."
+                          value={socialDraft.twitter}
+                          onChange={(event) =>
+                            handleSocialDraftChange(item.startup_id, "twitter", event.target.value)
+                          }
+                          disabled={!sessionToken || hasActionInFlight}
+                        />
+                      </div>
+                      <div className="admin-inline-category">
+                        <label htmlFor={`queue-social-instagram-${item.pitch_id}`}>Instagram URL</label>
+                        <input
+                          id={`queue-social-instagram-${item.pitch_id}`}
+                          type="text"
+                          placeholder="https://instagram.com/..."
+                          value={socialDraft.instagram}
+                          onChange={(event) =>
+                            handleSocialDraftChange(item.startup_id, "instagram", event.target.value)
                           }
                           disabled={!sessionToken || hasActionInFlight}
                         />
@@ -856,11 +984,13 @@ export default function AdminPage() {
                             item.startup_id,
                             item.startup_name,
                             item.category,
+                            item.social_twitter,
+                            item.social_instagram,
                             "queue"
                           )
                         }
                       >
-                        {actionId === categoryActionId ? "Saving…" : "Save category"}
+                        {actionId === categoryActionId ? "Saving…" : "Save startup info"}
                       </button>
                     </div>
                   </div>
@@ -888,6 +1018,11 @@ export default function AdminPage() {
                 const removeActionId = `mod-remove-${item.pitch_id}`;
                 const blockActionId = `mod-block-${item.startup_id}`;
                 const categoryActionId = `category-save-moderation-${item.startup_id}`;
+                const socialDraft = socialDraftValue(
+                  item.startup_id,
+                  item.social_twitter,
+                  item.social_instagram
+                );
 
                 return (
                   <div className="admin-row" key={`mod-${item.pitch_id}`}>
@@ -916,6 +1051,32 @@ export default function AdminPage() {
                           value={categoryDraftValue(item.startup_id, item.category)}
                           onChange={(event) =>
                             handleCategoryDraftChange(item.startup_id, event.target.value)
+                          }
+                          disabled={!sessionToken || hasActionInFlight}
+                        />
+                      </div>
+                      <div className="admin-inline-category">
+                        <label htmlFor={`mod-social-twitter-${item.pitch_id}`}>X / Twitter URL</label>
+                        <input
+                          id={`mod-social-twitter-${item.pitch_id}`}
+                          type="text"
+                          placeholder="https://x.com/..."
+                          value={socialDraft.twitter}
+                          onChange={(event) =>
+                            handleSocialDraftChange(item.startup_id, "twitter", event.target.value)
+                          }
+                          disabled={!sessionToken || hasActionInFlight}
+                        />
+                      </div>
+                      <div className="admin-inline-category">
+                        <label htmlFor={`mod-social-instagram-${item.pitch_id}`}>Instagram URL</label>
+                        <input
+                          id={`mod-social-instagram-${item.pitch_id}`}
+                          type="text"
+                          placeholder="https://instagram.com/..."
+                          value={socialDraft.instagram}
+                          onChange={(event) =>
+                            handleSocialDraftChange(item.startup_id, "instagram", event.target.value)
                           }
                           disabled={!sessionToken || hasActionInFlight}
                         />
@@ -956,11 +1117,13 @@ export default function AdminPage() {
                             item.startup_id,
                             item.startup_name,
                             item.category,
+                            item.social_twitter,
+                            item.social_instagram,
                             "moderation"
                           )
                         }
                       >
-                        {actionId === categoryActionId ? "Saving…" : "Save category"}
+                        {actionId === categoryActionId ? "Saving…" : "Save startup info"}
                       </button>
                       <button
                         type="button"

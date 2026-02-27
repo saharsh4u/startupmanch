@@ -18,6 +18,14 @@ const parseStatus = (raw: string | null) => {
   return "approved";
 };
 
+const readSocialLink = (rawLinks: unknown, key: "twitter" | "instagram") => {
+  if (!rawLinks || typeof rawLinks !== "object" || Array.isArray(rawLinks)) return null;
+  const rawValue = (rawLinks as Record<string, unknown>)[key];
+  if (typeof rawValue !== "string") return null;
+  const trimmed = rawValue.trim();
+  return trimmed.length ? trimmed : null;
+};
+
 export async function GET(request: Request) {
   const authContext = await getOperatorAuthContext(request);
   if (!authContext || !requireRole(authContext, ["admin"])) {
@@ -30,7 +38,7 @@ export async function GET(request: Request) {
 
   let query = supabaseAdmin
     .from("startups")
-    .select("id,name,status,category,city,created_at")
+    .select("id,name,status,category,city,social_links,created_at")
     .order("name", { ascending: true })
     .limit(limit);
 
@@ -50,6 +58,8 @@ export async function GET(request: Request) {
       status: item.status ?? null,
       category: item.category ?? null,
       city: item.city ?? null,
+      social_twitter: readSocialLink(item.social_links, "twitter"),
+      social_instagram: readSocialLink(item.social_links, "instagram"),
       created_at: item.created_at ?? null,
     })),
   });
