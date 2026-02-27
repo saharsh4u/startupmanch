@@ -42,6 +42,13 @@ export default function TopNav({
     window.location.assign("/about");
   };
 
+  const handleRoundtableClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (shouldUseBrowserDefault(event)) return;
+    event.preventDefault();
+    if (pathname === "/roundtable") return;
+    window.location.assign("/roundtable");
+  };
+
   return (
     <nav className="site-nav" aria-label="Primary">
       <div className="site-nav-row">
@@ -61,6 +68,9 @@ export default function TopNav({
           ))}
           <Link href="/about" onClick={handleAboutClick}>
             About
+          </Link>
+          <Link href="/roundtable" onClick={handleRoundtableClick}>
+            Roundtable
           </Link>
         </div>
         <div className="site-nav-search">

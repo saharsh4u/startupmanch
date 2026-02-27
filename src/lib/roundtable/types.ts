@@ -1,0 +1,122 @@
+export type RoundtableSessionStatus = "lobby" | "live" | "ended" | "cancelled";
+export type RoundtableTurnStatus = "queued" | "active" | "submitted" | "expired" | "skipped";
+export type RoundtableMemberState = "joined" | "left" | "kicked";
+
+export type RoundtableTopicRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  tags: string[] | null;
+  created_by_profile_id: string | null;
+  created_by_guest_id: string | null;
+  created_at: string;
+};
+
+export type RoundtableSessionRow = {
+  id: string;
+  topic_id: string;
+  status: RoundtableSessionStatus;
+  max_seats: number;
+  turn_duration_sec: number;
+  created_by_profile_id: string | null;
+  created_by_guest_id: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RoundtableMemberRow = {
+  id: string;
+  session_id: string;
+  seat_no: number;
+  profile_id: string | null;
+  guest_id: string | null;
+  display_name: string;
+  state: RoundtableMemberState;
+  joined_at: string;
+  left_at: string | null;
+};
+
+export type RoundtableRaiseHandRow = {
+  id: string;
+  session_id: string;
+  member_id: string;
+  status: "queued" | "resolved" | "cancelled";
+  queued_at: string;
+  resolved_at: string | null;
+};
+
+export type RoundtableTurnRow = {
+  id: string;
+  session_id: string;
+  member_id: string;
+  status: RoundtableTurnStatus;
+  body: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  submitted_at: string | null;
+  auto_submitted: boolean;
+  hidden_for_abuse: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RoundtableScoreRow = {
+  session_id: string;
+  member_id: string;
+  points: number;
+  approved_turns: number;
+  upvotes_received: number;
+  useful_marks: number;
+  violations: number;
+  updated_at: string;
+};
+
+export type RoundtableSessionSummary = {
+  session_id: string;
+  topic_id: string;
+  topic_title: string;
+  topic_description: string | null;
+  tags: string[];
+  status: RoundtableSessionStatus;
+  turn_duration_sec: number;
+  max_seats: number;
+  seats_taken: number;
+  created_at: string;
+};
+
+export type RoundtableLeaderboardEntry = {
+  member_id: string;
+  display_name: string;
+  points: number;
+  approved_turns: number;
+  upvotes_received: number;
+  useful_marks: number;
+};
+
+export type RoundtableSessionSnapshot = {
+  session: RoundtableSessionSummary;
+  topic: {
+    id: string;
+    title: string;
+    description: string | null;
+    tags: string[];
+  };
+  members: RoundtableMemberRow[];
+  queue: Array<RoundtableTurnRow & { member_display_name: string }>;
+  active_turn: (RoundtableTurnRow & { member_display_name: string }) | null;
+  recent_turns: Array<RoundtableTurnRow & { member_display_name: string }>;
+  scores: Array<RoundtableScoreRow & { member_display_name: string }>;
+};
+
+export type RoundtableActor = {
+  profileId: string | null;
+  guestId: string | null;
+  displayName: string | null;
+};
+
+export type RoundtableLobbyResponse = {
+  sessions: RoundtableSessionSummary[];
+  leaderboard: RoundtableLeaderboardEntry[];
+};
