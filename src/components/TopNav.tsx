@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { MouseEvent } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
 import { POST_PITCH_FALLBACK_HREF, openPostPitchFlow } from "@/lib/post-pitch";
 
@@ -19,23 +19,27 @@ export default function TopNav({
   showPostPitch = true,
   onPostPitch,
 }: TopNavProps) {
-  const router = useRouter();
   const pathname = usePathname();
 
+  const shouldUseBrowserDefault = (event: MouseEvent<HTMLAnchorElement>) =>
+    event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+
   const handleLeaderboardClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (shouldUseBrowserDefault(event)) return;
     event.preventDefault();
     if (context === "home") {
       const behavior = prefersReducedMotion() ? "auto" : "smooth";
       const didScroll = scrollToAnchorId("leaderboard-block", { behavior, updateHash: true });
       if (didScroll) return;
     }
-    router.push("/#leaderboard-block");
+    window.location.assign("/#leaderboard-block");
   };
 
   const handleAboutClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (shouldUseBrowserDefault(event)) return;
     event.preventDefault();
     if (pathname === "/about") return;
-    router.push("/about");
+    window.location.assign("/about");
   };
 
   return (
