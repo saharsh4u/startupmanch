@@ -85,17 +85,6 @@ const toExternalUrl = (value: string | null | undefined): string | null => {
   return `https://${trimmed}`;
 };
 
-function XLogo() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path
-        d="M18.244 2H21l-6.56 7.49L22.5 22h-6.31l-4.94-6.45L5.6 22H2.84l7.02-8.02L1.5 2h6.47l4.46 5.89L18.244 2zm-1.11 18h1.53L7.89 3.9H6.26L17.134 20z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 function InstagramLogo() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -436,10 +425,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     if (!website) return null;
     return toExternalUrl(website);
   }, [website]);
-  const twitterUrl = useMemo(
-    () => toExternalUrl(detail?.startup.social_links?.twitter ?? null),
-    [detail?.startup.social_links?.twitter]
-  );
   const instagramUrl = useMemo(
     () => toExternalUrl(detail?.startup.social_links?.instagram ?? detail?.pitch.instagram_url ?? null),
     [detail?.pitch.instagram_url, detail?.startup.social_links?.instagram]
@@ -704,26 +689,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 Share
               </button>
               <div className="trust-social-links" aria-label="Startup social links">
-                {twitterUrl ? (
-                  <a
-                    className="trust-social-link"
-                    href={twitterUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    aria-label="Open X profile"
-                    title="Open X"
-                  >
-                    <XLogo />
-                  </a>
-                ) : (
-                  <span
-                    className="trust-social-link is-disabled"
-                    aria-label="X profile not available"
-                    title="X link not added"
-                  >
-                    <XLogo />
-                  </span>
-                )}
                 {instagramUrl ? (
                   <a
                     className="trust-social-link"
