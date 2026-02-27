@@ -8519,6 +8519,13 @@ body {
   color: #f4f4f8;
 }
 
+.page-home .about-section h3,
+.about-page .about-section h3 {
+  margin: 10px 0 0;
+  font-size: clamp(1.08rem, 1.8vw, 1.35rem);
+  color: #f4f4f8;
+}
+
 .page-home .about-section-copy,
 .about-page .about-section-copy {
   margin-top: 14px;
