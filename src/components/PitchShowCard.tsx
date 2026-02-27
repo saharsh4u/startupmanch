@@ -77,7 +77,7 @@ export default function PitchShowCard({
     setLocalComments(Number.isFinite(Number(pitch.comments)) ? Number(pitch.comments) : 0);
   }, [pitch.comments, pitch.downvotes, pitch.id, pitch.upvotes]);
 
-  const label = `Pitch: ${pitch.name}, 60s`;
+  const label = `Video: ${pitch.name}, 60s`;
   const score = Number.isFinite(Number(pitch.score)) ? Number(pitch.score) : 0;
   const upvotes = localUpvotes;
   const comments = localComments;
@@ -173,9 +173,6 @@ export default function PitchShowCard({
         </div>
       )}
       <div className={`pitch-show-overlay ${variant === "hot" ? "on-dark" : "on-light"}`}>
-        <div className="pitch-show-topline">
-          <span className="pitch-show-badge">60s pitch</span>
-        </div>
         <div className="pitch-show-text">
           <h4>{pitch.name}</h4>
           <p>{pitch.tagline}</p>
@@ -241,7 +238,7 @@ export default function PitchShowCard({
             </div>
           </div>
         ) : null}
-        {variant === "hot" ? <div className="pitch-show-playghost">▶</div> : <div className="pitch-show-footer">Pitch Preview</div>}
+        {variant === "hot" ? <div className="pitch-show-playghost">▶</div> : <div className="pitch-show-footer">Video Preview</div>}
       </div>
       <ContactModal ref={dialogRef} pitch={pitch} />
     </article>

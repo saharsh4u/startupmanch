@@ -252,7 +252,7 @@ export default function StartupEditClient() {
             <h2>Cannot load your startup profiles</h2>
             <p>{error}</p>
             <Link href={POST_PITCH_FALLBACK_HREF} className="trust-action ghost">
-              Open post pitch form
+              Open post video form
             </Link>
           </section>
         ) : null}
@@ -260,9 +260,9 @@ export default function StartupEditClient() {
         {!error && startups.length === 0 ? (
           <section className="startup-profile-error">
             <h2>No startup found for this account</h2>
-            <p>Create your first startup by posting a pitch.</p>
+            <p>Create your first startup by posting a video.</p>
             <Link href={POST_PITCH_FALLBACK_HREF} className="trust-action primary">
-              Post a pitch
+              Post a video
             </Link>
           </section>
         ) : null}

@@ -30,7 +30,7 @@ type DraftPayload = {
 const DRAFT_STORAGE_KEY = "post_pitch_modal_draft_v1";
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const AUTH_UNAVAILABLE_MESSAGE = "Sign-in is temporarily unavailable. Please try again shortly.";
-const SUCCESS_MESSAGE = "Pitch submitted. It should appear in the feed shortly.";
+const SUCCESS_MESSAGE = "Video submitted. It should appear in the feed shortly.";
 const RAZORPAY_KEYS_URL = "https://dashboard.razorpay.com/app/keys";
 
 const readErrorMessage = async (response: Response, fallbackMessage: string) => {
@@ -364,7 +364,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
 
 
     if (!videoFile) {
-      nextErrors.pitchVideo = "Pitch video is required.";
+      nextErrors.pitchVideo = "Video is required.";
     } else if (videoFile.size > MAX_VIDEO_BYTES) {
       nextErrors.pitchVideo = "Video is too large. Max 50MB.";
     }
@@ -384,7 +384,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
     });
     if (!isAuthed) {
       setSubmitStatus("error");
-      setSubmitMessage("Sign in to submit your pitch.");
+      setSubmitMessage("Sign in to submit your video.");
       return;
     }
     if (!validateForm()) {
@@ -477,7 +477,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
         }),
       });
       if (!pitchRes.ok) {
-        throw new Error(await readErrorMessage(pitchRes, "Pitch creation failed."));
+        throw new Error(await readErrorMessage(pitchRes, "Video creation failed."));
       }
 
       const pitchPayload = (await pitchRes.json()) as {
@@ -485,7 +485,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
       };
       const videoSignedUrl = pitchPayload.uploads?.video?.signedUrl;
       if (!videoSignedUrl || !videoFile) {
-        throw new Error("Pitch video upload URL missing.");
+        throw new Error("Video upload URL missing.");
       }
 
       await uploadToSignedUrl(videoSignedUrl, videoFile);
@@ -502,7 +502,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
       onSuccess?.(SUCCESS_MESSAGE);
       onClose();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to submit pitch.";
+      const message = error instanceof Error ? error.message : "Unable to submit video.";
       setSubmitStatus("error");
       setSubmitMessage(message);
     }
@@ -529,7 +529,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
           type="button"
           className="post-pitch-modal-close"
           onClick={onClose}
-          aria-label="Close post pitch modal"
+          aria-label="Close post video modal"
         >
           Close
         </button>
@@ -544,7 +544,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
         </header>
 
         <div className="post-pitch-modal-grid">
-          <section className="post-pitch-modal-media" aria-label="Pitch media">
+          <section className="post-pitch-modal-media" aria-label="Video media">
             <h4 className="post-pitch-section-title">Upload Video</h4>
             <input
               ref={videoInputRef}
@@ -580,7 +580,7 @@ export default function PostPitchModal({ open, onClose, onSuccess }: PostPitchMo
 
           </section>
 
-          <section className="post-pitch-modal-form" aria-label="Pitch details">
+          <section className="post-pitch-modal-form" aria-label="Video details">
             <div className="post-pitch-auth-card">
               <div className="post-pitch-auth-head">
                 <h4>Sign in</h4>

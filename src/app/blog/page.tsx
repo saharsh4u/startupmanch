@@ -12,14 +12,14 @@ const posts = getAllPostsMeta();
 export const metadata: Metadata = {
   title: "StartupManch Blog | Founder & Investor Insights",
   description:
-    "Practical startup fundraising, pitch, and investor insights for India-focused founders and operators.",
+    "Practical startup fundraising, storytelling, and investor insights for India-focused founders and operators.",
   alternates: {
     canonical: "/blog",
   },
   openGraph: {
     title: "StartupManch Blog | Founder & Investor Insights",
     description:
-      "Practical startup fundraising, pitch, and investor insights for India-focused founders and operators.",
+      "Practical startup fundraising, storytelling, and investor insights for India-focused founders and operators.",
     url: toAbsoluteSiteUrl("/blog"),
     type: "website",
   },
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "StartupManch Blog",
     description:
-      "Practical startup fundraising, pitch, and investor insights for India-focused founders and operators.",
+      "Practical startup fundraising, storytelling, and investor insights for India-focused founders and operators.",
   },
 };
 
@@ -40,7 +40,7 @@ export default function BlogIndexPage() {
           <p className="blog-kicker">StartupManch Blog</p>
           <h1>Founder and investor growth insights</h1>
           <p>
-            Tactical playbooks for pitch quality, investor outreach, and startup distribution in India.
+            Tactical playbooks for video quality, investor outreach, and startup distribution in India.
           </p>
         </header>
 

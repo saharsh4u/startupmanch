@@ -160,7 +160,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const handleVideoEnded = useCallback(() => {
     if (pitches.length <= 1) return;
     const nextIndex = index >= pitches.length - 1 ? 0 : index + 1;
-    const nextPitchName = pitches[nextIndex]?.name ?? "Next pitch";
+    const nextPitchName = pitches[nextIndex]?.name ?? "Next video";
 
     if (index === pitches.length - 1) {
       clearUpNext();
@@ -271,7 +271,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
           cache: "no-store",
           signal: detailAbort.signal,
         });
-        if (!res.ok) throw new Error("Unable to load pitch details");
+        if (!res.ok) throw new Error("Unable to load details");
         const payload = (await res.json()) as PitchDetail;
         if (!active) return;
         setDetail(payload);
@@ -556,7 +556,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       <div
         className="expand-shell"
         role="dialog"
-        aria-label={`Expanded pitch ${pitch.name}`}
+        aria-label={`Expanded video ${pitch.name}`}
         aria-modal="true"
         tabIndex={-1}
         ref={dialogRef}
@@ -571,7 +571,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
             <button
               className="expand-nav prev"
               onClick={goPrev}
-              aria-label="Previous pitch"
+              aria-label="Previous video"
               disabled={index === 0}
               style={isMobile ? { top: "auto", bottom: 14, transform: "none" } : undefined}
             >
@@ -580,7 +580,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
             <button
               className="expand-nav next"
               onClick={goNext}
-              aria-label="Next pitch"
+              aria-label="Next video"
               style={isMobile ? { top: "auto", bottom: 14, transform: "none" } : undefined}
             >
               ›
@@ -589,7 +589,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
         )}
 
         <div className="expand-layout">
-          <div className="expand-video expand-video-mobile" aria-label="Pitch video">
+          <div className="expand-video expand-video-mobile" aria-label="Startup video">
             {!showVideoFallback ? (
               <video
                 key={videoSrc ?? "pitch-video"}
@@ -625,9 +625,9 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
             ) : null}
           </div>
 
-          <div className="expand-info expand-info-mobile" aria-label="Founder and pitch details">
+          <div className="expand-info expand-info-mobile" aria-label="Founder and startup details">
             <div className="expand-meta-toprow">
-              <div className="pitch-show-badge">Pitch</div>
+              <div className="pitch-show-badge">Video</div>
               <span className="expand-counter" aria-live="polite">
                 {index + 1} / {pitches.length}
               </span>
@@ -668,13 +668,13 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               {shareFeedback ? <span className="trust-action-feedback">{shareFeedback}</span> : null}
             </div>
 
-            <div className="expand-engagement" aria-label="Pitch engagement">
+            <div className="expand-engagement" aria-label="Video engagement">
               <button
                 type="button"
                 className="expand-engage-btn"
                 onClick={() => void handleVote("in")}
                 disabled={!canFetchPitchDetails}
-                aria-label="Upvote pitch"
+                aria-label="Upvote video"
               >
                 ▲ <span>{inCount}</span>
               </button>
@@ -683,7 +683,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 className="expand-engage-btn"
                 onClick={() => void handleVote("out")}
                 disabled={!canFetchPitchDetails}
-                aria-label="Downvote pitch"
+                aria-label="Downvote video"
               >
                 ▼ <span>{outCount}</span>
               </button>

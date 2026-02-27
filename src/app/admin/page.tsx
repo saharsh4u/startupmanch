@@ -286,7 +286,7 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(payload.error ?? "Action failed.");
 
       if (payload?.status === "queued_for_transcode") {
-        setQueueNote("Queued for Mux transcode. This pitch will auto-approve once processing finishes.");
+        setQueueNote("Queued for Mux transcode. This video will auto-approve once processing finishes.");
       }
       await refreshAdminData(sessionToken);
     } catch (error) {
@@ -445,7 +445,7 @@ export default function AdminPage() {
     const startupLabel = startup?.name ?? startupInput.name ?? "this startup";
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
-        `Delete ${startupLabel} permanently from database? This also deletes its pitches.`
+        `Delete ${startupLabel} permanently from database? This also deletes its videos.`
       );
       if (!confirmed) return;
     }
@@ -493,7 +493,7 @@ export default function AdminPage() {
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error ?? "Retry failed.");
       if (payload?.status === "queued_for_transcode") {
-        setQueueNote("Retry queued. This pitch will auto-approve once processing finishes.");
+        setQueueNote("Retry queued. This video will auto-approve once processing finishes.");
       }
       await refreshAdminData(sessionToken);
     } catch (error) {
@@ -540,7 +540,7 @@ export default function AdminPage() {
     if (!sessionToken) return;
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
-        `Block startup "${item.startup_name}" and reject all of its pitches?`
+        `Block startup "${item.startup_name}" and reject all of its videos?`
       );
       if (!confirmed) return;
     }
@@ -744,7 +744,7 @@ export default function AdminPage() {
           {queueError ? <p className="submit-error">{queueError}</p> : null}
           {queueNote ? <p className="submit-note">{queueNote}</p> : null}
           {queue.length === 0 ? (
-            <p className="admin-empty">No pending pitches right now.</p>
+            <p className="admin-empty">No pending videos right now.</p>
           ) : (
             <div className="admin-list">
               {queue.map((item) => {
@@ -767,7 +767,7 @@ export default function AdminPage() {
                       </p>
                       <p className="admin-email">{item.founder_email ?? "Founder email unknown"}</p>
                       <div className="admin-tags">
-                        <span>Pitch: {item.pitch_type}</span>
+                        <span>Video type: {item.pitch_type}</span>
                         {item.duration_sec ? <span>{item.duration_sec}s</span> : null}
                         {item.ask ? <span>Ask {item.ask}</span> : null}
                         {item.equity ? <span>{item.equity} equity</span> : null}
@@ -876,12 +876,12 @@ export default function AdminPage() {
             <span>{moderation.length} live videos</span>
           </div>
           <p className="admin-section-note">
-            Take down scam, porn, or abusive videos instantly. Use block startup to reject all its pitches.
+            Take down scam, porn, or abusive videos instantly. Use block startup to reject all its videos.
           </p>
           {moderationError ? <p className="submit-error">{moderationError}</p> : null}
           {moderationNote ? <p className="submit-note">{moderationNote}</p> : null}
           {moderation.length === 0 ? (
-            <p className="admin-empty">No approved pitches available for moderation right now.</p>
+            <p className="admin-empty">No approved videos available for moderation right now.</p>
           ) : (
             <div className="admin-list">
               {moderation.map((item) => {

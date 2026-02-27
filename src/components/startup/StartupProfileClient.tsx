@@ -295,7 +295,7 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
         {profile.latest_pitch ? (
           <section className="startup-video-section">
             <div className="startup-video-head">
-              <h3>Latest approved pitch</h3>
+              <h3>Latest approved video</h3>
               <p className="metric-note">Approved: {formatRelativeDate(profile.latest_pitch.approved_at)}</p>
             </div>
             {profile.latest_pitch.video_url ? (
@@ -316,7 +316,7 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
                     : undefined,
                 }}
               >
-                <span>Pitch video unavailable</span>
+                <span>Video unavailable</span>
               </div>
             )}
             <div className="startup-video-meta">

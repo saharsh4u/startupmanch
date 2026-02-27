@@ -163,18 +163,18 @@ const hotCinemaFlatOffsets = [0, 0, 0, 0] as const;
 const slotOpenCopyVariants = [
   {
     title: "Your startup could be here.",
-    description: "Pitch in 60 seconds. Get discovered.",
-    cta: "Submit Your Pitch",
+    description: "Share in 60 seconds. Get discovered.",
+    cta: "Submit Your Startup",
   },
   {
     title: "Next big idea goes here.",
     description: "Investors are watching.",
-    cta: "Pitch Now",
+    cta: "Submit Now",
   },
   {
-    title: "Don't scroll. Pitch.",
-    description: "Pitch in 60 seconds. Get discovered.",
-    cta: "Pitch Now",
+    title: "Don't scroll. Build.",
+    description: "Share in 60 seconds. Get discovered.",
+    cta: "Submit Now",
   },
 ] as const;
 
@@ -263,7 +263,7 @@ const hotCinemaPosClassForDistance = (distance: number) => `pos-${Math.min(3, Ma
 const getErrorMessage = (error: unknown) => {
   if (error instanceof DOMException && error.name === "AbortError") return null;
   if (error instanceof Error && error.message.trim().length) return error.message;
-  return "Unable to load more pitches.";
+  return "Unable to load more videos.";
 };
 
 const wrapIndex = (value: number, length: number) => {
@@ -468,7 +468,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       id: item.pitch_id ?? `pitch-${seedIndex}`,
       startupId: item.startup_id ?? null,
       name: item.startup_name ?? "Startup",
-      tagline: item.one_liner ?? item.category ?? "New pitch",
+      tagline: item.one_liner ?? item.category ?? "New video",
       poster: item.poster_url ?? item.founder_photo_url ?? fallbackPoster,
       video: item.video_url ?? null,
       instagramUrl: item.instagram_url ?? null,
@@ -503,7 +503,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         });
 
         if (!response.ok) {
-          throw new Error("Unable to load pitches.");
+          throw new Error("Unable to load videos.");
         }
 
         const payload = (await response.json()) as FeedResponsePayload;
@@ -878,7 +878,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         if (items.length === 1) {
           setLiveToast(`${items[0]?.startup_name ?? "Startup"} just went live`);
         } else {
-          setLiveToast(`${items.length} new pitches just went live`);
+          setLiveToast(`${items.length} new videos just went live`);
         }
       } catch {
         // Keep existing UI and retry on next poll.
@@ -2049,7 +2049,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           ["--slot-accent" as string]: accent,
           ["--reveal-delay" as string]: `${revealDelayMs}ms`,
         }}
-        aria-label="Submit your pitch"
+        aria-label="Submit your startup"
         onClick={(event) => {
           event.preventDefault();
           if (onPostPitch) {
@@ -2065,7 +2065,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   };
 
   const statusMessage = loadingInitial
-    ? "Loading pitches…"
+    ? "Loading videos…"
     : loadError
       ? loadError
       : SLOT_UPGRADE_ENABLED && isRefreshingApprovals
@@ -2081,8 +2081,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         <div className="pitch-empty">
           <p className="pitch-subtext">
             {selectedCategory
-              ? `No pitches found in ${selectedCategory}. Try another category or All.`
-              : "No pitches available right now. Please check back soon."}
+              ? `No videos found in ${selectedCategory}. Try another category or All.`
+              : "No videos available right now. Please check back soon."}
           </p>
         </div>
       ) : (
@@ -2092,7 +2092,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               <div className="pitch-header">
                 <div className="pitch-header-spacer" aria-hidden="true" />
                 <div className="pitch-header-copy">
-                  <p className="pitch-kicker">Hot Pitches</p>
+                  <p className="pitch-kicker">Hot Videos</p>
                   <h3>Today&apos;s top 4</h3>
                   <p className="pitch-subtext">Featured by votes and freshness.</p>
                 </div>
@@ -2137,7 +2137,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                   />
                   <div
                     className={`hot-cinema-track${hotCarouselDragging ? " is-dragging" : ""}${hotCarouselWheeling ? " is-wheeling" : ""}`}
-                    aria-label="Hot pitches carousel"
+                    aria-label="Hot videos carousel"
                     onWheel={handleHotCarouselWheel}
                     onPointerDown={handleHotCarouselPointerDown}
                     onPointerMove={handleHotCarouselPointerMove}
@@ -2172,7 +2172,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                               zIndex,
                             } as CSSProperties
                           }
-                          aria-label={`Open pitch from ${pitch.name}`}
+                          aria-label={`Open video from ${pitch.name}`}
                           onClick={(event) => {
                             const clickTarget = event.target as HTMLElement | null;
                             const clickedPlayTrigger = Boolean(clickTarget?.closest(".hot-cinema-play-trigger"));
@@ -2210,8 +2210,8 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                           <span className="hot-cinema-info">
                             <span className="hot-cinema-title">{pitch.name}</span>
                             <span className="hot-cinema-meta">
-                              <span className="hot-cinema-meta-tag">{pitch.category ?? "Pitch"}</span>
-                              <span className="hot-cinema-meta-tag">60s pitch</span>
+                              <span className="hot-cinema-meta-tag">{pitch.category ?? "Video"}</span>
+                              <span className="hot-cinema-meta-tag">60s video</span>
                             </span>
                           </span>
                         </button>
@@ -2251,7 +2251,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               id="community-filter-drawer"
               className={`community-filter-drawer${isCommunityFilterOpen ? " is-open" : ""}`}
             >
-              <label className="community-search" aria-label="Search pitches">
+              <label className="community-search" aria-label="Search videos">
                 <span>⌕</span>
                 <input
                   value={searchTerm}

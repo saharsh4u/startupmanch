@@ -117,7 +117,6 @@ export default function PitchArenaCard({
         <div className="arena-poster" style={{ backgroundImage: `url(${pitch.poster})` }} />
       )}
       <div className="arena-overlay">
-        <span className="arena-badge">60s pitch</span>
         <div className="arena-text">
           <h4>{pitch.name}</h4>
           <p>{pitch.tagline}</p>
@@ -125,7 +124,7 @@ export default function PitchArenaCard({
         {variant === "mini" ? (
           <div className="arena-mini-meta">Preview</div>
         ) : (
-          <div className="arena-meta">Pitch Preview</div>
+          <div className="arena-meta">Video Preview</div>
         )}
       </div>
     </div>

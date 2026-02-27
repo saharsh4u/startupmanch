@@ -44,13 +44,13 @@ export default function PitchDrawer({ open, onClose }: PitchDrawerProps) {
           `/api/pitches?mode=feed&tab=${tab}&limit=${PAGE_SIZE}&offset=${nextOffset}`,
           { cache: "no-store" }
         );
-        if (!res.ok) throw new Error("Unable to load pitches.");
+        if (!res.ok) throw new Error("Unable to load videos.");
         const payload = await res.json();
         const data = (payload?.data ?? []) as ApiPitch[];
         const mapped = data.map((item, index) => ({
           id: item.pitch_id ?? `pitch-${nextOffset + index}`,
           name: item.startup_name ?? "Startup",
-          tagline: item.one_liner ?? item.category ?? "New pitch",
+          tagline: item.one_liner ?? item.category ?? "New video",
           poster: item.poster_url ?? `/pitches/pitch-0${((nextOffset + index) % 3) + 1}.svg?v=2`,
         }));
 
@@ -63,7 +63,7 @@ export default function PitchDrawer({ open, onClose }: PitchDrawerProps) {
         setHasMore(mapped.length === PAGE_SIZE);
         setOffset(nextOffset + mapped.length);
       } catch (err: any) {
-        setError(err.message ?? "Unable to load pitches.");
+        setError(err.message ?? "Unable to load videos.");
       } finally {
         setLoading(false);
       }
@@ -86,7 +86,7 @@ export default function PitchDrawer({ open, onClose }: PitchDrawerProps) {
       <div className="pitch-drawer-panel">
         <div className="pitch-drawer-header">
           <div>
-            <h3>All pitches</h3>
+            <h3>All videos</h3>
             <p>Trending across StartupManch</p>
           </div>
           <button type="button" className="drawer-close" onClick={onClose}>

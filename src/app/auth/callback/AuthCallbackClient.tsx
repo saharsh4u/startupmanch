@@ -135,7 +135,7 @@ export default function AuthCallbackClient() {
       <p className="submit-error">{errorText ?? "Authentication failed."}</p>
       <div className="submit-actions">
         <Link href={POST_PITCH_FALLBACK_HREF} className="ghost">
-          Back to post pitch
+          Back to post video
         </Link>
       </div>
     </section>
