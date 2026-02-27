@@ -11,9 +11,16 @@ type TopNavProps = {
   onPostPitch?: () => void;
 };
 
-const navAnchors = [
-  { id: "leaderboard-block", label: "Leaderboard" },
-] as const;
+type NavItem = {
+  label: string;
+  anchorId?: string;
+  href?: string;
+};
+
+const navItems: NavItem[] = [
+  { anchorId: "leaderboard-block", label: "Leaderboard" },
+  { href: "/about", label: "About" },
+];
 
 export default function TopNav({
   context = "home",
@@ -40,19 +47,23 @@ export default function TopNav({
           <span>StartupManch</span>
         </Link>
         <div className="site-nav-links">
-          {navAnchors.map((item) => (
-            <Link
-              key={item.id}
-              href={`${prefix}#${item.id}`}
-              onClick={
-                context === "home"
-                  ? (event) => handleHomeAnchorClick(event, item.id)
-                  : undefined
-              }
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const href = item.anchorId ? `${prefix}#${item.anchorId}` : item.href ?? "/";
+            const anchorId = item.anchorId;
+            return (
+              <Link
+                key={item.label}
+                href={href}
+                onClick={
+                  context === "home" && anchorId
+                    ? (event) => handleHomeAnchorClick(event, anchorId)
+                    : undefined
+                }
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </div>
         <div className="site-nav-search">
           <span>⌕</span>

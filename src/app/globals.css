@@ -8478,7 +8478,8 @@ body {
   }
 }
 
-.page-home .about-section {
+.page-home .about-section,
+.about-page .about-section {
   border: 1px solid #2f3138;
   border-radius: 22px;
   background:
@@ -8490,12 +8491,20 @@ body {
   padding: clamp(16px, 2.5vw, 26px);
 }
 
-.page-home .about-section-inner {
+.about-page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.page-home .about-section-inner,
+.about-page .about-section-inner {
   max-width: 74ch;
   margin: 0 auto;
 }
 
-.page-home .about-section-kicker {
+.page-home .about-section-kicker,
+.about-page .about-section-kicker {
   margin: 0 0 8px;
   font-size: 0.74rem;
   letter-spacing: 0.1em;
@@ -8503,26 +8512,30 @@ body {
   color: rgba(229, 229, 233, 0.72);
 }
 
-.page-home .about-section h2 {
+.page-home .about-section h2,
+.about-page .about-section h2 {
   margin: 0;
   font-size: clamp(1.3rem, 2.3vw, 2rem);
   color: #f4f4f8;
 }
 
-.page-home .about-section-copy {
+.page-home .about-section-copy,
+.about-page .about-section-copy {
   margin-top: 14px;
   display: grid;
   gap: 8px;
 }
 
-.page-home .about-section-copy p {
+.page-home .about-section-copy p,
+.about-page .about-section-copy p {
   margin: 0;
   color: rgba(226, 228, 236, 0.93);
   font-size: clamp(0.95rem, 1.5vw, 1.02rem);
   line-height: 1.58;
 }
 
-.page-home .about-section-copy strong {
+.page-home .about-section-copy strong,
+.about-page .about-section-copy strong {
   color: #ffffff;
 }
 

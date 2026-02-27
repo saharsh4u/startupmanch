@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import AboutSection from "@/components/AboutSection";
 import HomeHero from "@/components/HomeHero";
 import PostPitchModal from "@/components/PostPitchModal";
 import PitchFeed from "@/components/PitchFeed";
@@ -70,9 +69,6 @@ export default function HomeCenterPanel() {
     <>
       <TopNav context="home" showPostPitch onPostPitch={() => setPostPitchOpen(true)} />
       <HomeHero onPostPitch={() => setPostPitchOpen(true)} />
-      <div id="about-block" className="anchor-block">
-        <AboutSection />
-      </div>
       <div id="top-rated-block" className="anchor-block">
         <PitchFeed onPostPitch={() => setPostPitchOpen(true)} />
       </div>
