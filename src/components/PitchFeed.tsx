@@ -1142,6 +1142,26 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       return communityRailCarryRef.current;
     };
 
+    const getPrimarySegmentWidth = (rail: HTMLDivElement) => {
+      const segment = rail.querySelector<HTMLElement>('[data-segment="primary"]');
+      const width = segment?.scrollWidth ?? rail.scrollWidth / 2;
+      return Number.isFinite(width) ? Math.max(0, width) : 0;
+    };
+
+    const normalizeScrollLeft = (value: number, segmentWidth: number) => {
+      if (segmentWidth <= 0) return 0;
+      const wrapped = value % segmentWidth;
+      return wrapped >= 0 ? wrapped : wrapped + segmentWidth;
+    };
+
+    const railsAtStart = communityRailRefs.current.filter((node): node is HTMLDivElement => Boolean(node));
+    railsAtStart.forEach((rail, railIndex) => {
+      const segmentWidth = getPrimarySegmentWidth(rail);
+      if (segmentWidth <= rail.clientWidth + 1) return;
+      const initial = railIndex % 2 === 1 ? segmentWidth : 0;
+      rail.scrollLeft = Math.min(initial, rail.scrollWidth - rail.clientWidth);
+    });
+
     let rafId = 0;
     let lastTime = performance.now();
 
@@ -1163,32 +1183,21 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         }
 
         rails.forEach((rail, railIndex) => {
-          const halfWidth = rail.scrollWidth / 2;
-          if (halfWidth <= rail.clientWidth + 1) {
+          const segmentWidth = getPrimarySegmentWidth(rail);
+          if (segmentWidth <= rail.clientWidth + 1) {
             carry[railIndex] = 0;
             return;
           }
 
           const direction = railIndex % 2 === 1 ? -1 : 1;
-          if (direction > 0 && rail.scrollLeft <= 0) {
-            rail.scrollLeft = 1;
-          } else if (direction < 0 && rail.scrollLeft <= 1) {
-            rail.scrollLeft = Math.max(1, halfWidth - 1);
-          }
-
+          rail.scrollLeft = normalizeScrollLeft(rail.scrollLeft, segmentWidth);
           const speedPxPerMs = 0.058 + railIndex * 0.006;
           const nextCarry = (carry[railIndex] ?? 0) + direction * speedPxPerMs * deltaMs;
           const wholePixels = nextCarry >= 0 ? Math.floor(nextCarry) : Math.ceil(nextCarry);
           carry[railIndex] = nextCarry - wholePixels;
           if (wholePixels === 0) return;
 
-          let nextLeft = rail.scrollLeft + wholePixels;
-          if (direction > 0) {
-            while (nextLeft >= halfWidth) nextLeft -= halfWidth;
-          } else {
-            while (nextLeft <= 0) nextLeft += halfWidth;
-          }
-
+          const nextLeft = normalizeScrollLeft(rail.scrollLeft + wholePixels, segmentWidth);
           rail.scrollLeft = nextLeft;
         });
       }

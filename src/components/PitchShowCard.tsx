@@ -46,11 +46,27 @@ export default function PitchShowCard({
   const [engagementBusy, setEngagementBusy] = useState(false);
   const shouldLazyVideo = size === "row" || size === "mini";
   const [shouldLoadVideo, setShouldLoadVideo] = useState(!shouldLazyVideo);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.muted = true;
   }, [pitch.video]);
+
+  useEffect(() => {
+    setVideoReady(false);
+    setVideoFailed(false);
+  }, [pitch.id, pitch.video, shouldLoadVideo]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+    return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
 
   useEffect(() => {
     if (!shouldLazyVideo) return;
@@ -64,12 +80,30 @@ export default function PitchShowCard({
           observer.disconnect();
         }
       },
-      { threshold: 0.35 }
+      {
+        threshold: 0.12,
+        rootMargin: "260px 80px 260px 80px",
+      }
     );
 
     observer.observe(node);
     return () => observer.disconnect();
   }, [shouldLazyVideo, pitch.id]);
+
+  useEffect(() => {
+    if (!shouldLoadVideo || !pitch.video) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const replay = () => {
+      video.play().catch(() => undefined);
+    };
+    if (video.readyState >= 2) {
+      replay();
+      return;
+    }
+    video.addEventListener("canplay", replay, { once: true });
+    return () => video.removeEventListener("canplay", replay);
+  }, [pitch.id, pitch.video, shouldLoadVideo]);
 
   useEffect(() => {
     setLocalUpvotes(Number.isFinite(Number(pitch.upvotes)) ? Number(pitch.upvotes) : 0);
@@ -146,19 +180,7 @@ export default function PitchShowCard({
           : undefined
       }
     >
-      {pitch.video && shouldLoadVideo ? (
-        <video
-          ref={videoRef}
-          className="pitch-show-media"
-          src={pitch.video}
-          poster={pitch.poster}
-          muted
-          playsInline
-          autoPlay
-          loop
-          preload={shouldLazyVideo ? "metadata" : "auto"}
-        />
-      ) : (
+      {!videoReady || videoFailed || !pitch.video || !shouldLoadVideo ? (
         <div
           className={`pitch-show-media ${variant === "hot" ? "on-dark" : "on-light"}`}
           style={{
@@ -171,7 +193,23 @@ export default function PitchShowCard({
         >
           {!pitch.poster ? <span className="pitch-placeholder">Poster pending</span> : null}
         </div>
-      )}
+      ) : null}
+      {pitch.video && shouldLoadVideo && !videoFailed ? (
+        <video
+          ref={videoRef}
+          className={`pitch-show-media pitch-show-media-video ${videoReady ? "is-ready" : "is-loading"}`}
+          src={pitch.video}
+          poster={pitch.poster}
+          muted
+          playsInline
+          autoPlay
+          loop
+          preload={shouldLazyVideo && !isMobileViewport ? "metadata" : "auto"}
+          onLoadedData={() => setVideoReady(true)}
+          onCanPlay={() => setVideoReady(true)}
+          onError={() => setVideoFailed(true)}
+        />
+      ) : null}
       <div className={`pitch-show-overlay ${variant === "hot" ? "on-dark" : "on-light"}`}>
         <div className="pitch-show-text">
           <h4>{pitch.name}</h4>

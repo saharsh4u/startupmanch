@@ -1895,6 +1895,18 @@ button:disabled {
   filter: saturate(1.05) contrast(1.05);
 }
 
+.pitch-show-media-video {
+  transition: opacity 0.2s ease;
+}
+
+.pitch-show-media-video.is-loading {
+  opacity: 0;
+}
+
+.pitch-show-media-video.is-ready {
+  opacity: 1;
+}
+
 .pitch-show-media.instagram-frame {
   border: 0;
   background: #090a10;
@@ -8464,6 +8476,54 @@ body {
   .page-home .hot-cinema-card {
     transition: none !important;
   }
+}
+
+.page-home .about-section {
+  border: 1px solid #2f3138;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+    #0b0b0d;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 34px rgba(0, 0, 0, 0.45);
+  padding: clamp(16px, 2.5vw, 26px);
+}
+
+.page-home .about-section-inner {
+  max-width: 74ch;
+  margin: 0 auto;
+}
+
+.page-home .about-section-kicker {
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(229, 229, 233, 0.72);
+}
+
+.page-home .about-section h2 {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.3vw, 2rem);
+  color: #f4f4f8;
+}
+
+.page-home .about-section-copy {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.page-home .about-section-copy p {
+  margin: 0;
+  color: rgba(226, 228, 236, 0.93);
+  font-size: clamp(0.95rem, 1.5vw, 1.02rem);
+  line-height: 1.58;
+}
+
+.page-home .about-section-copy strong {
+  color: #ffffff;
 }
 
 /* Community cinema redesign */
