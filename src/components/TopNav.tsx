@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { MouseEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
 import { POST_PITCH_FALLBACK_HREF, openPostPitchFlow } from "@/lib/post-pitch";
 
@@ -18,16 +19,23 @@ export default function TopNav({
   showPostPitch = true,
   onPostPitch,
 }: TopNavProps) {
-  const prefix = context === "home" ? "" : "/";
-  const handleHomeAnchorClick = (event: MouseEvent<HTMLAnchorElement>, anchorId: string) => {
-    if (context !== "home") return;
-    if (!isMobileViewport()) return;
+  const router = useRouter();
+  const pathname = usePathname();
 
-    const behavior = prefersReducedMotion() ? "auto" : "smooth";
-    const didScroll = scrollToAnchorId(anchorId, { behavior, updateHash: true });
-    if (didScroll) {
-      event.preventDefault();
+  const handleLeaderboardClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (context === "home") {
+      const behavior = prefersReducedMotion() ? "auto" : "smooth";
+      const didScroll = scrollToAnchorId("leaderboard-block", { behavior, updateHash: true });
+      if (didScroll) return;
     }
+    router.push("/#leaderboard-block");
+  };
+
+  const handleAboutClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (pathname === "/about") return;
+    router.push("/about");
   };
 
   return (
@@ -41,17 +49,15 @@ export default function TopNav({
           {homeAnchors.map((item) => (
             <Link
               key={item.id}
-              href={`${prefix}#${item.id}`}
-              onClick={
-                context === "home"
-                  ? (event) => handleHomeAnchorClick(event, item.id)
-                  : undefined
-              }
+              href={context === "home" ? "#leaderboard-block" : "/#leaderboard-block"}
+              onClick={handleLeaderboardClick}
             >
               {item.label}
             </Link>
           ))}
-          <Link href="/about">About</Link>
+          <Link href="/about" onClick={handleAboutClick}>
+            About
+          </Link>
         </div>
         <div className="site-nav-search">
           <span>⌕</span>

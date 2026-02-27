@@ -4139,6 +4139,9 @@ html[data-theme="dark"] body {
   border: 1px solid transparent;
   border-radius: 999px;
   padding: 4px 8px;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .site-nav-links a:hover {
