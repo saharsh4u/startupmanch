@@ -4,14 +4,14 @@ export const verifyCaptchaToken = async (
   token: string,
   remoteIp: string | null
 ): Promise<boolean> => {
-  const trimmedToken = token.trim();
-  if (!trimmedToken) return false;
-
   const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
   if (!secret) {
     // For environments without captcha config, keep development flows unblocked.
     return true;
   }
+
+  const trimmedToken = token.trim();
+  if (!trimmedToken) return false;
 
   const form = new URLSearchParams();
   form.set("secret", secret);

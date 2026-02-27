@@ -19,7 +19,6 @@ export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreat
   const [tagsText, setTagsText] = useState("");
   const [displayName, setDisplayNameState] = useState(() => getDisplayName());
   const [turnDuration, setTurnDuration] = useState(60);
-  const [captchaToken, setCaptchaToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +57,6 @@ export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreat
           tags,
           turn_duration_sec: turnDuration,
           display_name: displayName,
-          captcha_token: captchaToken,
         }),
       });
 
@@ -113,14 +111,6 @@ export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreat
             <option value={90}>90 seconds</option>
             <option value={120}>120 seconds</option>
           </select>
-        </label>
-        <label>
-          Captcha token
-          <input
-            value={captchaToken}
-            onChange={(event) => setCaptchaToken(event.target.value)}
-            placeholder="Paste Turnstile token"
-          />
         </label>
       </div>
       {error ? <p className="roundtable-error">{error}</p> : null}

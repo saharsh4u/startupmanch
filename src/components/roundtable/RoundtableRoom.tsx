@@ -34,7 +34,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [displayName, setDisplayNameState] = useState(() => getDisplayName());
   const [seatChoice, setSeatChoice] = useState<number | "auto">("auto");
-  const [captchaToken, setCaptchaToken] = useState("");
   const [draft, setDraft] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
@@ -167,7 +166,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
     await callApi(`/api/roundtable/sessions/${sessionId}/join`, {
       seat_no: seatChoice === "auto" ? undefined : seatChoice,
-      captcha_token: captchaToken,
     }, "join");
   };
 
@@ -258,14 +256,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             <option value={4}>Seat 4</option>
             <option value={5}>Seat 5</option>
           </select>
-        </label>
-        <label>
-          Captcha token
-          <input
-            value={captchaToken}
-            onChange={(event) => setCaptchaToken(event.target.value)}
-            placeholder="Paste Turnstile token"
-          />
         </label>
         {!currentMember ? (
           <button type="button" className="roundtable-cta" disabled={busyAction === "join"} onClick={() => void handleJoin()}>
