@@ -703,34 +703,48 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               <button type="button" className="trust-action ghost" onClick={handleShare}>
                 Share
               </button>
-              {twitterUrl || instagramUrl ? (
-                <div className="trust-social-links" aria-label="Startup social links">
-                  {twitterUrl ? (
-                    <a
-                      className="trust-social-link"
-                      href={twitterUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      aria-label="Open X profile"
-                      title="Open X"
-                    >
-                      <XLogo />
-                    </a>
-                  ) : null}
-                  {instagramUrl ? (
-                    <a
-                      className="trust-social-link"
-                      href={instagramUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      aria-label="Open Instagram profile"
-                      title="Open Instagram"
-                    >
-                      <InstagramLogo />
-                    </a>
-                  ) : null}
-                </div>
-              ) : null}
+              <div className="trust-social-links" aria-label="Startup social links">
+                {twitterUrl ? (
+                  <a
+                    className="trust-social-link"
+                    href={twitterUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label="Open X profile"
+                    title="Open X"
+                  >
+                    <XLogo />
+                  </a>
+                ) : (
+                  <span
+                    className="trust-social-link is-disabled"
+                    aria-label="X profile not available"
+                    title="X link not added"
+                  >
+                    <XLogo />
+                  </span>
+                )}
+                {instagramUrl ? (
+                  <a
+                    className="trust-social-link"
+                    href={instagramUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label="Open Instagram profile"
+                    title="Open Instagram"
+                  >
+                    <InstagramLogo />
+                  </a>
+                ) : (
+                  <span
+                    className="trust-social-link is-disabled"
+                    aria-label="Instagram profile not available"
+                    title="Instagram link not added"
+                  >
+                    <InstagramLogo />
+                  </span>
+                )}
+              </div>
               {shareFeedback ? <span className="trust-action-feedback">{shareFeedback}</span> : null}
             </div>
 

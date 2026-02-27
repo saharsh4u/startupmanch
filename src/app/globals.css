@@ -1318,6 +1318,12 @@ button:disabled {
   height: 18px;
 }
 
+.trust-social-link.is-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .trust-action-feedback {
   font-size: 0.85rem;
   color: #8de4b1;
@@ -3210,6 +3216,12 @@ button:disabled {
 .trust-social-link:focus-visible {
   border-color: var(--stroke-strong);
   background: #ececec;
+}
+
+.trust-social-link.is-disabled {
+  background: var(--panel-soft);
+  border-color: var(--stroke);
+  color: var(--muted);
 }
 
 .trust-action-feedback {
