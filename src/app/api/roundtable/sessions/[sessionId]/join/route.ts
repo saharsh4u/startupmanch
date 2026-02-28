@@ -34,9 +34,12 @@ export async function POST(
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
 
-  const captchaValid = await requireCaptcha(request, payload.captcha_token ?? null);
-  if (!captchaValid) {
-    return NextResponse.json({ error: "Captcha validation failed." }, { status: 400 });
+  const captchaToken = (payload.captcha_token ?? "").trim();
+  if (captchaToken.length) {
+    const captchaValid = await requireCaptcha(request, captchaToken);
+    if (!captchaValid) {
+      return NextResponse.json({ error: "Captcha validation failed." }, { status: 400 });
+    }
   }
 
   const actor = await resolveActor(request, payload.display_name ?? null);

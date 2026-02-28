@@ -150,6 +150,11 @@ export default function RoundtableHomepageVideoRail({
   const railRef = useRef<HTMLDivElement | null>(null);
   const pipPlayerRef = useRef<HTMLElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
+  const syncChannelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
+  const pitchesRef = useRef<PitchShow[]>([]);
+  const applyingRemoteStateRef = useRef(false);
+  const pendingRemoteStateRef = useRef<{ pitchId: string; timeSec: number; paused: boolean } | null>(null);
+  const lastStateBroadcastAtRef = useRef(0);
   const carryRef = useRef(0);
   const pauseUntilRef = useRef(0);
   const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -159,6 +164,10 @@ export default function RoundtableHomepageVideoRail({
     offsetY: number;
     active: boolean;
   } | null>(null);
+  const syncSenderId = useMemo(
+    () => `${participantId ?? "guest"}:${Math.random().toString(36).slice(2, 8)}`,
+    [participantId]
+  );
 
   const markInteraction = useCallback((pauseMs = INTERACTION_PAUSE_MS) => {
     pauseUntilRef.current = Date.now() + pauseMs;
@@ -201,7 +210,7 @@ export default function RoundtableHomepageVideoRail({
     const load = async () => {
       try {
         const response = await fetch(
-          `/api/pitches?mode=feed&tab=trending&limit=${VIDEO_FETCH_LIMIT}&offset=0&shuffle=true`,
+          `/api/pitches?mode=feed&tab=trending&limit=${VIDEO_FETCH_LIMIT}&offset=0&shuffle=false`,
           {
             cache: "no-store",
             signal: controller.signal,
@@ -288,12 +297,88 @@ export default function RoundtableHomepageVideoRail({
     return () => window.cancelAnimationFrame(rafId);
   }, [pitches.length]);
 
+  useEffect(() => {
+    pitchesRef.current = pitches;
+  }, [pitches]);
+
+  const sendSharedPlayerEvent = useCallback(
+    (payload: Omit<SharedMiniPlayerPayload, "senderId" | "sentAt">) => {
+      const channel = syncChannelRef.current;
+      if (!channel) return;
+      void channel.send({
+        type: "broadcast",
+        event: "mini-player-sync",
+        payload: {
+          ...payload,
+          senderId: syncSenderId,
+          sentAt: Date.now(),
+        } satisfies SharedMiniPlayerPayload,
+      });
+    },
+    [syncSenderId]
+  );
+
+  useEffect(() => {
+    if (!hasBrowserSupabaseEnv) return;
+
+    const channel = supabaseBrowser
+      .channel(`roundtable-video-sync-${sessionId}`)
+      .on("broadcast", { event: "mini-player-sync" }, ({ payload }) => {
+        const remote = payload as SharedMiniPlayerPayload;
+        if (!remote || remote.senderId === syncSenderId) return;
+
+        if (remote.action === "close") {
+          applyingRemoteStateRef.current = true;
+          pendingRemoteStateRef.current = null;
+          setPipIndex(null);
+          if (pipVideoRef.current) {
+            pipVideoRef.current.pause();
+          }
+          window.setTimeout(() => {
+            applyingRemoteStateRef.current = false;
+          }, 0);
+          return;
+        }
+
+        if (!remote.pitchId) return;
+        const remoteIndex = pitchesRef.current.findIndex((item) => item.id === remote.pitchId);
+        if (remoteIndex < 0) return;
+
+        applyingRemoteStateRef.current = true;
+        pendingRemoteStateRef.current = {
+          pitchId: remote.pitchId,
+          timeSec: Math.max(0, remote.timeSec ?? 0),
+          paused: Boolean(remote.paused),
+        };
+        setPipIndex(remoteIndex);
+        markInteraction(1900);
+      })
+      .subscribe();
+
+    syncChannelRef.current = channel;
+    return () => {
+      syncChannelRef.current = null;
+      void supabaseBrowser.removeChannel(channel);
+    };
+  }, [markInteraction, sessionId, syncSenderId]);
+
   const openPitch = useCallback(
     (index: number) => {
-      setPipIndex(index);
+      if (!pitches.length) return;
+      const bounded = ((index % pitches.length) + pitches.length) % pitches.length;
+      setPipIndex(bounded);
       markInteraction(1800);
+      const pitch = pitches[bounded];
+      if (pitch?.id) {
+        sendSharedPlayerEvent({
+          action: "open",
+          pitchId: pitch.id,
+          timeSec: 0,
+          paused: false,
+        });
+      }
     },
-    [markInteraction]
+    [markInteraction, pitches, sendSharedPlayerEvent]
   );
 
   const closePip = useCallback(() => {
@@ -302,17 +387,30 @@ export default function RoundtableHomepageVideoRail({
     }
     setPipPlaybackError(null);
     setPipIndex(null);
-  }, []);
+    sendSharedPlayerEvent({ action: "close" });
+  }, [sendSharedPlayerEvent]);
 
   const shiftPip = useCallback(
     (direction: -1 | 1) => {
       if (!pitches.length) return;
       setPipIndex((current) => {
-        if (current === null) return 0;
-        return ((current + direction) % pitches.length + pitches.length) % pitches.length;
+        const nextIndex =
+          current === null
+            ? 0
+            : ((current + direction) % pitches.length + pitches.length) % pitches.length;
+        const nextPitch = pitches[nextIndex];
+        if (nextPitch?.id) {
+          sendSharedPlayerEvent({
+            action: "open",
+            pitchId: nextPitch.id,
+            timeSec: 0,
+            paused: false,
+          });
+        }
+        return nextIndex;
       });
     },
-    [pitches.length]
+    [pitches, sendSharedPlayerEvent]
   );
 
   const statusText = useMemo(() => {
@@ -342,6 +440,24 @@ export default function RoundtableHomepageVideoRail({
       pipResolveState.attempted &&
       !pipResolveState.loading &&
       !pipResolveState.videoUrl
+  );
+
+  const syncVideoPlaybackToPeers = useCallback(
+    (force = false) => {
+      if (applyingRemoteStateRef.current) return;
+      const video = pipVideoRef.current;
+      if (!video || !pipPitch?.id) return;
+      const now = Date.now();
+      if (!force && now - lastStateBroadcastAtRef.current < 900) return;
+      lastStateBroadcastAtRef.current = now;
+      sendSharedPlayerEvent({
+        action: "state",
+        pitchId: pipPitch.id,
+        timeSec: video.currentTime ?? 0,
+        paused: video.paused,
+      });
+    },
+    [pipPitch?.id, sendSharedPlayerEvent]
   );
 
   useEffect(() => {
@@ -579,6 +695,49 @@ export default function RoundtableHomepageVideoRail({
     };
   }, [pipHasPlayableVideo, pipPitch?.id, pipVideoHlsSrc, pipVideoSrc]);
 
+  useEffect(() => {
+    const pending = pendingRemoteStateRef.current;
+    const video = pipVideoRef.current;
+    const currentPitchId = pipPitch?.id ?? null;
+    if (!pending || !video || !currentPitchId || currentPitchId !== pending.pitchId) return;
+
+    const applyRemote = () => {
+      if (Math.abs(video.currentTime - pending.timeSec) > 0.7) {
+        try {
+          video.currentTime = pending.timeSec;
+        } catch {
+          // Ignore seek failures until metadata is available.
+        }
+      }
+
+      if (pending.paused) {
+        video.pause();
+      } else {
+        video.play().catch(() => undefined);
+      }
+
+      pendingRemoteStateRef.current = null;
+      window.setTimeout(() => {
+        applyingRemoteStateRef.current = false;
+      }, 0);
+    };
+
+    if (video.readyState >= 1) {
+      applyRemote();
+      return;
+    }
+
+    const onLoadedMetadata = () => {
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      applyRemote();
+    };
+
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+    return () => {
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+    };
+  }, [pipPitch?.id, pipVideoHlsSrc, pipVideoSrc]);
+
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
       if (!pitches.length) return;
@@ -715,6 +874,10 @@ export default function RoundtableHomepageVideoRail({
                 autoPlay
                 muted
                 preload="metadata"
+                onPlay={() => syncVideoPlaybackToPeers(true)}
+                onPause={() => syncVideoPlaybackToPeers(true)}
+                onSeeked={() => syncVideoPlaybackToPeers(true)}
+                onTimeUpdate={() => syncVideoPlaybackToPeers(false)}
               >
                 {pipVideoHlsSrc ? <source src={pipVideoHlsSrc} type="application/vnd.apple.mpegurl" /> : null}
                 {pipVideoSrc ? <source src={pipVideoSrc} type="video/mp4" /> : null}
