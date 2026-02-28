@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import RoundtableQueue from "@/components/roundtable/RoundtableQueue";
 import RoundtableScoreboard from "@/components/roundtable/RoundtableScoreboard";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
-import RoundtableTurnTimer from "@/components/roundtable/RoundtableTurnTimer";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 import type { RoundtableSessionSnapshot } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
@@ -133,10 +131,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return snapshot.members.find((member) => member.state === "joined" && member.guest_id === guestId) ?? null;
   }, [guestId, snapshot]);
 
-  const activeTurn = snapshot?.active_turn ?? null;
-  const canSubmit = Boolean(activeTurn && currentMember && activeTurn.member_id === currentMember.id);
-  const queuedMemberIds = useMemo(() => snapshot?.queue.map((turn) => turn.member_id) ?? [], [snapshot]);
-
   const seats = useMemo<RoundtableSeatViewModel[]>(() => {
     if (!snapshot) return [];
     const bySeat = new Map<number, (typeof snapshot.members)[number]>();
@@ -145,12 +139,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       bySeat.set(member.seat_no, member);
     }
 
-    const queuedSet = new Set(queuedMemberIds);
     return Array.from({ length: snapshot.session.max_seats }, (_, index) => {
       const seatNo = index + 1;
       const member = bySeat.get(seatNo) ?? null;
-      const isActive = Boolean(member && member.id === activeTurn?.member_id);
-      const isQueued = Boolean(member && queuedSet.has(member.id));
+      const isActive = Boolean(member && member.id === currentMember?.id && !isMyMicMuted);
+      const isQueued = false;
       const isMe = Boolean(member && member.id === currentMember?.id);
       const isEmpty = !member;
 
@@ -163,31 +156,29 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         isQueued,
         isMe,
         isEmpty,
-        stateLabel: isActive ? "Speaking" : isQueued ? "Hand raised" : member ? "Listening" : "Available",
+        stateLabel: isActive ? "Speaking" : member ? "Open mic" : "Available",
       };
     });
-  }, [activeTurn?.member_id, currentMember?.id, queuedMemberIds, snapshot]);
+  }, [currentMember?.id, isMyMicMuted, snapshot]);
 
   const wheelFlareToken = useMemo(() => {
-    if (activeTurn?.id) {
-      return `active-${activeTurn.id}-${activeTurn.starts_at ?? ""}`;
+    if (currentMember?.id && !isMyMicMuted) {
+      return `mic-live-${currentMember.id}`;
     }
     const latestTurn = snapshot?.recent_turns?.[0];
     if (!latestTurn) return null;
     return `recent-${latestTurn.id}-${latestTurn.status}`;
-  }, [activeTurn?.id, activeTurn?.starts_at, snapshot?.recent_turns]);
+  }, [currentMember?.id, isMyMicMuted, snapshot?.recent_turns]);
 
-  const activeSpeakerSeatNo = useMemo(() => {
-    if (!activeTurn) return null;
-    return seats.find((seat) => seat.memberId === activeTurn.member_id)?.seatNo ?? null;
-  }, [activeTurn, seats]);
+  const activeSpeakerSeatNo = useMemo(
+    () => (currentMember && !isMyMicMuted ? currentMember.seat_no : null),
+    [currentMember, isMyMicMuted]
+  );
 
   const silentSeatTarget = useMemo(() => {
     if (!snapshot || !seats.length) {
       return { seatNo: null as number | null };
     }
-
-    const queuedSet = new Set(queuedMemberIds);
     const lastSpokenAtMs = new Map<string, number>();
 
     for (const turn of snapshot.recent_turns) {
@@ -207,8 +198,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     let picked: { memberId: string; inactiveForMs: number } | null = null;
 
     for (const member of joinedMembers) {
-      if (member.id === activeTurn?.member_id) continue;
-      if (queuedSet.has(member.id)) continue;
+      if (currentMember && member.id === currentMember.id && !isMyMicMuted) continue;
 
       const joinedAtMs = Date.parse(member.joined_at ?? "");
       const lastSpokenMs = lastSpokenAtMs.get(member.id) ?? (Number.isFinite(joinedAtMs) ? joinedAtMs : nowMs);
@@ -231,7 +221,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return {
       seatNo: pickedSeat?.seatNo ?? null,
     };
-  }, [activeTurn?.member_id, nowMs, queuedMemberIds, seats, snapshot]);
+  }, [currentMember, isMyMicMuted, nowMs, seats, snapshot]);
 
   const stopMicStream = useCallback(() => {
     if (!mediaStreamRef.current) return;
@@ -243,7 +233,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   }, []);
 
   const enableMic = useCallback(async () => {
-    if (!canSubmit) return;
+    if (!currentMember) return;
     try {
       let stream = mediaStreamRef.current;
       if (!stream) {
@@ -260,13 +250,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setMicError(message);
       setIsMyMicMuted(true);
     }
-  }, [canSubmit]);
-
-  useEffect(() => {
-    if (!canSubmit) {
-      stopMicStream();
-    }
-  }, [canSubmit, stopMicStream]);
+  }, [currentMember]);
 
   useEffect(() => {
     return () => {
@@ -327,40 +311,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }, "join");
   };
 
-  const handleRaiseHand = async () => {
-    await callApi(`/api/roundtable/sessions/${sessionId}/raise-hand`, {}, "raise");
-  };
-
   const handleLeave = async () => {
     await callApi(`/api/roundtable/sessions/${sessionId}/leave`, {}, "leave");
-  };
-
-  const handleSubmitTurn = async () => {
-    if (!activeTurn) return;
-    const payload = await callApi(
-      `/api/roundtable/sessions/${sessionId}/turn/submit`,
-      {
-        turn_id: activeTurn.id,
-        body: "[voice turn]",
-      },
-      "submit"
-    );
-
-    if (payload?.ok) {
-      stopMicStream();
-    }
-  };
-
-  const handleVote = async (turnId: string, vote: 1 | -1) => {
-    await callApi(`/api/roundtable/sessions/${sessionId}/turn/vote`, { turn_id: turnId, vote }, `vote-${turnId}`);
-  };
-
-  const handleReport = async (turnId: string) => {
-    await callApi(
-      `/api/roundtable/sessions/${sessionId}/turn/report`,
-      { turn_id: turnId, reason: "abusive or spam" },
-      `report-${turnId}`
-    );
+    stopMicStream();
   };
 
   if (loading) {
@@ -419,9 +372,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           </button>
         ) : (
           <>
-            <button type="button" className="roundtable-cta" disabled={busyAction === "raise"} onClick={() => void handleRaiseHand()}>
-              {busyAction === "raise" ? "Queueing..." : "Raise hand"}
-            </button>
             <button type="button" className="roundtable-ghost-btn" disabled={busyAction === "leave"} onClick={() => void handleLeave()}>
               Leave seat
             </button>
@@ -434,46 +384,32 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
       <section className="roundtable-panel roundtable-live-compose" aria-label="Live voice controls">
         <h4>Live voice</h4>
-        {activeTurn ? (
-          canSubmit ? (
-            <>
-              <p className="roundtable-muted">Speak in your turn. Use mic toggle to mute or unmute.</p>
-              <div className="roundtable-voice-controls">
-                <button
-                  type="button"
-                  className="roundtable-cta"
-                  onClick={() => {
-                    if (isMyMicMuted) {
-                      void enableMic();
-                      return;
+        {currentMember ? (
+          <>
+            <p className="roundtable-muted">Open room mode: anyone seated can speak anytime.</p>
+            <div className="roundtable-voice-controls">
+              <button
+                type="button"
+                className="roundtable-cta"
+                onClick={() => {
+                  if (isMyMicMuted) {
+                    void enableMic();
+                    return;
+                  }
+                  if (mediaStreamRef.current) {
+                    for (const track of mediaStreamRef.current.getAudioTracks()) {
+                      track.enabled = false;
                     }
-                    if (mediaStreamRef.current) {
-                      for (const track of mediaStreamRef.current.getAudioTracks()) {
-                        track.enabled = false;
-                      }
-                    }
-                    setIsMyMicMuted(true);
-                  }}
-                >
-                  {isMyMicMuted ? "Unmute mic" : "Mute mic"}
-                </button>
-                <button
-                  type="button"
-                  className="roundtable-ghost-btn"
-                  disabled={busyAction === "submit"}
-                  onClick={() => void handleSubmitTurn()}
-                >
-                  {busyAction === "submit" ? "Finishing..." : "Finish speaking"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="roundtable-muted">
-              <strong>{activeTurn.member_display_name}</strong> is currently speaking. Your mic controls unlock on your turn.
-            </p>
-          )
+                  }
+                  setIsMyMicMuted(true);
+                }}
+              >
+                {isMyMicMuted ? "Unmute mic" : "Mute mic"}
+              </button>
+            </div>
+          </>
         ) : (
-          <p className="roundtable-muted">No active speaker yet. Raise hand to join the queue.</p>
+          <p className="roundtable-muted">Join a seat to unlock mic controls.</p>
         )}
       </section>
 
@@ -482,7 +418,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         flareToken={wheelFlareToken}
         eyeTargetSeatNo={silentSeatTarget.seatNo}
         activeSpeakerSeatNo={activeSpeakerSeatNo}
-        canToggleMyMic={Boolean(canSubmit)}
+        canToggleMyMic={Boolean(currentMember)}
         isMyMicMuted={isMyMicMuted}
         onToggleMyMic={() => {
           if (isMyMicMuted) {
@@ -498,47 +434,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         }}
       />
 
-      <section className="roundtable-grid">
-        <RoundtableQueue queue={snapshot.queue} />
+      <section className="roundtable-panel">
+        <h4>Live score</h4>
         <RoundtableScoreboard scores={snapshot.scores} />
       </section>
 
-      <section className="roundtable-panel" aria-label="Active speaking turn">
-        <h4>Active turn</h4>
-        {activeTurn ? (
-          <>
-            <p>
-              <strong>{activeTurn.member_display_name}</strong> is speaking.
-            </p>
-            <RoundtableTurnTimer endsAt={activeTurn.ends_at} />
-            {canSubmit ? <p className="roundtable-muted">Use Live voice controls above.</p> : <p className="roundtable-muted">Only the active speaker can control mic and finish turn.</p>}
-          </>
-        ) : (
-          <p className="roundtable-muted">Waiting for next speaker.</p>
-        )}
-      </section>
-
       <section className="roundtable-panel" aria-label="Recent submitted turns">
-        <h4>Recent turns</h4>
-        {!snapshot.recent_turns.length ? <p className="roundtable-muted">No submitted turns yet.</p> : null}
-        <div className="roundtable-turn-list">
-          {snapshot.recent_turns.map((turn) => (
-            <article key={turn.id} className="roundtable-turn-item">
-              <div className="roundtable-turn-head">
-                <strong>{turn.member_display_name}</strong>
-                <span>{turn.status}</span>
-              </div>
-              <p>{turn.body === "[voice turn]" ? "Voice turn submitted." : (turn.body ?? "(No content)")}</p>
-              {currentMember ? (
-                <div className="roundtable-turn-actions">
-                  <button type="button" onClick={() => void handleVote(turn.id, 1)}>Upvote</button>
-                  <button type="button" onClick={() => void handleVote(turn.id, -1)}>Downvote</button>
-                  <button type="button" onClick={() => void handleReport(turn.id)}>Report</button>
-                </div>
-              ) : null}
-            </article>
-          ))}
-        </div>
+        <h4>Room mode</h4>
+        <p className="roundtable-muted">Queue is disabled. Anyone seated can unmute and speak at any time.</p>
       </section>
     </div>
   );
