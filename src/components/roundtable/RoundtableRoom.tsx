@@ -464,6 +464,40 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
       {actionError ? <p className="roundtable-error">{actionError}</p> : null}
 
+      <section className="roundtable-panel roundtable-live-compose" aria-label="Live pie text input">
+        <h4>Live pie text</h4>
+        {activeTurn ? (
+          canSubmit ? (
+            <>
+              <p className="roundtable-muted">Type here. This appears on your pie in realtime.</p>
+              <div className="roundtable-submit-box">
+                <textarea
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  rows={4}
+                  maxLength={600}
+                  placeholder="Type your turn here. Text appears live on your pie."
+                />
+                <button
+                  type="button"
+                  className="roundtable-cta"
+                  disabled={busyAction === "submit" || draft.trim().length < 2}
+                  onClick={() => void handleSubmitTurn()}
+                >
+                  {busyAction === "submit" ? "Submitting..." : "Submit turn"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="roundtable-muted">
+              <strong>{activeTurn.member_display_name}</strong> is currently speaking. When your turn starts, this input unlocks.
+            </p>
+          )
+        ) : (
+          <p className="roundtable-muted">No active speaker yet. Raise hand to join the queue.</p>
+        )}
+      </section>
+
       <RoundtableSeatCircle
         seats={seats}
         flareToken={wheelFlareToken}
@@ -484,22 +518,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
               <strong>{activeTurn.member_display_name}</strong> is speaking.
             </p>
             <RoundtableTurnTimer endsAt={activeTurn.ends_at} />
-            {canSubmit ? (
-              <div className="roundtable-submit-box">
-                <textarea
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  rows={5}
-                  maxLength={600}
-                  placeholder="Type your turn here. Auto-submit happens when the timer ends."
-                />
-                <button type="button" className="roundtable-cta" disabled={busyAction === "submit" || draft.trim().length < 2} onClick={() => void handleSubmitTurn()}>
-                  {busyAction === "submit" ? "Submitting..." : "Submit turn"}
-                </button>
-              </div>
-            ) : (
-              <p className="roundtable-muted">Only the active speaker can submit.</p>
-            )}
+            {canSubmit ? <p className="roundtable-muted">Use the Live pie text box above to type and submit.</p> : <p className="roundtable-muted">Only the active speaker can submit.</p>}
           </>
         ) : (
           <p className="roundtable-muted">Waiting for next speaker.</p>

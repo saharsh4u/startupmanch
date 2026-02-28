@@ -8879,21 +8879,21 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(0, 0, 0, 0.06) 0deg 68deg, transparent 68deg 360deg);
+  background: transparent;
 }
 
 .roundtable-roulette-slice.is-queued {
-  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(255, 255, 255, 0.18) 0deg 68deg, transparent 68deg 360deg);
+  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(255, 255, 255, 0.24) 0deg 70deg, transparent 70deg 360deg);
   animation: roundtableQueuedShimmer 1.6s ease-in-out infinite;
 }
 
 .roundtable-roulette-slice.is-active {
-  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(255, 255, 255, 0.32) 0deg 68deg, transparent 68deg 360deg);
+  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(255, 255, 255, 0.34) 0deg 70deg, transparent 70deg 360deg);
   animation: roundtableSliceActivePulse 1.25s ease-in-out infinite;
 }
 
 .roundtable-roulette-slice.is-empty {
-  opacity: 0.5;
+  opacity: 1;
 }
 
 .roundtable-roulette-hub {
@@ -9194,6 +9194,18 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.roundtable-live-compose {
+  border-color: #7a5a24;
+}
+
+.roundtable-live-compose h4 {
+  margin-bottom: 6px;
+}
+
+.roundtable-live-compose .roundtable-submit-box {
+  margin-top: 10px;
 }
 
 .roundtable-turn-list {
