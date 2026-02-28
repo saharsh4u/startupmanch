@@ -8591,9 +8591,9 @@ body {
 
 .roundtable-page .center-panel {
   width: 100%;
-  max-width: 1080px;
+  max-width: none;
   min-width: 0;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .roundtable-page .anchor-block {
@@ -8601,14 +8601,56 @@ body {
 }
 
 .roundtable-page .layout-grid {
-  width: min(100%, 1120px);
-  max-width: 1120px;
+  width: min(100%, 1360px);
+  max-width: 1360px;
   margin: 0 auto;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 240px) minmax(0, 860px) minmax(200px, 240px);
+  gap: 20px;
 }
 
 .roundtable-page .ad-column {
-  display: none;
+  display: flex;
+}
+
+.roundtable-page .ad-slot.is-placeholder {
+  width: 100%;
+  height: 170px;
+  max-width: 100%;
+  margin-inline: 0;
+}
+
+.roundtable-page .ad-face.advertise {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  text-align: center;
+  padding: 14px 12px;
+  border-radius: 20px;
+  border: 1px solid #2f2f2f;
+  background: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 14px 26px rgba(0, 0, 0, 0.55);
+}
+
+.roundtable-page .ad-face.advertise::after {
+  opacity: 0;
+}
+
+.roundtable-page .ad-face.advertise .ad-icon {
+  background: #f2b13d;
+  border-color: #f2b13d;
+  color: #1b1407;
+}
+
+.roundtable-page .ad-face.advertise h4 {
+  color: #ffffff;
+}
+
+.roundtable-page .ad-face.advertise p {
+  color: #b7b7b7;
 }
 
 .roundtable-hero,
@@ -8616,9 +8658,9 @@ body {
 .roundtable-rules,
 .roundtable-controls,
 .roundtable-seat-circle {
-  border: 1px solid #2d2d2d;
+  border: 0;
   border-radius: 18px;
-  background: #000000;
+  background: #050505;
 }
 
 .roundtable-hero,
@@ -8917,7 +8959,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: repeating-conic-gradient(from -90deg, #f2b13d 0deg 71.5deg, #de9f31 71.5deg 72deg);
+  background: radial-gradient(circle at 35% 30%, #f6c86a, #e8af49 58%, #d6952a 100%);
 }
 
 .roundtable-roulette-slice {
@@ -9017,17 +9059,7 @@ body {
 }
 
 .roundtable-seat-token::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 2px;
-  height: min(24vw, 140px);
-  transform-origin: center top;
-  transform: rotate(calc(var(--rt-seat-angle) + 90deg));
-  background: linear-gradient(to bottom, rgba(242, 177, 61, 0.72), rgba(242, 177, 61, 0));
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 .roundtable-seat-token::after {
@@ -9043,7 +9075,7 @@ body {
 }
 
 .roundtable-seat-token.is-active::before {
-  opacity: 0.9;
+  opacity: 0;
 }
 
 .roundtable-seat-avatar {
@@ -9716,6 +9748,24 @@ body {
 
   .roundtable-session-mini-wheel {
     width: 84px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .roundtable-page .layout-grid {
+    width: min(100%, 1120px);
+    max-width: 1120px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .roundtable-page .ad-column {
+    display: none;
+  }
+
+  .roundtable-page .center-panel {
+    max-width: 1080px;
+    margin: 0 auto;
   }
 }
 
