@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { ROUND_TABLE_LIMITS } from "@/lib/roundtable/constants";
 import { logRoundtableEvent } from "@/lib/roundtable/server";
@@ -10,6 +11,21 @@ type JoinPayload = {
   seat_no?: number;
   captcha_token?: string;
 };
+
+type JoinErrorCode =
+  | "invalid_payload"
+  | "captcha_failed"
+  | "rate_limited"
+  | "session_not_found"
+  | "session_closed"
+  | "room_full"
+  | "identity_conflict"
+  | "seat_taken_retry_exhausted"
+  | "join_failed";
+
+type Actor = Awaited<ReturnType<typeof resolveActor>>;
+
+const MAX_JOIN_RETRY_ATTEMPTS = 6;
 
 const resolveSeat = (requestedSeat: number | undefined, occupied: Set<number>, maxSeats: number) => {
   if (
@@ -27,6 +43,29 @@ const resolveSeat = (requestedSeat: number | undefined, occupied: Set<number>, m
   return null;
 };
 
+const isUniqueViolation = (error: { code?: string | null; message?: string | null } | null | undefined) => {
+  const code = String(error?.code ?? "");
+  if (code === "23505") return true;
+  const message = String(error?.message ?? "").toLowerCase();
+  return message.includes("duplicate key");
+};
+
+const isActorConflict = (error: { message?: string | null } | null | undefined) => {
+  const message = String(error?.message ?? "").toLowerCase();
+  return (
+    message.includes("roundtable_members_joined_session_guest_uidx") ||
+    message.includes("roundtable_members_joined_session_profile_uidx")
+  );
+};
+
+const actorMetadata = (actor: Actor | null) => ({
+  actor_type: actor?.profileId ? "profile" : "guest",
+  guest_id_hash: actor?.guestId
+    ? createHash("sha256").update(actor.guestId).digest("hex").slice(0, 24)
+    : null,
+  profile_id: actor?.profileId ?? null,
+});
+
 export const runtime = "nodejs";
 
 export async function POST(
@@ -35,18 +74,76 @@ export async function POST(
 ) {
   const payload = await parseJsonSafely<JoinPayload>(request);
   if (!payload) {
-    return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid payload.", code: "invalid_payload" }, { status: 400 });
   }
+
+  const actor: Actor | null = await resolveActor(request, payload.display_name ?? null);
+  const requestedSeatNo = Number.isInteger(payload.seat_no) ? Number(payload.seat_no) : null;
+
+  const emitJoinAttempt = async (
+    code: JoinErrorCode | "joined" | "already_joined",
+    status: number,
+    metadata?: Record<string, unknown>
+  ) => {
+    await logRoundtableEvent(
+      "roundtable_join_attempt",
+      {
+        session_id: params.sessionId,
+        requested_seat_no: requestedSeatNo,
+        result_code: code,
+        http_status: status,
+        ...actorMetadata(actor),
+        ...(metadata ?? {}),
+      },
+      actor?.profileId ?? null
+    );
+  };
+
+  const respondError = async (
+    status: number,
+    code: JoinErrorCode,
+    message: string,
+    metadata?: Record<string, unknown>
+  ) => {
+    await emitJoinAttempt(code, status, metadata);
+    const response = NextResponse.json({ error: message, code }, { status });
+    return withGuestCookie(response, actor?.guestId ?? null);
+  };
+
+  const respondSuccess = async (
+    status: number,
+    member: { id: string; seat_no: number },
+    code: "joined" | "already_joined",
+    metadata?: Record<string, unknown>
+  ) => {
+    await emitJoinAttempt(code, status, {
+      member_id: member.id,
+      seat_no: member.seat_no,
+      ...(metadata ?? {}),
+    });
+
+    await logRoundtableEvent(
+      "roundtable_join_success",
+      {
+        session_id: params.sessionId,
+        member_id: member.id,
+        seat_no: member.seat_no,
+        ...actorMetadata(actor),
+      },
+      actor?.profileId ?? null
+    );
+
+    const response = NextResponse.json({ ok: true, member_id: member.id, seat_no: member.seat_no }, { status });
+    return withGuestCookie(response, actor?.guestId ?? null);
+  };
 
   const captchaToken = (payload.captcha_token ?? "").trim();
   if (captchaToken.length) {
     const captchaValid = await requireCaptcha(request, captchaToken);
     if (!captchaValid) {
-      return NextResponse.json({ error: "Captcha validation failed." }, { status: 400 });
+      return respondError(400, "captcha_failed", "Captcha validation failed.");
     }
   }
-
-  const actor = await resolveActor(request, payload.display_name ?? null);
 
   const rateAllowed = await requireRateLimit({
     request,
@@ -58,7 +155,7 @@ export async function POST(
   });
 
   if (!rateAllowed) {
-    return NextResponse.json({ error: "Rate limit exceeded." }, { status: 429 });
+    return respondError(429, "rate_limited", "Rate limit exceeded.");
   }
 
   try {
@@ -71,195 +168,263 @@ export async function POST(
       .maybeSingle();
 
     if (sessionError) {
-      return NextResponse.json({ error: sessionError.message }, { status: 500 });
+      return respondError(500, "join_failed", sessionError.message);
     }
 
     if (!session) {
-      return NextResponse.json({ error: "Session not found." }, { status: 404 });
+      return respondError(404, "session_not_found", "Session not found.");
     }
 
     if (session.status === "ended" || session.status === "cancelled") {
-      return NextResponse.json({ error: "Session is closed." }, { status: 400 });
+      return respondError(400, "session_closed", "Session is closed.");
     }
 
-    let existingQuery = supabaseAdmin
-      .from("roundtable_members")
-      .select("id, seat_no, display_name, joined_at")
-      .eq("session_id", params.sessionId)
-      .eq("state", "joined");
+    const maxSeats = Number(session.max_seats) || 5;
 
-    if (actor.profileId) {
-      existingQuery = existingQuery.eq("profile_id", actor.profileId);
-    } else if (actor.guestId) {
-      existingQuery = existingQuery.eq("guest_id", actor.guestId);
-    }
-
-    const { data: existingRows, error: existingError } = await existingQuery
-      .order("joined_at", { ascending: false });
-
-    if (existingError) {
-      return NextResponse.json({ error: existingError.message }, { status: 500 });
-    }
-
-    const existingMembers = (existingRows ?? []) as Array<{
-      id: string;
-      seat_no: number;
-      display_name: string | null;
-      joined_at: string;
-    }>;
-    const existing = existingMembers[0] ?? null;
-
-    if (existingMembers.length > 1) {
-      const duplicateIds = existingMembers.slice(1).map((member) => member.id);
-      const { error: cleanupError } = await supabaseAdmin
+    for (let attempt = 1; attempt <= MAX_JOIN_RETRY_ATTEMPTS; attempt += 1) {
+      let existingQuery = supabaseAdmin
         .from("roundtable_members")
-        .update({ state: "left", left_at: new Date().toISOString() })
-        .in("id", duplicateIds)
+        .select("id, seat_no, display_name, joined_at")
         .eq("session_id", params.sessionId)
         .eq("state", "joined");
 
-      if (cleanupError) {
-        return NextResponse.json({ error: cleanupError.message }, { status: 500 });
+      if (actor.profileId) {
+        existingQuery = existingQuery.eq("profile_id", actor.profileId);
+      } else if (actor.guestId) {
+        existingQuery = existingQuery.eq("guest_id", actor.guestId);
       }
-    }
 
-    if (existing?.id) {
-      const incomingName = actor.displayName?.trim() ?? "";
-      const existingName = existing.display_name?.trim() ?? "";
-      if (incomingName.length && incomingName !== existingName) {
-        const { error: renameError } = await supabaseAdmin
+      const { data: existingRows, error: existingError } = await existingQuery.order("joined_at", { ascending: false });
+      if (existingError) {
+        return respondError(500, "join_failed", existingError.message, { attempt });
+      }
+
+      const existingMembers = (existingRows ?? []) as Array<{
+        id: string;
+        seat_no: number;
+        display_name: string | null;
+        joined_at: string;
+      }>;
+      const existing = existingMembers[0] ?? null;
+
+      if (existingMembers.length > 1) {
+        const duplicateIds = existingMembers.slice(1).map((member) => member.id);
+        const { error: cleanupError } = await supabaseAdmin
           .from("roundtable_members")
-          .update({ display_name: incomingName })
-          .eq("id", existing.id)
+          .update({ state: "left", left_at: new Date().toISOString() })
+          .in("id", duplicateIds)
+          .eq("session_id", params.sessionId)
           .eq("state", "joined");
-        if (renameError) {
-          return NextResponse.json({ error: renameError.message }, { status: 500 });
+
+        if (cleanupError) {
+          return respondError(500, "join_failed", cleanupError.message, { attempt });
         }
       }
 
-      const response = NextResponse.json({ ok: true, member_id: existing.id, seat_no: existing.seat_no }, { status: 200 });
-      return withGuestCookie(response, actor.guestId);
-    }
+      if (existing?.id) {
+        const incomingName = actor.displayName?.trim() ?? "";
+        const existingName = existing.display_name?.trim() ?? "";
+        if (incomingName.length && incomingName !== existingName) {
+          const { error: renameError } = await supabaseAdmin
+            .from("roundtable_members")
+            .update({ display_name: incomingName })
+            .eq("id", existing.id)
+            .eq("state", "joined");
+          if (renameError) {
+            return respondError(500, "join_failed", renameError.message, { attempt });
+          }
+        }
 
-    const { data: occupiedRows, error: occupiedError } = await supabaseAdmin
-      .from("roundtable_members")
-      .select("seat_no")
-      .eq("session_id", params.sessionId)
-      .eq("state", "joined");
+        return respondSuccess(200, { id: existing.id, seat_no: existing.seat_no }, "already_joined", { attempt });
+      }
 
-    if (occupiedError) {
-      return NextResponse.json({ error: occupiedError.message }, { status: 500 });
-    }
+      const { data: occupiedRows, error: occupiedError } = await supabaseAdmin
+        .from("roundtable_members")
+        .select("seat_no")
+        .eq("session_id", params.sessionId)
+        .eq("state", "joined");
 
-    const occupied = new Set((occupiedRows ?? []).map((row) => Number(row.seat_no)));
-    const seatNo = resolveSeat(payload.seat_no, occupied, Number(session.max_seats) || 5);
+      if (occupiedError) {
+        return respondError(500, "join_failed", occupiedError.message, { attempt });
+      }
 
-    if (!seatNo) {
-      return NextResponse.json(
-        { error: `Room is full. Only ${session.max_seats} people can join.` },
-        { status: 409 }
+      const occupied = new Set(
+        (occupiedRows ?? [])
+          .map((row) => Number(row.seat_no))
+          .filter((seatNo) => Number.isInteger(seatNo) && seatNo >= 1 && seatNo <= maxSeats)
       );
-    }
 
-    let member: { id: string; seat_no: number } | null = null;
-
-    const { data: seatRecord, error: seatRecordError } = await supabaseAdmin
-      .from("roundtable_members")
-      .select("id, state")
-      .eq("session_id", params.sessionId)
-      .eq("seat_no", seatNo)
-      .maybeSingle();
-
-    if (seatRecordError) {
-      return NextResponse.json({ error: seatRecordError.message }, { status: 500 });
-    }
-
-    if (seatRecord?.id) {
-      if (seatRecord.state === "joined") {
-        return NextResponse.json({ error: "Seat already taken." }, { status: 409 });
+      if (occupied.size >= maxSeats) {
+        return respondError(409, "room_full", `Room is full. Only ${maxSeats} people can join.`, { attempt });
       }
 
-      const { data: revivedMember, error: reviveError } = await supabaseAdmin
-        .from("roundtable_members")
-        .update({
-          profile_id: actor.profileId,
-          guest_id: actor.guestId,
-          display_name: actor.displayName,
-          state: "joined",
-          joined_at: new Date().toISOString(),
-          left_at: null,
-        })
-        .eq("id", seatRecord.id)
-        .select("id, seat_no")
-        .single();
-
-      if (reviveError || !revivedMember?.id) {
-        return NextResponse.json({ error: reviveError?.message ?? "Unable to join." }, { status: 500 });
+      const seatNo = resolveSeat(payload.seat_no, occupied, maxSeats);
+      if (!seatNo) {
+        return respondError(409, "room_full", `Room is full. Only ${maxSeats} people can join.`, { attempt });
       }
-      member = revivedMember;
-    } else {
-      const { data: insertedMember, error: memberError } = await supabaseAdmin
-        .from("roundtable_members")
-        .insert({
-          session_id: params.sessionId,
-          seat_no: seatNo,
-          profile_id: actor.profileId,
-          guest_id: actor.guestId,
-          display_name: actor.displayName,
-          state: "joined",
-        })
-        .select("id, seat_no")
-        .single();
 
-      if (memberError || !insertedMember?.id) {
-        if (memberError?.message?.toLowerCase().includes("duplicate key")) {
-          return NextResponse.json({ error: "Seat already taken." }, { status: 409 });
+      const { data: seatRecord, error: seatRecordError } = await supabaseAdmin
+        .from("roundtable_members")
+        .select("id, state")
+        .eq("session_id", params.sessionId)
+        .eq("seat_no", seatNo)
+        .maybeSingle();
+
+      if (seatRecordError) {
+        return respondError(500, "join_failed", seatRecordError.message, { attempt, seat_no: seatNo });
+      }
+
+      let member: { id: string; seat_no: number } | null = null;
+
+      if (seatRecord?.id) {
+        if (seatRecord.state === "joined") {
+          continue;
         }
-        return NextResponse.json({ error: memberError?.message ?? "Unable to join." }, { status: 500 });
+
+        const { data: revivedMember, error: reviveError } = await supabaseAdmin
+          .from("roundtable_members")
+          .update({
+            profile_id: actor.profileId,
+            guest_id: actor.guestId,
+            display_name: actor.displayName,
+            state: "joined",
+            joined_at: new Date().toISOString(),
+            left_at: null,
+          })
+          .eq("id", seatRecord.id)
+          .eq("session_id", params.sessionId)
+          .neq("state", "joined")
+          .select("id, seat_no")
+          .maybeSingle();
+
+        if (reviveError) {
+          if (isUniqueViolation(reviveError)) {
+            if (isActorConflict(reviveError)) {
+              let actorConflictQuery = supabaseAdmin
+                .from("roundtable_members")
+                .select("id, seat_no")
+                .eq("session_id", params.sessionId)
+                .eq("state", "joined");
+
+              if (actor.profileId) {
+                actorConflictQuery = actorConflictQuery.eq("profile_id", actor.profileId);
+              } else if (actor.guestId) {
+                actorConflictQuery = actorConflictQuery.eq("guest_id", actor.guestId);
+              }
+
+              const { data: actorConflictRows } = await actorConflictQuery.order("joined_at", { ascending: false }).limit(1);
+              const conflictMember = (actorConflictRows?.[0] as { id: string; seat_no: number } | undefined) ?? null;
+              if (conflictMember?.id) {
+                return respondSuccess(200, conflictMember, "already_joined", {
+                  attempt,
+                  resolved_from: "identity_conflict",
+                });
+              }
+              return respondError(409, "identity_conflict", "You already have an active seat in this room.", {
+                attempt,
+                seat_no: seatNo,
+              });
+            }
+            continue;
+          }
+          return respondError(500, "join_failed", reviveError.message, { attempt, seat_no: seatNo });
+        }
+        if (!revivedMember?.id) {
+          continue;
+        }
+        member = revivedMember;
+      } else {
+        const { data: insertedMember, error: memberError } = await supabaseAdmin
+          .from("roundtable_members")
+          .insert({
+            session_id: params.sessionId,
+            seat_no: seatNo,
+            profile_id: actor.profileId,
+            guest_id: actor.guestId,
+            display_name: actor.displayName,
+            state: "joined",
+          })
+          .select("id, seat_no")
+          .single();
+
+        if (memberError || !insertedMember?.id) {
+          if (isUniqueViolation(memberError)) {
+            if (isActorConflict(memberError)) {
+              let actorConflictQuery = supabaseAdmin
+                .from("roundtable_members")
+                .select("id, seat_no")
+                .eq("session_id", params.sessionId)
+                .eq("state", "joined");
+
+              if (actor.profileId) {
+                actorConflictQuery = actorConflictQuery.eq("profile_id", actor.profileId);
+              } else if (actor.guestId) {
+                actorConflictQuery = actorConflictQuery.eq("guest_id", actor.guestId);
+              }
+
+              const { data: actorConflictRows } = await actorConflictQuery.order("joined_at", { ascending: false }).limit(1);
+              const conflictMember = (actorConflictRows?.[0] as { id: string; seat_no: number } | undefined) ?? null;
+              if (conflictMember?.id) {
+                return respondSuccess(200, conflictMember, "already_joined", {
+                  attempt,
+                  resolved_from: "identity_conflict",
+                });
+              }
+              return respondError(409, "identity_conflict", "You already have an active seat in this room.", {
+                attempt,
+                seat_no: seatNo,
+              });
+            }
+            continue;
+          }
+          return respondError(500, "join_failed", memberError?.message ?? "Unable to join.", { attempt, seat_no: seatNo });
+        }
+        member = insertedMember;
       }
-      member = insertedMember;
-    }
 
-    if (!member?.id) {
-      return NextResponse.json({ error: "Unable to join." }, { status: 500 });
-    }
+      await supabaseAdmin
+        .from("roundtable_scores")
+        .upsert(
+          {
+            session_id: params.sessionId,
+            member_id: member.id,
+            points: 0,
+            approved_turns: 0,
+            upvotes_received: 0,
+            useful_marks: 0,
+            violations: 0,
+          },
+          { onConflict: "session_id,member_id" }
+        );
 
-    await supabaseAdmin
-      .from("roundtable_scores")
-      .upsert(
+      await supabaseAdmin
+        .from("roundtable_sessions")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", params.sessionId);
+
+      await reconcileSession(params.sessionId);
+
+      await logRoundtableEvent(
+        "roundtable_session_joined",
         {
           session_id: params.sessionId,
           member_id: member.id,
-          points: 0,
-          approved_turns: 0,
-          upvotes_received: 0,
-          useful_marks: 0,
-          violations: 0,
+          seat_no: member.seat_no,
         },
-        { onConflict: "session_id,member_id" }
+        actor.profileId
       );
 
-    await supabaseAdmin
-      .from("roundtable_sessions")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", params.sessionId);
+      return respondSuccess(201, member, "joined", { attempt });
+    }
 
-    await reconcileSession(params.sessionId);
-
-    await logRoundtableEvent(
-      "roundtable_session_joined",
-      {
-        session_id: params.sessionId,
-        member_id: member.id,
-        seat_no: member.seat_no,
-      },
-      actor.profileId
+    return respondError(
+      409,
+      "seat_taken_retry_exhausted",
+      "Seat was taken while joining. Please try again.",
+      { attempts: MAX_JOIN_RETRY_ATTEMPTS }
     );
-
-    const response = NextResponse.json({ ok: true, member_id: member.id, seat_no: member.seat_no }, { status: 201 });
-    return withGuestCookie(response, actor.guestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to join session.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respondError(500, "join_failed", message);
   }
 }

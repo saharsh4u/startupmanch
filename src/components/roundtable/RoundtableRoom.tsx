@@ -14,6 +14,7 @@ type RoundtableRoomProps = {
 type ActionResponse = {
   ok?: boolean;
   error?: string;
+  code?: string;
   member_id?: string;
   seat_no?: number;
   turn_id?: string;
@@ -50,6 +51,23 @@ const parseError = (value: unknown, fallback: string) => {
     return (value as { error: string }).error;
   }
   return fallback;
+};
+
+const mapActionError = (payload: ActionResponse, fallback: string) => {
+  switch (payload.code) {
+    case "room_full":
+      return "Room is full. All seats are currently occupied.";
+    case "seat_taken_retry_exhausted":
+      return "Someone else took that seat while you were joining. Please tap Join seat again.";
+    case "identity_conflict":
+      return "You already have an active seat in this room. Leave seat before joining again.";
+    case "rate_limited":
+      return "Too many attempts. Please wait a bit and try again.";
+    case "session_closed":
+      return "This session is closed and cannot accept new joins.";
+    default:
+      return payload.error ?? fallback;
+  }
 };
 
 const toInitials = (displayName: string) => {
@@ -435,7 +453,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
       const payload = (await response.json()) as ActionResponse;
       if (!response.ok) {
-        throw new Error(payload.error ?? "Action failed.");
+        throw new Error(mapActionError(payload, "Action failed."));
       }
 
       await loadSnapshot();
