@@ -145,11 +145,13 @@ export default function RoundtableHomepageVideoRail({
   const [pipIndex, setPipIndex] = useState<number | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [instagramResolveByUrl, setInstagramResolveByUrl] = useState<Record<string, InstagramResolveState>>({});
+  const [resolveAttemptTick, setResolveAttemptTick] = useState(0);
   const [pipPlaybackError, setPipPlaybackError] = useState<string | null>(null);
   const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const pipPlayerRef = useRef<HTMLElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
+  const instagramResolveByUrlRef = useRef<Record<string, InstagramResolveState>>({});
   const syncChannelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
   const pitchesRef = useRef<PitchShow[]>([]);
   const applyingRemoteStateRef = useRef(false);
@@ -301,6 +303,10 @@ export default function RoundtableHomepageVideoRail({
   useEffect(() => {
     pitchesRef.current = pitches;
   }, [pitches]);
+
+  useEffect(() => {
+    instagramResolveByUrlRef.current = instagramResolveByUrl;
+  }, [instagramResolveByUrl]);
 
   const sendSharedPlayerEvent = useCallback(
     (payload: Omit<SharedMiniPlayerPayload, "senderId" | "sentAt">) => {
@@ -465,7 +471,7 @@ export default function RoundtableHomepageVideoRail({
     if (!pipInstagramUrl) return;
     if (pipHasDirectPlayableVideo) return;
 
-    const current = instagramResolveByUrl[pipInstagramUrl];
+    const current = instagramResolveByUrlRef.current[pipInstagramUrl];
     if (current?.attempted || current?.loading) return;
 
     let active = true;
@@ -520,7 +526,7 @@ export default function RoundtableHomepageVideoRail({
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [instagramResolveByUrl, pipHasDirectPlayableVideo, pipInstagramUrl]);
+  }, [pipHasDirectPlayableVideo, pipInstagramUrl, resolveAttemptTick]);
 
   const clampPipPosition = useCallback((x: number, y: number) => {
     const panel = pipPlayerRef.current;
@@ -608,6 +614,7 @@ export default function RoundtableHomepageVideoRail({
       },
     }));
     setPipPlaybackError(null);
+    setResolveAttemptTick((current) => current + 1);
   }, [pipInstagramUrl]);
 
   const retryPipPlayback = useCallback(() => {
@@ -934,9 +941,18 @@ export default function RoundtableHomepageVideoRail({
                 {pipVideoSrc ? <source src={pipVideoSrc} type="video/mp4" /> : null}
               </video>
             </div>
-          ) : pipIsResolving ? (
-            <div className="roundtable-pip-fallback">
-              <span>Preparing video...</span>
+          ) : pipEmbedUrl ? (
+            <div className="roundtable-pip-video-wrap">
+              <iframe
+                key={`${pipPitch.id}:${pipEmbedUrl}`}
+                className="roundtable-pip-embed"
+                src={pipEmbedUrl}
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowFullScreen
+                loading="eager"
+                title={`${pipPitch.name} Instagram video`}
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
             </div>
           ) : (
             <div className="roundtable-pip-fallback">
@@ -957,19 +973,12 @@ export default function RoundtableHomepageVideoRail({
                   </a>
                 </div>
               ) : null}
-              {pipEmbedUrl ? (
-                <a
-                  className="roundtable-pip-btn"
-                  href={pipEmbedUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  aria-label="Open embed in a new tab"
-                >
-                  Open embed
-                </a>
-              ) : null}
             </div>
           )}
+
+          {pipIsResolving && !pipHasPlayableVideo ? (
+            <p className="roundtable-pip-note">Preparing direct stream...</p>
+          ) : null}
 
           <div className="roundtable-pip-actions">
             <button type="button" className="roundtable-pip-btn" onClick={() => shiftPip(-1)} aria-label="Previous video">

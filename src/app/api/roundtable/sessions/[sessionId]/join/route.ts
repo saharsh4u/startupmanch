@@ -118,24 +118,67 @@ export async function POST(
       return NextResponse.json({ error: "No seats available." }, { status: 409 });
     }
 
-    const { data: member, error: memberError } = await supabaseAdmin
-      .from("roundtable_members")
-      .insert({
-        session_id: params.sessionId,
-        seat_no: seatNo,
-        profile_id: actor.profileId,
-        guest_id: actor.guestId,
-        display_name: actor.displayName,
-        state: "joined",
-      })
-      .select("id, seat_no")
-      .single();
+    let member: { id: string; seat_no: number } | null = null;
 
-    if (memberError || !member?.id) {
-      if (memberError?.message?.toLowerCase().includes("duplicate key")) {
+    const { data: seatRecord, error: seatRecordError } = await supabaseAdmin
+      .from("roundtable_members")
+      .select("id, state")
+      .eq("session_id", params.sessionId)
+      .eq("seat_no", seatNo)
+      .maybeSingle();
+
+    if (seatRecordError) {
+      return NextResponse.json({ error: seatRecordError.message }, { status: 500 });
+    }
+
+    if (seatRecord?.id) {
+      if (seatRecord.state === "joined") {
         return NextResponse.json({ error: "Seat already taken." }, { status: 409 });
       }
-      return NextResponse.json({ error: memberError?.message ?? "Unable to join." }, { status: 500 });
+
+      const { data: revivedMember, error: reviveError } = await supabaseAdmin
+        .from("roundtable_members")
+        .update({
+          profile_id: actor.profileId,
+          guest_id: actor.guestId,
+          display_name: actor.displayName,
+          state: "joined",
+          joined_at: new Date().toISOString(),
+          left_at: null,
+        })
+        .eq("id", seatRecord.id)
+        .select("id, seat_no")
+        .single();
+
+      if (reviveError || !revivedMember?.id) {
+        return NextResponse.json({ error: reviveError?.message ?? "Unable to join." }, { status: 500 });
+      }
+      member = revivedMember;
+    } else {
+      const { data: insertedMember, error: memberError } = await supabaseAdmin
+        .from("roundtable_members")
+        .insert({
+          session_id: params.sessionId,
+          seat_no: seatNo,
+          profile_id: actor.profileId,
+          guest_id: actor.guestId,
+          display_name: actor.displayName,
+          state: "joined",
+        })
+        .select("id, seat_no")
+        .single();
+
+      if (memberError || !insertedMember?.id) {
+        if (memberError?.message?.toLowerCase().includes("duplicate key")) {
+          return NextResponse.json({ error: "Seat already taken." }, { status: 409 });
+        }
+        return NextResponse.json({ error: memberError?.message ?? "Unable to join." }, { status: 500 });
+      }
+      member = insertedMember;
+    }
+
+    if (!member?.id) {
+      return NextResponse.json({ error: "Unable to join." }, { status: 500 });
     }
 
     await supabaseAdmin

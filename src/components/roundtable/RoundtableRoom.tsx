@@ -394,36 +394,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       if (typeof window !== "undefined") {
         window.localStorage.setItem(memberStorageKey, memberId);
       }
-      const joinedSeatNo = typeof payload.seat_no === "number" ? payload.seat_no : null;
-      if (joinedSeatNo) {
-        setSnapshot((current) => {
-          if (!current) return current;
-          const hasMember = current.members.some((member) => member.id === memberId);
-          if (hasMember) return current;
-          const updatedMembers = [
-            ...current.members,
-            {
-              id: memberId,
-              session_id: sessionId,
-              seat_no: joinedSeatNo,
-              profile_id: null,
-              guest_id: guestId ?? null,
-              display_name: displayName.trim(),
-              state: "joined" as const,
-              joined_at: new Date().toISOString(),
-              left_at: null,
-            },
-          ].sort((a, b) => a.seat_no - b.seat_no);
-          return {
-            ...current,
-            members: updatedMembers,
-            session: {
-              ...current.session,
-              seats_taken: Math.max(current.session.seats_taken, updatedMembers.filter((member) => member.state === "joined").length),
-            },
-          };
-        });
-      }
       setActionError(null);
     }
   };
