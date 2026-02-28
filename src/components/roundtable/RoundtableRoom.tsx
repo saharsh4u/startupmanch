@@ -724,19 +724,36 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
       let stream = mediaStreamRef.current;
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+        } catch (constraintError) {
+          const shouldRetryWithBasicAudio =
+            constraintError instanceof DOMException && constraintError.name === "OverconstrainedError";
+          if (!shouldRetryWithBasicAudio) {
+            throw constraintError;
+          }
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
         mediaStreamRef.current = stream;
       }
       for (const track of stream.getAudioTracks()) {
         track.enabled = true;
       }
       await syncLocalAudioTrackToPeers();
+      // iOS Safari can fail to propagate null->live sender track changes without a renegotiation.
+      for (const remoteMemberId of Array.from(peerConnectionsRef.current.keys())) {
+        try {
+          await createAndSendOffer(remoteMemberId);
+        } catch {
+          // Best-effort renegotiation; presence heartbeats will retry voice setup.
+        }
+      }
       attemptPlayRemoteAudioElements();
       setMicError(null);
       setIsMyMicMuted(false);
@@ -745,7 +762,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setMicError(message);
       setIsMyMicMuted(true);
     }
-  }, [attemptPlayRemoteAudioElements, syncLocalAudioTrackToPeers]);
+  }, [attemptPlayRemoteAudioElements, createAndSendOffer, syncLocalAudioTrackToPeers]);
 
   useEffect(() => {
     const memberId = currentMember?.id ?? null;
