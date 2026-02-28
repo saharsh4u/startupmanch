@@ -13,15 +13,39 @@ const setCookie = (name: string, value: string) => {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 180}; SameSite=Lax`;
 };
 
+const getCookieValue = (name: string) => {
+  if (typeof document === "undefined") return null;
+  const cookie = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+  if (!cookie) return null;
+  const value = cookie.slice(name.length + 1).trim();
+  return value ? decodeURIComponent(value) : null;
+};
+
 export const getGuestId = () => {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(GUEST_ID_KEY);
+  const stored = window.localStorage.getItem(GUEST_ID_KEY)?.trim() ?? "";
+  if (stored.length) {
+    setCookie("rt_guest_id", stored);
+    return stored;
+  }
+
+  const fromCookie = getCookieValue("rt_guest_id")?.trim() ?? "";
+  if (fromCookie.length) {
+    window.localStorage.setItem(GUEST_ID_KEY, fromCookie);
+    return fromCookie;
+  }
+
+  return null;
 };
 
 export const ensureGuestId = () => {
   if (typeof window === "undefined") return null;
-  const existing = window.localStorage.getItem(GUEST_ID_KEY);
+  const existing = getGuestId();
   if (existing) {
+    window.localStorage.setItem(GUEST_ID_KEY, existing);
     setCookie("rt_guest_id", existing);
     return existing;
   }

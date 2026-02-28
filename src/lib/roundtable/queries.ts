@@ -225,6 +225,7 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
   const seatsTaken = members.filter((member) => member.state === "joined").length;
 
   return {
+    viewer_member_id: null,
     session: {
       session_id: session.id,
       topic_id: session.topic_id,

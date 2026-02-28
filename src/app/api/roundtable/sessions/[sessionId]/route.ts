@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { resolveActor } from "@/lib/roundtable/api";
 import { getSessionSnapshot } from "@/lib/roundtable/queries";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
+import { getMemberForActor } from "@/lib/roundtable/server";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { sessionId: string } }
 ) {
   try {
@@ -14,7 +16,22 @@ export async function GET(
     if (!snapshot) {
       return NextResponse.json({ error: "Session not found." }, { status: 404 });
     }
-    return NextResponse.json(snapshot, { status: 200 });
+    let viewerMemberId: string | null = null;
+    try {
+      const actor = await resolveActor(request);
+      const viewerMember = await getMemberForActor(params.sessionId, actor);
+      viewerMemberId = viewerMember?.id ?? null;
+    } catch (viewerError) {
+      console.error("roundtable viewer identity resolution failed", viewerError);
+    }
+
+    return NextResponse.json(
+      {
+        ...snapshot,
+        viewer_member_id: viewerMemberId,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load session.";
     return NextResponse.json({ error: message }, { status: 500 });

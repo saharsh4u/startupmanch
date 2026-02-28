@@ -88,12 +88,31 @@ export const getMemberForActor = async (sessionId: string, actor: RoundtableActo
     return null;
   }
 
-  const { data, error } = await query.maybeSingle();
+  const { data, error } = await query
+    .order("joined_at", { ascending: false });
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data ?? null) as RoundtableMemberRow | null;
+  const members = (data ?? []) as RoundtableMemberRow[];
+  if (!members.length) return null;
+
+  const [primary, ...duplicates] = members;
+  if (duplicates.length) {
+    const duplicateIds = duplicates.map((member) => member.id);
+    const { error: cleanupError } = await supabaseAdmin
+      .from("roundtable_members")
+      .update({ state: "left", left_at: nowIso() })
+      .in("id", duplicateIds)
+      .eq("session_id", sessionId)
+      .eq("state", "joined");
+
+    if (cleanupError) {
+      throw new Error(cleanupError.message);
+    }
+  }
+
+  return primary;
 };
 
 export const logRoundtableEvent = async (

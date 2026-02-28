@@ -96,6 +96,7 @@ export type RoundtableLeaderboardEntry = {
 };
 
 export type RoundtableSessionSnapshot = {
+  viewer_member_id: string | null;
   session: RoundtableSessionSummary;
   topic: {
     id: string;

@@ -84,7 +84,7 @@ export async function POST(
 
     let existingQuery = supabaseAdmin
       .from("roundtable_members")
-      .select("id, seat_no, display_name")
+      .select("id, seat_no, display_name, joined_at")
       .eq("session_id", params.sessionId)
       .eq("state", "joined");
 
@@ -94,10 +94,33 @@ export async function POST(
       existingQuery = existingQuery.eq("guest_id", actor.guestId);
     }
 
-    const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+    const { data: existingRows, error: existingError } = await existingQuery
+      .order("joined_at", { ascending: false });
 
     if (existingError) {
       return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
+
+    const existingMembers = (existingRows ?? []) as Array<{
+      id: string;
+      seat_no: number;
+      display_name: string | null;
+      joined_at: string;
+    }>;
+    const existing = existingMembers[0] ?? null;
+
+    if (existingMembers.length > 1) {
+      const duplicateIds = existingMembers.slice(1).map((member) => member.id);
+      const { error: cleanupError } = await supabaseAdmin
+        .from("roundtable_members")
+        .update({ state: "left", left_at: new Date().toISOString() })
+        .in("id", duplicateIds)
+        .eq("session_id", params.sessionId)
+        .eq("state", "joined");
+
+      if (cleanupError) {
+        return NextResponse.json({ error: cleanupError.message }, { status: 500 });
+      }
     }
 
     if (existing?.id) {

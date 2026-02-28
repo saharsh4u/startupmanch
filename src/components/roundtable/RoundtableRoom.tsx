@@ -17,6 +17,7 @@ type ActionResponse = {
   member_id?: string;
   seat_no?: number;
   turn_id?: string;
+  seats_cleared?: number;
 };
 
 const mapMicError = (errorValue: unknown) => {
@@ -158,17 +159,46 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   }, [memberStorageKey]);
 
   useEffect(() => {
+    const viewerMemberId = snapshot?.viewer_member_id ?? null;
+    if (!viewerMemberId) return;
+    if (selfMemberId !== viewerMemberId) {
+      setSelfMemberId(viewerMemberId);
+    }
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem(memberStorageKey);
+      if (stored !== viewerMemberId) {
+        window.localStorage.setItem(memberStorageKey, viewerMemberId);
+      }
+    }
+  }, [memberStorageKey, selfMemberId, snapshot?.viewer_member_id]);
+
+  useEffect(() => {
     if (!snapshot || !selfMemberId) return;
-    const stillJoined = snapshot.members.some((member) => member.state === "joined" && member.id === selfMemberId);
-    if (stillJoined) return;
+    const viewerMemberId = snapshot.viewer_member_id;
+    if (viewerMemberId) return;
+
+    const stillJoinedByStoredMember = snapshot.members.some((member) => member.state === "joined" && member.id === selfMemberId);
+    if (stillJoinedByStoredMember) return;
+
+    const stillJoinedByGuestId = guestId
+      ? snapshot.members.some((member) => member.state === "joined" && member.guest_id === guestId)
+      : false;
+    if (stillJoinedByGuestId) return;
+
     setSelfMemberId(null);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(memberStorageKey);
     }
-  }, [memberStorageKey, selfMemberId, snapshot]);
+  }, [guestId, memberStorageKey, selfMemberId, snapshot]);
 
   const currentMember = useMemo(() => {
     if (!snapshot) return null;
+    if (snapshot.viewer_member_id) {
+      const viewerMatch = snapshot.members.find(
+        (member) => member.state === "joined" && member.id === snapshot.viewer_member_id
+      );
+      if (viewerMatch) return viewerMatch;
+    }
     return (
       snapshot.members.find(
         (member) =>
@@ -413,19 +443,42 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }
   };
 
+  const handleResetSeats = async () => {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Clear all currently occupied seats in this room?");
+      if (!confirmed) return;
+    }
+    const payload = await callApi(`/api/roundtable/sessions/${sessionId}/reset-seats`, {}, "reset-seats");
+    if (payload?.ok) {
+      stopMicStream();
+      setSelfMemberId(null);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(memberStorageKey);
+      }
+    }
+  };
+
   if (loading) {
-    return <section className="roundtable-panel">Loading session...</section>;
+    return (
+      <div className="roundtable-shell">
+        <section className="roundtable-panel">Loading session...</section>
+        <RoundtableHomepageVideoRail sessionId={sessionId} participantId={guestId} />
+      </div>
+    );
   }
 
   if (error || !snapshot) {
     return (
-      <section className="roundtable-panel">
-        <h3>Unable to load session</h3>
-        <p>{error ?? "Session unavailable."}</p>
-        <button type="button" className="roundtable-cta" onClick={() => void loadSnapshot()}>
-          Retry
-        </button>
-      </section>
+      <div className="roundtable-shell">
+        <section className="roundtable-panel">
+          <h3>Unable to load session</h3>
+          <p>{error ?? "Session unavailable."}</p>
+          <button type="button" className="roundtable-cta" onClick={() => void loadSnapshot()}>
+            Retry
+          </button>
+        </section>
+        <RoundtableHomepageVideoRail sessionId={sessionId} participantId={guestId} />
+      </div>
     );
   }
 
@@ -488,6 +541,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             </button>
           </>
         )}
+        <button
+          type="button"
+          className="roundtable-ghost-btn"
+          disabled={busyAction === "reset-seats"}
+          onClick={() => void handleResetSeats()}
+        >
+          {busyAction === "reset-seats" ? "Clearing..." : "Clear all seats"}
+        </button>
       </form>
 
       {!currentMember && isRoomFull ? (
@@ -550,9 +611,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           setIsMyMicMuted(true);
         }}
       />
-      {currentMember ? (
-        <RoundtableHomepageVideoRail sessionId={sessionId} participantId={currentMember.id} />
-      ) : null}
+      <RoundtableHomepageVideoRail sessionId={sessionId} participantId={currentMember?.id ?? guestId} />
     </div>
   );
 }
