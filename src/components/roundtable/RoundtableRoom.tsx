@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import RoundtableScoreboard from "@/components/roundtable/RoundtableScoreboard";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 import type { RoundtableSessionSnapshot } from "@/lib/roundtable/types";
@@ -65,6 +64,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [isMyMicMuted, setIsMyMicMuted] = useState(true);
   const [micError, setMicError] = useState<string | null>(null);
+  const [selfMemberId, setSelfMemberId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
@@ -145,11 +145,36 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   }, [loadSnapshot, sessionId]);
 
   const guestId = useMemo(() => ensureGuestId(), []);
+  const memberStorageKey = useMemo(() => `rt_member_${sessionId}`, [sessionId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(memberStorageKey);
+    if (stored) {
+      setSelfMemberId(stored);
+    }
+  }, [memberStorageKey]);
+
+  useEffect(() => {
+    if (!snapshot || !selfMemberId) return;
+    const stillJoined = snapshot.members.some((member) => member.state === "joined" && member.id === selfMemberId);
+    if (stillJoined) return;
+    setSelfMemberId(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(memberStorageKey);
+    }
+  }, [memberStorageKey, selfMemberId, snapshot]);
 
   const currentMember = useMemo(() => {
-    if (!snapshot || !guestId) return null;
-    return snapshot.members.find((member) => member.state === "joined" && member.guest_id === guestId) ?? null;
-  }, [guestId, snapshot]);
+    if (!snapshot) return null;
+    return (
+      snapshot.members.find(
+        (member) =>
+          member.state === "joined" &&
+          ((selfMemberId && member.id === selfMemberId) || (guestId && member.guest_id === guestId))
+      ) ?? null
+    );
+  }, [guestId, selfMemberId, snapshot]);
 
   const seats = useMemo<RoundtableSeatViewModel[]>(() => {
     if (!snapshot) return [];
@@ -357,14 +382,28 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       return;
     }
 
-    await callApi(`/api/roundtable/sessions/${sessionId}/join`, {
+    const payload = await callApi(`/api/roundtable/sessions/${sessionId}/join`, {
       seat_no: seatChoice === "auto" ? undefined : seatChoice,
     }, "join");
+
+    if (payload?.member_id) {
+      setSelfMemberId(payload.member_id);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(memberStorageKey, payload.member_id);
+      }
+      setActionError(null);
+    }
   };
 
   const handleLeave = async () => {
-    await callApi(`/api/roundtable/sessions/${sessionId}/leave`, {}, "leave");
-    stopMicStream();
+    const payload = await callApi(`/api/roundtable/sessions/${sessionId}/leave`, {}, "leave");
+    if (payload?.ok) {
+      stopMicStream();
+      setSelfMemberId(null);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(memberStorageKey);
+      }
+    }
   };
 
   if (loading) {
@@ -437,7 +476,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         <h4>Live voice</h4>
         {currentMember ? (
           <>
-            <p className="roundtable-muted">Open room mode: anyone seated can speak anytime.</p>
+            <p className="roundtable-muted">Anyone seated can speak anytime.</p>
             <div className="roundtable-voice-controls">
               <button
                 type="button"
@@ -484,16 +523,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           setIsMyMicMuted(true);
         }}
       />
-
-      <section className="roundtable-panel">
-        <h4>Live score</h4>
-        <RoundtableScoreboard scores={snapshot.scores} />
-      </section>
-
-      <section className="roundtable-panel" aria-label="Recent submitted turns">
-        <h4>Room mode</h4>
-        <p className="roundtable-muted">Queue is disabled. Anyone seated can unmute and speak at any time.</p>
-      </section>
     </div>
   );
 }

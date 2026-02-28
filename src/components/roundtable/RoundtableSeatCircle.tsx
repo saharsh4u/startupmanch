@@ -23,7 +23,7 @@ type RoundtableSeatCircleProps = {
 };
 
 const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => {
-  const angle = -90 + ((seatNo - 1) * 360) / seatCount;
+  const angle = -90 + 180 / seatCount + ((seatNo - 1) * 360) / seatCount;
   const rad = (angle * Math.PI) / 180;
   return {
     angle,
@@ -48,7 +48,7 @@ export default function RoundtableSeatCircle({
     if (!eyeTargetSeatNo) {
       return { x: 0, y: 0 };
     }
-    const angle = -90 + ((eyeTargetSeatNo - 1) * 360) / seatCount;
+    const angle = -90 + 180 / seatCount + ((eyeTargetSeatNo - 1) * 360) / seatCount;
     const rad = (angle * Math.PI) / 180;
     return {
       x: Math.cos(rad) * 16,

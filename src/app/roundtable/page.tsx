@@ -17,7 +17,7 @@ export default function RoundtablePage() {
         <div className="anchor-block">
           <RoundtableLobby />
         </div>
-        <SiteFooter />
+        <SiteFooter showCredit={false} showThemeToggle={false} />
       </div>
     </AdRailsScaffold>
   );

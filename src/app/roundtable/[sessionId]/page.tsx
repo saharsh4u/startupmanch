@@ -23,7 +23,7 @@ export default function RoundtableSessionPage({ params }: RoundtableSessionPageP
         <div className="anchor-block">
           <RoundtableRoom sessionId={params.sessionId} />
         </div>
-        <SiteFooter />
+        <SiteFooter showCredit={false} showThemeToggle={false} />
       </div>
     </AdRailsScaffold>
   );

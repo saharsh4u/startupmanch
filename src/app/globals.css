@@ -4398,6 +4398,15 @@ html[data-theme="dark"] body {
   gap: 12px;
 }
 
+.site-footer.site-footer-minimal {
+  justify-content: center;
+  align-items: center;
+}
+
+.site-footer.site-footer-minimal .site-footer-links {
+  margin-left: 0;
+}
+
 .site-footer-credit {
   margin: 0;
   color: var(--muted);
@@ -8562,16 +8571,29 @@ body {
   flex-direction: column;
   gap: 22px;
   background: #000000;
+  width: min(100%, 1040px);
+  margin: 0 auto;
 }
 
 .roundtable-shell {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  width: min(100%, 980px);
+  margin: 0 auto;
 }
 
 .roundtable-page {
   background: #000000;
+}
+
+.roundtable-page .center-panel {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+}
+
+.roundtable-page .anchor-block {
+  width: 100%;
 }
 
 .roundtable-hero,
@@ -8605,23 +8627,27 @@ body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(229, 229, 233, 0.72);
+  text-align: center;
 }
 
 .roundtable-hero h1 {
   margin: 8px 0 6px;
   color: #f4f4f8;
   font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+  text-align: center;
 }
 
 .roundtable-hero p {
   margin: 0;
   color: rgba(226, 228, 236, 0.9);
+  text-align: center;
 }
 
 .roundtable-rules {
   padding: 10px 12px;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
 }
 
@@ -8637,16 +8663,19 @@ body {
 .roundtable-panel h4 {
   margin: 0 0 10px;
   color: #f6f7fb;
+  text-align: center;
 }
 
 .roundtable-muted {
   margin: 0;
   color: rgba(206, 210, 224, 0.8);
+  text-align: center;
 }
 
 .roundtable-error {
   margin: 0;
   color: #ff9d9d;
+  text-align: center;
 }
 
 .roundtable-form-grid {
@@ -8827,6 +8856,7 @@ body {
   flex-wrap: wrap;
   gap: 10px;
   align-items: flex-end;
+  justify-content: center;
 }
 
 .roundtable-seat-circle {
@@ -8954,7 +8984,7 @@ body {
 
 .roundtable-seat-token {
   position: absolute;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, 0);
   width: clamp(128px, 17vw, 154px);
   min-height: 92px;
   border: 1px solid #b88324;
@@ -8975,11 +9005,11 @@ body {
   content: "";
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 0;
   width: 2px;
   height: min(24vw, 140px);
   transform-origin: center top;
-  transform: rotate(calc(var(--rt-seat-angle) + 90deg)) translateY(-8px);
+  transform: rotate(calc(var(--rt-seat-angle) + 90deg));
   background: linear-gradient(to bottom, rgba(242, 177, 61, 0.72), rgba(242, 177, 61, 0));
   opacity: 0;
   pointer-events: none;
@@ -9277,10 +9307,10 @@ body {
 @keyframes roundtableTokenBob {
   0%,
   100% {
-    transform: translate(-50%, -50%) translateY(0px);
+    transform: translate(-50%, 0) translateY(0px);
   }
   50% {
-    transform: translate(-50%, -50%) translateY(-4px);
+    transform: translate(-50%, 0) translateY(-4px);
   }
 }
 
@@ -9309,11 +9339,11 @@ body {
 @keyframes roundtableSeatActivePulse {
   0%,
   100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: translate(-50%, 0) scale(1);
     filter: saturate(1);
   }
   50% {
-    transform: translate(-50%, -50%) scale(1.03);
+    transform: translate(-50%, 0) scale(1.03);
     filter: saturate(1.2);
   }
 }
