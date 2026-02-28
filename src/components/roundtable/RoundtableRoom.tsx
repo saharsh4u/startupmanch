@@ -18,6 +18,26 @@ type ActionResponse = {
   turn_id?: string;
 };
 
+const mapMicError = (errorValue: unknown) => {
+  const fallback = "Could not access microphone.";
+  if (!(errorValue instanceof Error)) return fallback;
+
+  if (errorValue.name === "NotAllowedError" || /permission denied/i.test(errorValue.message)) {
+    return "Microphone is blocked in browser settings. Click the lock icon in the address bar, allow microphone, then reload this page.";
+  }
+  if (errorValue.name === "NotFoundError") {
+    return "No microphone device was found.";
+  }
+  if (errorValue.name === "NotReadableError") {
+    return "Microphone is busy in another app. Close other apps using mic and try again.";
+  }
+  if (errorValue.name === "SecurityError") {
+    return "Microphone access requires a secure page (HTTPS).";
+  }
+
+  return errorValue.message || fallback;
+};
+
 const parseError = (value: unknown, fallback: string) => {
   if (value && typeof value === "object" && "error" in value && typeof (value as { error?: unknown }).error === "string") {
     return (value as { error: string }).error;
@@ -235,9 +255,40 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const enableMic = useCallback(async () => {
     if (!currentMember) return;
     try {
+      if (!window.isSecureContext) {
+        setMicError("Microphone works only on HTTPS pages.");
+        setIsMyMicMuted(true);
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setMicError("This browser does not support microphone access.");
+        setIsMyMicMuted(true);
+        return;
+      }
+
+      if ("permissions" in navigator && navigator.permissions?.query) {
+        try {
+          const permission = await navigator.permissions.query({ name: "microphone" as PermissionName });
+          if (permission.state === "denied") {
+            setMicError("Microphone is blocked in browser settings. Click the lock icon in the address bar, allow microphone, then reload this page.");
+            setIsMyMicMuted(true);
+            return;
+          }
+        } catch {
+          // Ignore permissions API failures and continue to getUserMedia.
+        }
+      }
+
       let stream = mediaStreamRef.current;
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
         mediaStreamRef.current = stream;
       }
       for (const track of stream.getAudioTracks()) {
@@ -246,7 +297,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setMicError(null);
       setIsMyMicMuted(false);
     } catch (errorValue) {
-      const message = errorValue instanceof Error ? errorValue.message : "Microphone permission denied.";
+      const message = mapMicError(errorValue);
       setMicError(message);
       setIsMyMicMuted(true);
     }
