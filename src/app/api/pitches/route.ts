@@ -81,7 +81,7 @@ type PitchStatsRow = {
   comment_count: number | null;
 };
 
-const SHUFFLE_WINDOW_MS = 5 * 60 * 1000;
+const SHUFFLE_WINDOW_MS = 3 * 60 * 1000;
 
 const isMissingVideoProcessingColumnError = (message: string | null | undefined) => {
   const normalized = (message ?? "").toLowerCase();

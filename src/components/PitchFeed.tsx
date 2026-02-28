@@ -117,10 +117,10 @@ const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
 const FEED_CACHE_TTL_MS = 15 * 60 * 1000;
 const FEED_CACHE_KEY_PREFIX = "pitch-feed-cache-v1";
-const SHUFFLE_WINDOW_SECONDS = 5 * 60;
-const SLOT_REORDER_MIN_MS = 8_000;
-const SLOT_REORDER_MAX_MS = 16_000;
-const HOT_AUTOPLAY_INTERVAL_MS = 2600;
+const SHUFFLE_WINDOW_SECONDS = 3 * 60;
+const SLOT_REORDER_MIN_MS = 3 * 60 * 1000;
+const SLOT_REORDER_MAX_MS = 3 * 60 * 1000;
+const HOT_AUTOPLAY_INTERVAL_MS = 3 * 60 * 1000;
 const HOT_AUTOPLAY_RESUME_DELAY_MS = 1600;
 const HOT_WHEEL_SETTLE_MS = 560;
 const COMMUNITY_RAIL_COUNT = 3;
@@ -2275,7 +2275,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               </div>
               {SLOT_UPGRADE_ENABLED ? (
                 <p className="community-filter-note">
-                  Positions reshuffle at random intervals, plus a full network shuffle every 5 min.
+                  Positions reshuffle every 3 min, plus a full network shuffle every 3 min.
                 </p>
               ) : null}
             </div>
