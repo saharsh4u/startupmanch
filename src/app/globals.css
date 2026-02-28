@@ -9443,6 +9443,14 @@ body {
   background: #000000;
 }
 
+.roundtable-pip-embed {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  border: 0;
+  background: #000000;
+}
+
 .roundtable-pip-fallback {
   border-radius: 10px;
   border: 1px solid #4a4135;
@@ -9450,10 +9458,6 @@ body {
   padding: 18px 12px;
   color: rgba(242, 230, 198, 0.78);
   font-size: 0.78rem;
-}
-
-.roundtable-pip-link {
-  color: #f6cf7f;
 }
 
 .roundtable-pip-actions {
