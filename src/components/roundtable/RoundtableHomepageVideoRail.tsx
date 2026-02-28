@@ -10,7 +10,6 @@ import {
   type PointerEvent,
   type WheelEvent,
 } from "react";
-import ExpandedPitchOverlay from "@/components/ExpandedPitchOverlay";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
 
 type ApiPitch = {
@@ -38,6 +37,7 @@ type FeedResponsePayload = {
 const VIDEO_FETCH_LIMIT = 48;
 const AUTO_SCROLL_SPEED_PX_PER_MS = 0.06;
 const INTERACTION_PAUSE_MS = 1400;
+const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
 
 const asNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
@@ -97,9 +97,10 @@ export default function RoundtableHomepageVideoRail() {
   const [pitches, setPitches] = useState<PitchShow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [pipIndex, setPipIndex] = useState<number | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const railRef = useRef<HTMLDivElement | null>(null);
+  const pipVideoRef = useRef<HTMLVideoElement | null>(null);
   const carryRef = useRef(0);
   const pauseUntilRef = useRef(0);
   const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,34 +239,43 @@ export default function RoundtableHomepageVideoRail() {
 
   const openPitch = useCallback(
     (index: number) => {
-      setExpandedIndex(index);
+      setPipIndex(index);
       markInteraction(1800);
     },
     [markInteraction]
   );
 
-  const closeExpand = useCallback(() => {
-    setExpandedIndex(null);
+  const closePip = useCallback(() => {
+    if (pipVideoRef.current) {
+      pipVideoRef.current.pause();
+    }
+    setPipIndex(null);
   }, []);
 
-  const setOverlayIndex = useCallback(
-    (next: number) => {
-      if (!pitches.length) {
-        setExpandedIndex(null);
-        return;
-      }
-      setExpandedIndex(Math.max(0, Math.min(next, pitches.length - 1)));
+  const shiftPip = useCallback(
+    (direction: -1 | 1) => {
+      if (!pitches.length) return;
+      setPipIndex((current) => {
+        if (current === null) return 0;
+        return ((current + direction) % pitches.length + pitches.length) % pitches.length;
+      });
     },
     [pitches.length]
   );
-
-  const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < pitches.length;
 
   const statusText = useMemo(() => {
     if (loading) return "Loading homepage videos...";
     if (error) return error;
     return null;
   }, [error, loading]);
+
+  const pipPitch = useMemo(() => {
+    if (pipIndex === null || pipIndex < 0 || pipIndex >= pitches.length) return null;
+    return pitches[pipIndex];
+  }, [pipIndex, pitches]);
+  const pipVideoMp4Src = pipPitch?.videoMp4Url ?? pipPitch?.video ?? null;
+  const pipVideoHlsSrc = HLS_ENABLED ? pipPitch?.videoHlsUrl ?? null : null;
+  const pipHasPlayableVideo = Boolean(pipVideoMp4Src || pipVideoHlsSrc);
 
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
@@ -407,13 +417,62 @@ export default function RoundtableHomepageVideoRail() {
         </div>
       ) : null}
 
-      {overlayOpen ? (
-        <ExpandedPitchOverlay
-          pitches={pitches}
-          index={expandedIndex}
-          setIndex={setOverlayIndex}
-          onClose={closeExpand}
-        />
+      {pipPitch ? (
+        <aside className="roundtable-pip-player" aria-label="Video mini player">
+          <div className="roundtable-pip-head">
+            <div className="roundtable-pip-meta">
+              <strong>{pipPitch.name}</strong>
+              <span>{pipPitch.category ?? "Video"}</span>
+            </div>
+            <button type="button" className="roundtable-pip-close" onClick={closePip} aria-label="Close mini player">
+              ×
+            </button>
+          </div>
+
+          {pipHasPlayableVideo ? (
+            <div className="roundtable-pip-video-wrap">
+              <video
+                key={`${pipPitch.id}:${pipVideoHlsSrc ?? "none"}:${pipVideoMp4Src ?? "none"}`}
+                ref={pipVideoRef}
+                className="roundtable-pip-video"
+                poster={pipPitch.poster}
+                controls
+                playsInline
+                autoPlay
+                muted
+                preload="metadata"
+              >
+                {pipVideoHlsSrc ? <source src={pipVideoHlsSrc} type="application/vnd.apple.mpegurl" /> : null}
+                {pipVideoMp4Src ? <source src={pipVideoMp4Src} type="video/mp4" /> : null}
+              </video>
+            </div>
+          ) : (
+            <div className="roundtable-pip-fallback">
+              {pipPitch.instagramUrl ? (
+                <a
+                  href={pipPitch.instagramUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="roundtable-pip-link"
+                >
+                  Open Instagram video
+                </a>
+              ) : (
+                <span>Video unavailable.</span>
+              )}
+            </div>
+          )}
+
+          <div className="roundtable-pip-actions">
+            <button type="button" className="roundtable-pip-btn" onClick={() => shiftPip(-1)} aria-label="Previous video">
+              ← Prev
+            </button>
+            <button type="button" className="roundtable-pip-btn" onClick={() => shiftPip(1)} aria-label="Next video">
+              Next →
+            </button>
+          </div>
+          <p className="roundtable-pip-note">Roundtable stays active while this mini player is open.</p>
+        </aside>
       ) : null}
     </section>
   );
