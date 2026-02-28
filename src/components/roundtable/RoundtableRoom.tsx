@@ -122,12 +122,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [weeklyContributors, setWeeklyContributors] = useState<RoundtableLeaderboardEntry[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
+  const [needsRemoteAudioUnlock, setNeedsRemoteAudioUnlock] = useState(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioElementMapRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const voiceChannelRef = useRef<RealtimeChannel | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const peerAudioSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
   const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const peerReconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const joinedMemberIdSetRef = useRef<Set<string>>(new Set());
   const autoMicPermissionPromptedMemberRef = useRef<string | null>(null);
 
@@ -396,12 +398,28 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
   const currentParticipantId = currentMember?.id ?? null;
 
-  const attemptPlayRemoteAudioElements = useCallback(() => {
-    for (const element of remoteAudioElementMapRef.current.values()) {
-      void element.play().catch(() => {
-        // Mobile browsers can require a user gesture; retry happens on next interaction.
-      });
+  const attemptPlayRemoteAudioElements = useCallback(async () => {
+    const elements = Array.from(remoteAudioElementMapRef.current.values());
+    if (!elements.length) {
+      setNeedsRemoteAudioUnlock(false);
+      return;
     }
+
+    let blockedByPolicy = false;
+    for (const element of elements) {
+      element.autoplay = true;
+      element.setAttribute("playsinline", "true");
+      element.setAttribute("webkit-playsinline", "true");
+      element.muted = false;
+      element.volume = 1;
+      try {
+        await element.play();
+      } catch {
+        // iOS/Chrome mobile can block remote audio until a user gesture.
+        blockedByPolicy = true;
+      }
+    }
+    setNeedsRemoteAudioUnlock(blockedByPolicy);
   }, []);
 
   const setRemoteStreamForMember = useCallback((memberId: string, stream: MediaStream) => {
@@ -435,6 +453,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     peerConnectionsRef.current.delete(memberId);
     peerAudioSendersRef.current.delete(memberId);
     pendingIceCandidatesRef.current.delete(memberId);
+    peerReconnectAttemptsRef.current.delete(memberId);
     removeRemoteStreamForMember(memberId);
   }, [removeRemoteStreamForMember]);
 
@@ -519,7 +538,37 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     };
 
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "failed" || peer.connectionState === "closed") {
+      if (peer.connectionState === "connected") {
+        peerReconnectAttemptsRef.current.set(remoteMemberId, 0);
+        return;
+      }
+
+      if (peer.connectionState === "disconnected" || peer.connectionState === "failed") {
+        const retries = peerReconnectAttemptsRef.current.get(remoteMemberId) ?? 0;
+        if (retries < 2 && peer.signalingState === "stable") {
+          peerReconnectAttemptsRef.current.set(remoteMemberId, retries + 1);
+          void (async () => {
+            try {
+              const restartOffer = await peer.createOffer({ iceRestart: true });
+              await peer.setLocalDescription(restartOffer);
+              sendVoiceSignal({
+                kind: "offer",
+                target_id: remoteMemberId,
+                sdp: peer.localDescription ?? restartOffer,
+              });
+            } catch {
+              // Allow next presence heartbeat to retry signaling.
+            }
+          })();
+        }
+
+        if (peer.connectionState === "failed" && retries >= 2) {
+          closePeerConnectionForMember(remoteMemberId);
+        }
+        return;
+      }
+
+      if (peer.connectionState === "closed") {
         closePeerConnectionForMember(remoteMemberId);
       }
     };
@@ -672,13 +721,16 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   ]);
 
   useEffect(() => {
-    if (!Object.keys(remoteAudioStreams).length) return;
-    attemptPlayRemoteAudioElements();
+    if (!Object.keys(remoteAudioStreams).length) {
+      setNeedsRemoteAudioUnlock(false);
+      return;
+    }
+    void attemptPlayRemoteAudioElements();
   }, [attemptPlayRemoteAudioElements, remoteAudioStreams]);
 
   useEffect(() => {
     const unlock = () => {
-      attemptPlayRemoteAudioElements();
+      void attemptPlayRemoteAudioElements();
     };
     window.addEventListener("touchstart", unlock, { passive: true });
     window.addEventListener("click", unlock);
@@ -754,7 +806,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           // Best-effort renegotiation; presence heartbeats will retry voice setup.
         }
       }
-      attemptPlayRemoteAudioElements();
+      void attemptPlayRemoteAudioElements();
       setMicError(null);
       setIsMyMicMuted(false);
     } catch (errorValue) {
@@ -773,7 +825,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     if (autoMicPermissionPromptedMemberRef.current === memberId) return;
 
     autoMicPermissionPromptedMemberRef.current = memberId;
-    attemptPlayRemoteAudioElements();
+    void attemptPlayRemoteAudioElements();
     void enableMic();
   }, [attemptPlayRemoteAudioElements, currentMember?.id, enableMic]);
 
@@ -843,7 +895,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       }
       setActionError(null);
       autoMicPermissionPromptedMemberRef.current = memberId;
-      attemptPlayRemoteAudioElements();
+      void attemptPlayRemoteAudioElements();
       await enableMic();
     }
   };
@@ -1022,7 +1074,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
                 className="roundtable-cta"
                 onClick={() => {
                   if (isMyMicMuted) {
-                    attemptPlayRemoteAudioElements();
+                    void attemptPlayRemoteAudioElements();
                     void enableMic();
                     return;
                   }
@@ -1031,7 +1083,23 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
               >
                 {isMyMicMuted ? "Unmute mic" : "Mute mic"}
               </button>
+              {needsRemoteAudioUnlock && Object.keys(remoteAudioStreams).length ? (
+                <button
+                  type="button"
+                  className="roundtable-ghost-btn"
+                  onClick={() => {
+                    void attemptPlayRemoteAudioElements();
+                  }}
+                >
+                  Enable speaker audio
+                </button>
+              ) : null}
             </div>
+            {needsRemoteAudioUnlock && Object.keys(remoteAudioStreams).length ? (
+              <p className="roundtable-muted">
+                Browser blocked speaker playback. Tap Enable speaker audio once to hear others.
+              </p>
+            ) : null}
           </>
         ) : (
           <p className="roundtable-muted">Join a seat to unlock mic controls.</p>
@@ -1047,7 +1115,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         isMyMicMuted={isMyMicMuted}
         onToggleMyMic={() => {
           if (isMyMicMuted) {
-            attemptPlayRemoteAudioElements();
+            void attemptPlayRemoteAudioElements();
             void enableMic();
             return;
           }
@@ -1100,7 +1168,19 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           ))}
         </div>
       </section>
-      <div style={{ display: "none" }} aria-hidden>
+      <div
+        style={{
+          position: "fixed",
+          width: 1,
+          height: 1,
+          opacity: 0,
+          overflow: "hidden",
+          pointerEvents: "none",
+          left: 0,
+          bottom: 0,
+        }}
+        aria-hidden
+      >
         {Object.entries(remoteAudioStreams).map(([memberId, stream]) => (
           <audio
             key={memberId}
@@ -1114,10 +1194,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
               remoteAudioElementMapRef.current.set(memberId, element);
               if (element.srcObject !== stream) {
                 element.srcObject = stream;
+                void attemptPlayRemoteAudioElements();
               }
-              void element.play().catch(() => {
-                // Playback may require a user interaction; retry on next interaction.
-              });
             }}
           />
         ))}

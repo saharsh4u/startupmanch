@@ -281,9 +281,28 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoSrc || videoUnavailable) return;
-    video.pause();
-    video.currentTime = 0;
-    video.play().catch(() => undefined);
+    let active = true;
+
+    const tryAutoplay = async () => {
+      video.pause();
+      video.currentTime = 0;
+      video.muted = false;
+      try {
+        await video.play();
+        return;
+      } catch {
+        // Mobile browsers often block autoplay with sound; retry muted.
+      }
+
+      if (!active) return;
+      video.muted = true;
+      await video.play().catch(() => undefined);
+    };
+
+    void tryAutoplay();
+    return () => {
+      active = false;
+    };
   }, [pitch?.id, videoSrc, videoUnavailable]);
 
   useEffect(() => {
