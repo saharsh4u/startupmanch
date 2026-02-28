@@ -1900,7 +1900,7 @@ button:disabled {
 }
 
 .pitch-show-media-video.is-loading {
-  opacity: 0.18;
+  opacity: 0;
 }
 
 .pitch-show-media-video.is-ready {
