@@ -165,6 +165,25 @@ export const buildMuxPlaybackUrl = (playbackId: string | null | undefined) => {
   return `https://stream.mux.com/${normalized}/medium.mp4`;
 };
 
+export const buildMuxPlaybackUrls = (playbackId: string | null | undefined) => {
+  const normalized = playbackId?.trim();
+  if (!normalized) {
+    return {
+      hlsUrl: null as string | null,
+      mp4Url: null as string | null,
+      defaultUrl: null as string | null,
+    };
+  }
+
+  const hlsUrl = `https://stream.mux.com/${normalized}.m3u8`;
+  const mp4Url = `https://stream.mux.com/${normalized}/medium.mp4`;
+  return {
+    hlsUrl,
+    mp4Url,
+    defaultUrl: mp4Url,
+  };
+};
+
 export const verifyMuxWebhookSignature = (rawBody: string, headers: Headers) => {
   const signatureHeader = headers.get("mux-signature");
   if (!signatureHeader) return false;

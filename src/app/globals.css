@@ -1900,11 +1900,19 @@ button:disabled {
 }
 
 .pitch-show-media-video.is-loading {
-  opacity: 0;
+  opacity: 0.18;
 }
 
 .pitch-show-media-video.is-ready {
   opacity: 1;
+}
+
+.pitch-show-poster {
+  transition: opacity 0.3s ease;
+}
+
+.pitch-show-poster.is-hidden {
+  opacity: 0;
 }
 
 .pitch-show-media.instagram-frame {

@@ -3,10 +3,8 @@ import { createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
-import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
 import {
-  fetchInstagramMediaUrls,
-  fetchInstagramThumbnailUrl,
   isExternalMediaUrl,
   normalizeInstagramUrl,
 } from "@/lib/video/instagram";
@@ -155,6 +153,8 @@ const buildFallbackRows = (options: {
     founder_name: null,
     slot_index: options.offset + index + 1,
     video_url: null,
+    video_hls_url: null,
+    video_mp4_url: null,
     poster_url: pitch.poster,
     is_fallback: true,
   }));
@@ -458,82 +458,114 @@ export async function GET(request: Request) {
     }
   }
 
-  const enriched = await Promise.all(
-    rows.map(async (item: PitchFeedItem, index: number) => {
-      let video_url: string | null = null;
-      let instagram_url: string | null = null;
-      let poster_url: string | null = null;
-      let instagramMedia: { videoUrl: string | null; thumbnailUrl: string | null } | null = null;
-
-      const videoState = videoStateByPitchId.get(item.pitch_id);
-      const startupMeta = startupMetaById.get(item.startup_id);
-      const founderName = startupMeta?.founder_id
-        ? founderNameById.get(startupMeta.founder_id) ?? null
-        : null;
-      const muxPlaybackUrl = buildMuxPlaybackUrl(videoState?.video_mux_playback_id);
-      if (videoState?.video_processing_status === "ready" && muxPlaybackUrl) {
-        video_url = muxPlaybackUrl;
-      } else if (item.video_path) {
-        if (isExternalMediaUrl(item.video_path)) {
-          const normalizedInstagram = normalizeInstagramUrl(item.video_path);
-          if (normalizedInstagram) {
-            instagram_url = normalizedInstagram;
-            instagramMedia = await fetchInstagramMediaUrls(normalizedInstagram);
-            if (instagramMedia.videoUrl) {
-              video_url = instagramMedia.videoUrl;
-            }
-          } else {
-            video_url = item.video_path;
-          }
-        } else {
-          const { data: signedVideo } = await supabaseAdmin.storage
-            .from("pitch-videos")
-            .createSignedUrl(item.video_path, 60 * 60);
-          video_url = signedVideo?.signedUrl ?? null;
-        }
-      }
-
-      if (item.poster_path) {
-        if (isExternalMediaUrl(item.poster_path)) {
-          poster_url = item.poster_path;
-        } else {
-          const { data: signedPoster } = await supabaseAdmin.storage
-            .from("pitch-posters")
-            .createSignedUrl(item.poster_path, 60 * 60);
-          poster_url = signedPoster?.signedUrl ?? null;
-        }
-      } else if (instagram_url) {
-        const fetchedPoster =
-          instagramMedia?.thumbnailUrl ?? (await fetchInstagramThumbnailUrl(instagram_url));
-        if (fetchedPoster) {
-          poster_url = fetchedPoster;
-          void (async () => {
-            await supabaseAdmin
-              .from("pitches")
-              .update({ poster_path: fetchedPoster })
-              .eq("id", item.pitch_id);
-          })();
-        }
-      }
-
-      return {
-        ...item,
-        monthly_revenue: item.monthly_revenue ?? null,
-        in_count: asNumber(item.in_count),
-        out_count: asNumber(item.out_count),
-        comment_count: asNumber(item.comment_count),
-        score: asNumber(item.score),
-        approved_at: item.approved_at ?? videoState?.approved_at ?? null,
-        founder_photo_url: startupMeta?.founder_photo_url ?? null,
-        founder_story: startupMeta?.founder_story ?? null,
-        founder_name: founderName,
-        slot_index: offset + index + 1,
-        video_url,
-        instagram_url,
-        poster_url,
-      };
-    })
+  const storageVideoPaths = Array.from(
+    new Set(
+      rows
+        .map((item) => {
+          const videoState = videoStateByPitchId.get(item.pitch_id);
+          const muxPlayback = buildMuxPlaybackUrls(videoState?.video_mux_playback_id);
+          if (videoState?.video_processing_status === "ready" && muxPlayback.mp4Url) return null;
+          if (!item.video_path || isExternalMediaUrl(item.video_path)) return null;
+          return item.video_path;
+        })
+        .filter((value): value is string => Boolean(value))
+    )
   );
+
+  const storagePosterPaths = Array.from(
+    new Set(
+      rows
+        .map((item) => {
+          if (!item.poster_path || isExternalMediaUrl(item.poster_path)) return null;
+          return item.poster_path;
+        })
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  const signedVideoByPath = new Map<string, string | null>();
+  if (storageVideoPaths.length) {
+    const { data: signedVideos } = await supabaseAdmin.storage
+      .from("pitch-videos")
+      .createSignedUrls(storageVideoPaths, 60 * 60);
+    for (const entry of signedVideos ?? []) {
+      if (typeof entry.path !== "string" || !entry.path.length) continue;
+      signedVideoByPath.set(entry.path, entry.signedUrl ?? null);
+    }
+  }
+
+  const signedPosterByPath = new Map<string, string | null>();
+  if (storagePosterPaths.length) {
+    const { data: signedPosters } = await supabaseAdmin.storage
+      .from("pitch-posters")
+      .createSignedUrls(storagePosterPaths, 60 * 60);
+    for (const entry of signedPosters ?? []) {
+      if (typeof entry.path !== "string" || !entry.path.length) continue;
+      signedPosterByPath.set(entry.path, entry.signedUrl ?? null);
+    }
+  }
+
+  const enriched = rows.map((item: PitchFeedItem, index: number) => {
+    let video_url: string | null = null;
+    let video_hls_url: string | null = null;
+    let video_mp4_url: string | null = null;
+    let instagram_url: string | null = null;
+    let poster_url: string | null = null;
+
+    const videoState = videoStateByPitchId.get(item.pitch_id);
+    const startupMeta = startupMetaById.get(item.startup_id);
+    const founderName = startupMeta?.founder_id
+      ? founderNameById.get(startupMeta.founder_id) ?? null
+      : null;
+    const muxPlayback = buildMuxPlaybackUrls(videoState?.video_mux_playback_id);
+
+    if (videoState?.video_processing_status === "ready" && muxPlayback.mp4Url) {
+      video_hls_url = muxPlayback.hlsUrl;
+      video_mp4_url = muxPlayback.mp4Url;
+      video_url = muxPlayback.defaultUrl;
+    } else if (item.video_path) {
+      if (isExternalMediaUrl(item.video_path)) {
+        const normalizedInstagram = normalizeInstagramUrl(item.video_path);
+        if (normalizedInstagram) {
+          instagram_url = normalizedInstagram;
+        } else {
+          video_mp4_url = item.video_path;
+          video_url = item.video_path;
+        }
+      } else {
+        const signedVideo = signedVideoByPath.get(item.video_path) ?? null;
+        video_mp4_url = signedVideo;
+        video_url = signedVideo;
+      }
+    }
+
+    if (item.poster_path) {
+      if (isExternalMediaUrl(item.poster_path)) {
+        poster_url = item.poster_path;
+      } else {
+        poster_url = signedPosterByPath.get(item.poster_path) ?? null;
+      }
+    }
+
+    return {
+      ...item,
+      monthly_revenue: item.monthly_revenue ?? null,
+      in_count: asNumber(item.in_count),
+      out_count: asNumber(item.out_count),
+      comment_count: asNumber(item.comment_count),
+      score: asNumber(item.score),
+      approved_at: item.approved_at ?? videoState?.approved_at ?? null,
+      founder_photo_url: startupMeta?.founder_photo_url ?? null,
+      founder_story: startupMeta?.founder_story ?? null,
+      founder_name: founderName,
+      slot_index: offset + index + 1,
+      video_url,
+      video_hls_url,
+      video_mp4_url,
+      instagram_url,
+      poster_url,
+    };
+  });
   const response = NextResponse.json({
     mode: safeMode,
     tab: resolvedTab,

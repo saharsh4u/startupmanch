@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchLiveUsdInrRates, normalizeSupportedCurrency, toDualCurrency } from "@/lib/fx/live-rates";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
 import { readAnonWatchId } from "@/lib/watchers/identity";
 
 export const runtime = "nodejs";
@@ -387,6 +387,8 @@ const resolveLatestApprovedPitch = async (startupId: string) => {
 
     return {
       ...fallbackPitchRow,
+      video_hls_url: null,
+      video_mp4_url: fallbackVideo?.data?.signedUrl ?? null,
       video_url: fallbackVideo?.data?.signedUrl ?? null,
       poster_url: fallbackPoster?.data?.signedUrl ?? null,
     };
@@ -395,14 +397,19 @@ const resolveLatestApprovedPitch = async (startupId: string) => {
   if (!pitchRow) return null;
 
   let videoUrl: string | null = null;
-  const muxPlaybackUrl = buildMuxPlaybackUrl(pitchRow.video_mux_playback_id ?? null);
-  if (pitchRow.video_processing_status === "ready" && muxPlaybackUrl) {
-    videoUrl = muxPlaybackUrl;
+  let videoHlsUrl: string | null = null;
+  let videoMp4Url: string | null = null;
+  const muxPlayback = buildMuxPlaybackUrls(pitchRow.video_mux_playback_id ?? null);
+  if (pitchRow.video_processing_status === "ready" && muxPlayback.mp4Url) {
+    videoHlsUrl = muxPlayback.hlsUrl;
+    videoMp4Url = muxPlayback.mp4Url;
+    videoUrl = muxPlayback.defaultUrl;
   } else if (pitchRow.video_path) {
     const { data: signedVideo } = await supabaseAdmin.storage
       .from("pitch-videos")
       .createSignedUrl(pitchRow.video_path, 60 * 60);
-    videoUrl = signedVideo?.signedUrl ?? null;
+    videoMp4Url = signedVideo?.signedUrl ?? null;
+    videoUrl = videoMp4Url;
   }
 
   let posterUrl: string | null = null;
@@ -415,6 +422,8 @@ const resolveLatestApprovedPitch = async (startupId: string) => {
 
   return {
     ...pitchRow,
+    video_hls_url: videoHlsUrl,
+    video_mp4_url: videoMp4Url,
     video_url: videoUrl,
     poster_url: posterUrl,
   };

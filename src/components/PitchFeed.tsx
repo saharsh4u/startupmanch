@@ -35,6 +35,8 @@ type ApiPitch = {
   comment_count?: number;
   score?: number;
   video_url?: string | null;
+  video_hls_url?: string | null;
+  video_mp4_url?: string | null;
   instagram_url?: string | null;
 };
 
@@ -64,6 +66,8 @@ type TeaserApproved = {
   created_at: string;
   poster_url: string | null;
   video_url: string | null;
+  video_hls_url: string | null;
+  video_mp4_url: string | null;
   instagram_url: string | null;
 };
 
@@ -103,7 +107,7 @@ type CommunityRail = { id: string; title: string; items: CommunityRailItem[] };
 
 const SLOT_UPGRADE_ENABLED = process.env.NEXT_PUBLIC_PITCH_SLOT_UPGRADE === "1";
 
-const FEED_PAGE_SIZE = 50;
+const FEED_PAGE_SIZE = 24;
 const ROW_SIZE = 5;
 const MORE_PITCH_COLUMN_COUNT = 3;
 const MOBILE_MORE_PITCH_ROW_COUNT = 3;
@@ -410,7 +414,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [hoveredPreviewPitchId, setHoveredPreviewPitchId] = useState<string | null>(null);
   const [focusedPreviewPitchId, setFocusedPreviewPitchId] = useState<string | null>(null);
   const [visiblePreviewPitchIds, setVisiblePreviewPitchIds] = useState<Set<string>>(new Set());
-  const [loadedPreviewPitchIds, setLoadedPreviewPitchIds] = useState<Set<string>>(new Set());
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isDesktopHotViewport, setIsDesktopHotViewport] = useState(false);
   const [hotAutoplayPaused, setHotAutoplayPaused] = useState(false);
@@ -438,9 +441,11 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         startupId: null,
         name: pitch.name,
         tagline: pitch.tagline,
-        poster: pitch.poster,
-        video: null,
-        isFallback: true,
+      poster: pitch.poster,
+      video: null,
+      videoHlsUrl: null,
+      videoMp4Url: null,
+      isFallback: true,
         category: pitch.category ?? null,
         upvotes: 0,
         downvotes: 0,
@@ -470,7 +475,9 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       name: item.startup_name ?? "Startup",
       tagline: item.one_liner ?? item.category ?? "New video",
       poster: item.poster_url ?? item.founder_photo_url ?? fallbackPoster,
-      video: item.video_url ?? null,
+      video: item.video_mp4_url ?? item.video_url ?? item.video_hls_url ?? null,
+      videoHlsUrl: item.video_hls_url ?? null,
+      videoMp4Url: item.video_mp4_url ?? item.video_url ?? null,
       instagramUrl: item.instagram_url ?? null,
       isFallback: false,
       category: item.category ?? null,
@@ -497,10 +504,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           shuffle: true,
         });
 
-        const response = await fetch(feedPath, {
-          cache: "no-store",
-          signal,
-        });
+        const response = await fetch(feedPath, { signal });
 
         if (!response.ok) {
           throw new Error("Unable to load videos.");
@@ -522,10 +526,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           limit: 4,
           minVotes: 10,
         }),
-        {
-          cache: "no-store",
-          signal,
-        }
+        { signal }
       )
         .then(async (response) => {
           if (!response.ok) return null;
@@ -644,7 +645,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
       });
 
       if (SLOT_UPGRADE_ENABLED) {
-        void fetch("/api/pitches/teasers", { cache: "no-store", signal })
+        void fetch("/api/pitches/teasers", { signal })
           .then(async (response) => {
             if (!response.ok) return null;
             return response.json();
@@ -889,7 +890,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
     const timer = window.setInterval(() => {
       void pollLiveApprovals();
-    }, 12_000);
+    }, 30_000);
 
     return () => window.clearInterval(timer);
   }, [loadSectionData, loadingInitial]);
@@ -1779,7 +1780,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   useEffect(() => {
     if (!SLOT_UPGRADE_ENABLED || !isMobileViewport) {
       setVisiblePreviewPitchIds(new Set());
-      setLoadedPreviewPitchIds(new Set());
       return;
     }
 
@@ -1798,16 +1798,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
             if (!id) return;
             if (entry.isIntersecting) next.add(id);
             else next.delete(id);
-          });
-          return next;
-        });
-        setLoadedPreviewPitchIds((previous) => {
-          const next = new Set(previous);
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) return;
-            const id = entry.target.getAttribute("data-preview-pitch-id");
-            if (!id) return;
-            next.add(id);
           });
           return next;
         });
@@ -1940,8 +1930,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         (!SLOT_UPGRADE_ENABLED ||
           hoveredPreviewPitchId === slot.pitch.id ||
           focusedPreviewPitchId === slot.pitch.id ||
-          visiblePreviewPitchIds.has(slot.pitch.id) ||
-          loadedPreviewPitchIds.has(slot.pitch.id));
+          visiblePreviewPitchIds.has(slot.pitch.id));
 
       const displayPitch: FeedPitch = {
         ...slot.pitch,

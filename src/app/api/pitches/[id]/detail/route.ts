@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
-import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
 import {
-  fetchInstagramMediaUrls,
   isExternalMediaUrl,
   normalizeInstagramUrl,
 } from "@/lib/video/instagram";
@@ -25,6 +24,8 @@ type DetailResponse = {
     equity: string | null;
     valuation: string | null;
     video_url: string | null;
+    video_hls_url: string | null;
+    video_mp4_url: string | null;
     instagram_url: string | null;
     poster_url: string | null;
     created_at: string;
@@ -82,9 +83,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   }
 
   let video_url: string | null = null;
+  let video_hls_url: string | null = null;
+  let video_mp4_url: string | null = null;
   let instagram_url: string | null = null;
   let poster_url: string | null = null;
-  let instagramMedia: { videoUrl: string | null; thumbnailUrl: string | null } | null = null;
 
   let videoProcessingStatus: string | null = null;
   let videoMuxPlaybackId: string | null = null;
@@ -104,25 +106,25 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     videoMuxPlaybackId = (videoStateRow as any).video_mux_playback_id ?? null;
   }
 
-  const muxPlaybackUrl = buildMuxPlaybackUrl(videoMuxPlaybackId);
-  if (videoProcessingStatus === "ready" && muxPlaybackUrl) {
-    video_url = muxPlaybackUrl;
+  const muxPlayback = buildMuxPlaybackUrls(videoMuxPlaybackId);
+  if (videoProcessingStatus === "ready" && muxPlayback.mp4Url) {
+    video_hls_url = muxPlayback.hlsUrl;
+    video_mp4_url = muxPlayback.mp4Url;
+    video_url = muxPlayback.defaultUrl;
   } else if (pitchRow.video_path) {
     if (isExternalMediaUrl(pitchRow.video_path)) {
       const normalizedInstagram = normalizeInstagramUrl(pitchRow.video_path);
       if (normalizedInstagram) {
         instagram_url = normalizedInstagram;
-        instagramMedia = await fetchInstagramMediaUrls(normalizedInstagram);
-        if (instagramMedia.videoUrl) {
-          video_url = instagramMedia.videoUrl;
-        }
       } else {
+        video_mp4_url = pitchRow.video_path;
         video_url = pitchRow.video_path;
       }
     } else {
       const { data } = await supabaseAdmin.storage
         .from("pitch-videos")
         .createSignedUrl(pitchRow.video_path, 60 * 60);
+      video_mp4_url = data?.signedUrl ?? null;
       video_url = data?.signedUrl ?? null;
     }
   }
@@ -136,8 +138,6 @@ export async function GET(_request: Request, { params }: { params: { id: string 
         .createSignedUrl(pitchRow.poster_path, 60 * 60);
       poster_url = data?.signedUrl ?? null;
     }
-  } else if (instagramMedia?.thumbnailUrl) {
-    poster_url = instagramMedia.thumbnailUrl;
   }
 
   const { data: statsRow } = await supabaseAdmin
@@ -165,6 +165,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       equity: pitchRow.equity,
       valuation: pitchRow.valuation,
       video_url,
+      video_hls_url,
+      video_mp4_url,
       instagram_url,
       poster_url,
       created_at: pitchRow.created_at,

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
-import { buildMuxPlaybackUrl } from "@/lib/video/mux/server";
+import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
 import {
-  fetchInstagramMediaUrls,
   isExternalMediaUrl,
   normalizeInstagramUrl,
 } from "@/lib/video/instagram";
@@ -98,94 +97,148 @@ export async function GET() {
     }
   }
 
-  const approved = await Promise.all(
-    approvedRows.map(async (row) => {
-      let posterUrl: string | null = null;
-      let videoUrl: string | null = null;
-      let instagramUrl: string | null = null;
-      let instagramMedia: { videoUrl: string | null; thumbnailUrl: string | null } | null = null;
-
-      if (row.poster_path) {
-        if (isExternalMediaUrl(row.poster_path)) {
-          posterUrl = row.poster_path;
-        } else {
-          const { data: posterData } = await supabaseAdmin.storage
-            .from("pitch-posters")
-            .createSignedUrl(row.poster_path, 60 * 60);
-          posterUrl = posterData?.signedUrl ?? null;
-        }
-      }
-
-      const muxVideo = buildMuxPlaybackUrl(row.video_mux_playback_id ?? null);
-      if (muxVideo) {
-        videoUrl = muxVideo;
-      } else if (row.video_path) {
-        if (isExternalMediaUrl(row.video_path)) {
-          const normalizedInstagram = normalizeInstagramUrl(row.video_path);
-          if (normalizedInstagram) {
-            instagramUrl = normalizedInstagram;
-            instagramMedia = await fetchInstagramMediaUrls(normalizedInstagram);
-            if (instagramMedia.videoUrl) {
-              videoUrl = instagramMedia.videoUrl;
-            }
-          } else {
-            videoUrl = row.video_path;
-          }
-        } else {
-          const { data: videoData } = await supabaseAdmin.storage
-            .from("pitch-videos")
-            .createSignedUrl(row.video_path, 60 * 60);
-          videoUrl = videoData?.signedUrl ?? null;
-        }
-      }
-
-      if (!posterUrl && instagramMedia?.thumbnailUrl) {
-        posterUrl = instagramMedia.thumbnailUrl;
-      }
-
-      const founderId = row.startups?.founder_id ?? null;
-      const founderName = founderId ? founderNameById.get(founderId) ?? null : null;
-
-      return {
-        id: row.id,
-        startup_name: row.startups?.name ?? "Startup",
-        category: row.startups?.category ?? null,
-        one_liner: row.startups?.one_liner ?? null,
-        founder_name: founderName,
-        founder_photo_url: row.startups?.founder_photo_url ?? null,
-        founder_story: row.startups?.founder_story ?? null,
-        approved_at: row.approved_at,
-        created_at: row.created_at,
-        poster_url: posterUrl,
-        video_url: videoUrl,
-        instagram_url: instagramUrl,
-      };
-    })
+  const approvedStorageVideoPaths = Array.from(
+    new Set(
+      approvedRows
+        .map((row) => {
+          const mux = buildMuxPlaybackUrls(row.video_mux_playback_id ?? null);
+          if (mux.mp4Url) return null;
+          if (!row.video_path || isExternalMediaUrl(row.video_path)) return null;
+          return row.video_path;
+        })
+        .filter((value): value is string => Boolean(value))
+    )
   );
 
-  const pending = await Promise.all(
-    pendingRows.map(async (row, index) => {
-      let posterUrl: string | null = null;
-      if (row.poster_path) {
-        if (isExternalMediaUrl(row.poster_path)) {
-          posterUrl = row.poster_path;
-        } else {
-          const { data: posterData } = await supabaseAdmin.storage
-            .from("pitch-posters")
-            .createSignedUrl(row.poster_path, 20 * 60);
-          posterUrl = posterData?.signedUrl ?? null;
-        }
-      }
-
-      return {
-        id: `pending-${row.id}`,
-        category: row.startups?.category ?? null,
-        created_at: row.created_at,
-        poster_url: posterUrl,
-        style_key: `pending-${index + 1}`,
-      };
-    })
+  const approvedStoragePosterPaths = Array.from(
+    new Set(
+      approvedRows
+        .map((row) => {
+          if (!row.poster_path || isExternalMediaUrl(row.poster_path)) return null;
+          return row.poster_path;
+        })
+        .filter((value): value is string => Boolean(value))
+    )
   );
+
+  const pendingStoragePosterPaths = Array.from(
+    new Set(
+      pendingRows
+        .map((row) => {
+          if (!row.poster_path || isExternalMediaUrl(row.poster_path)) return null;
+          return row.poster_path;
+        })
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  const approvedVideoByPath = new Map<string, string | null>();
+  if (approvedStorageVideoPaths.length) {
+    const { data } = await supabaseAdmin.storage
+      .from("pitch-videos")
+      .createSignedUrls(approvedStorageVideoPaths, 60 * 60);
+    for (const entry of data ?? []) {
+      if (typeof entry.path !== "string" || !entry.path.length) continue;
+      approvedVideoByPath.set(entry.path, entry.signedUrl ?? null);
+    }
+  }
+
+  const approvedPosterByPath = new Map<string, string | null>();
+  if (approvedStoragePosterPaths.length) {
+    const { data } = await supabaseAdmin.storage
+      .from("pitch-posters")
+      .createSignedUrls(approvedStoragePosterPaths, 60 * 60);
+    for (const entry of data ?? []) {
+      if (typeof entry.path !== "string" || !entry.path.length) continue;
+      approvedPosterByPath.set(entry.path, entry.signedUrl ?? null);
+    }
+  }
+
+  const pendingPosterByPath = new Map<string, string | null>();
+  if (pendingStoragePosterPaths.length) {
+    const { data } = await supabaseAdmin.storage
+      .from("pitch-posters")
+      .createSignedUrls(pendingStoragePosterPaths, 20 * 60);
+    for (const entry of data ?? []) {
+      if (typeof entry.path !== "string" || !entry.path.length) continue;
+      pendingPosterByPath.set(entry.path, entry.signedUrl ?? null);
+    }
+  }
+
+  const approved = approvedRows.map((row) => {
+    let posterUrl: string | null = null;
+    let videoUrl: string | null = null;
+    let videoHlsUrl: string | null = null;
+    let videoMp4Url: string | null = null;
+    let instagramUrl: string | null = null;
+
+    if (row.poster_path) {
+      if (isExternalMediaUrl(row.poster_path)) {
+        posterUrl = row.poster_path;
+      } else {
+        posterUrl = approvedPosterByPath.get(row.poster_path) ?? null;
+      }
+    }
+
+    const mux = buildMuxPlaybackUrls(row.video_mux_playback_id ?? null);
+    if (mux.mp4Url) {
+      videoHlsUrl = mux.hlsUrl;
+      videoMp4Url = mux.mp4Url;
+      videoUrl = mux.defaultUrl;
+    } else if (row.video_path) {
+      if (isExternalMediaUrl(row.video_path)) {
+        const normalizedInstagram = normalizeInstagramUrl(row.video_path);
+        if (normalizedInstagram) {
+          instagramUrl = normalizedInstagram;
+        } else {
+          videoMp4Url = row.video_path;
+          videoUrl = row.video_path;
+        }
+      } else {
+        videoMp4Url = approvedVideoByPath.get(row.video_path) ?? null;
+        videoUrl = videoMp4Url;
+      }
+    }
+
+    const founderId = row.startups?.founder_id ?? null;
+    const founderName = founderId ? founderNameById.get(founderId) ?? null : null;
+
+    return {
+      id: row.id,
+      startup_name: row.startups?.name ?? "Startup",
+      category: row.startups?.category ?? null,
+      one_liner: row.startups?.one_liner ?? null,
+      founder_name: founderName,
+      founder_photo_url: row.startups?.founder_photo_url ?? null,
+      founder_story: row.startups?.founder_story ?? null,
+      approved_at: row.approved_at,
+      created_at: row.created_at,
+      poster_url: posterUrl,
+      video_url: videoUrl,
+      video_hls_url: videoHlsUrl,
+      video_mp4_url: videoMp4Url,
+      instagram_url: instagramUrl,
+    };
+  });
+
+  const pending = pendingRows.map((row, index) => {
+    let posterUrl: string | null = null;
+    if (row.poster_path) {
+      if (isExternalMediaUrl(row.poster_path)) {
+        posterUrl = row.poster_path;
+      } else {
+        posterUrl = pendingPosterByPath.get(row.poster_path) ?? null;
+      }
+    }
+
+    return {
+      id: `pending-${row.id}`,
+      category: row.startups?.category ?? null,
+      created_at: row.created_at,
+      poster_url: posterUrl,
+      style_key: `pending-${index + 1}`,
+    };
+  });
 
   const response = NextResponse.json({
     approved,

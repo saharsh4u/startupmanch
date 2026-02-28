@@ -49,6 +49,8 @@ export type StartupProfilePayload = {
     approved_at: string | null;
     created_at: string;
     video_url: string | null;
+    video_hls_url: string | null;
+    video_mp4_url: string | null;
     poster_url: string | null;
   } | null;
   revenue: {

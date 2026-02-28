@@ -16,6 +16,8 @@ type StartupProfileClientProps = {
   startupId: string;
 };
 
+const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
+
 const socialOrder = [
   { key: "website", label: "Website" },
   { key: "linkedin", label: "LinkedIn" },
@@ -187,6 +189,10 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
     date: point.date,
     amount: point.amount,
   }));
+  const latestPitchVideoHls = profile.latest_pitch?.video_hls_url ?? null;
+  const latestPitchVideoMp4 =
+    profile.latest_pitch?.video_mp4_url ?? profile.latest_pitch?.video_url ?? null;
+  const latestPitchHasVideo = Boolean(latestPitchVideoHls || latestPitchVideoMp4);
 
   return (
     <AdRailsScaffold>
@@ -298,15 +304,20 @@ export default function StartupProfileClient({ startupId }: StartupProfileClient
               <h3>Latest approved video</h3>
               <p className="metric-note">Approved: {formatRelativeDate(profile.latest_pitch.approved_at)}</p>
             </div>
-            {profile.latest_pitch.video_url ? (
+            {latestPitchHasVideo ? (
               <video
                 className="startup-profile-video"
-                src={profile.latest_pitch.video_url}
+                key={`${profile.latest_pitch.id}:${latestPitchVideoHls ?? "none"}:${latestPitchVideoMp4 ?? "none"}`}
                 poster={profile.latest_pitch.poster_url ?? undefined}
                 controls
                 playsInline
                 preload="metadata"
-              />
+              >
+                {HLS_ENABLED && latestPitchVideoHls ? (
+                  <source src={latestPitchVideoHls} type="application/vnd.apple.mpegurl" />
+                ) : null}
+                {latestPitchVideoMp4 ? <source src={latestPitchVideoMp4} type="video/mp4" /> : null}
+              </video>
             ) : (
               <div
                 className="startup-profile-video startup-profile-video-fallback"

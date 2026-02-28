@@ -36,6 +36,8 @@ type PitchDetail = {
     equity: string | null;
     valuation: string | null;
     video_url: string | null;
+    video_hls_url: string | null;
+    video_mp4_url: string | null;
     instagram_url: string | null;
     poster_url: string | null;
     created_at: string;
@@ -94,6 +96,14 @@ function InstagramLogo() {
     </svg>
   );
 }
+
+const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
+
+const pickPreferredVideoUrl = (hlsUrl: string | null, mp4Url: string | null) =>
+  HLS_ENABLED ? hlsUrl ?? mp4Url : mp4Url ?? hlsUrl;
+
+const pickFallbackVideoUrl = (hlsUrl: string | null, mp4Url: string | null) =>
+  HLS_ENABLED ? mp4Url ?? hlsUrl : hlsUrl ?? mp4Url;
 
 export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -238,8 +248,14 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const feedVideoSrc = pitch?.video ?? null;
-  const detailVideoSrc = detail?.pitch.video_url ?? null;
+  const feedVideoHlsSrc = pitch?.videoHlsUrl ?? null;
+  const feedVideoMp4Src = pitch?.videoMp4Url ?? pitch?.video ?? null;
+  const detailVideoHlsSrc = detail?.pitch.video_hls_url ?? null;
+  const detailVideoMp4Src = detail?.pitch.video_mp4_url ?? detail?.pitch.video_url ?? null;
+  const detailVideoSrc = pickPreferredVideoUrl(detailVideoHlsSrc, detailVideoMp4Src);
+  const detailFallbackVideoSrc = pickFallbackVideoUrl(detailVideoHlsSrc, detailVideoMp4Src);
+  const feedFallbackVideoSrc = pickFallbackVideoUrl(feedVideoHlsSrc, feedVideoMp4Src);
+  const feedVideoSrc = pickPreferredVideoUrl(feedVideoHlsSrc, feedVideoMp4Src);
 
   const videoSrc = activeVideoSrc ?? feedVideoSrc ?? detailVideoSrc ?? null;
   const poster = detail?.pitch.poster_url ?? pitch?.poster ?? undefined;
@@ -374,7 +390,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   }, [activeVideoSrc, detailVideoSrc]);
 
   const handleVideoError = () => {
-    const candidate = detailVideoSrc;
+    const candidate =
+      detailFallbackVideoSrc ?? feedFallbackVideoSrc ?? detailVideoSrc ?? feedVideoSrc;
     if (!fallbackAttemptedRef.current && candidate && videoSrc && candidate !== videoSrc) {
       fallbackAttemptedRef.current = true;
       setVideoUnavailable(false);
@@ -386,13 +403,14 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   useEffect(() => {
     if (!videoUnavailable) return;
-    const candidate = detailVideoSrc;
+    const candidate =
+      detailFallbackVideoSrc ?? feedFallbackVideoSrc ?? detailVideoSrc ?? feedVideoSrc;
     if (!fallbackAttemptedRef.current && candidate && videoSrc && candidate !== videoSrc) {
       fallbackAttemptedRef.current = true;
       setVideoUnavailable(false);
       setActiveVideoSrc(candidate);
     }
-  }, [detailVideoSrc, videoSrc, videoUnavailable]);
+  }, [detailFallbackVideoSrc, detailVideoSrc, feedFallbackVideoSrc, feedVideoSrc, videoSrc, videoUnavailable]);
 
   const handleWheel = (e: WheelEvent) => {
     e.stopPropagation();

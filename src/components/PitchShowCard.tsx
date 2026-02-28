@@ -12,6 +12,8 @@ export type PitchShow = {
   tagline: string;
   poster: string;
   video?: string | null;
+  videoHlsUrl?: string | null;
+  videoMp4Url?: string | null;
   instagramUrl?: string | null;
   isFallback?: boolean;
   category?: string | null;
@@ -29,6 +31,8 @@ type PitchShowCardProps = {
   onExpand?: (pitch: PitchShow) => void;
   interactive?: boolean;
 };
+
+const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
 
 export default function PitchShowCard({
   pitch,
@@ -48,25 +52,19 @@ export default function PitchShowCard({
   const [shouldLoadVideo, setShouldLoadVideo] = useState(!shouldLazyVideo);
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const mp4VideoSrc = pitch.videoMp4Url ?? pitch.video ?? null;
+  const hlsVideoSrc = HLS_ENABLED ? pitch.videoHlsUrl ?? null : null;
+  const hasPlayableVideo = Boolean(hlsVideoSrc || mp4VideoSrc);
 
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.muted = true;
-  }, [pitch.video]);
+  }, [hlsVideoSrc, mp4VideoSrc]);
 
   useEffect(() => {
     setVideoReady(false);
     setVideoFailed(false);
-  }, [pitch.id, pitch.video, shouldLoadVideo]);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 900px)");
-    const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
-    syncViewport();
-    mediaQuery.addEventListener("change", syncViewport);
-    return () => mediaQuery.removeEventListener("change", syncViewport);
-  }, []);
+  }, [hlsVideoSrc, mp4VideoSrc, pitch.id, shouldLoadVideo]);
 
   useEffect(() => {
     if (!shouldLazyVideo) return;
@@ -91,7 +89,7 @@ export default function PitchShowCard({
   }, [shouldLazyVideo, pitch.id]);
 
   useEffect(() => {
-    if (!shouldLoadVideo || !pitch.video) return;
+    if (!shouldLoadVideo || !hasPlayableVideo) return;
     const video = videoRef.current;
     if (!video) return;
     const replay = () => {
@@ -103,7 +101,7 @@ export default function PitchShowCard({
     }
     video.addEventListener("canplay", replay, { once: true });
     return () => video.removeEventListener("canplay", replay);
-  }, [pitch.id, pitch.video, shouldLoadVideo]);
+  }, [hasPlayableVideo, hlsVideoSrc, mp4VideoSrc, pitch.id, shouldLoadVideo]);
 
   useEffect(() => {
     setLocalUpvotes(Number.isFinite(Number(pitch.upvotes)) ? Number(pitch.upvotes) : 0);
@@ -180,35 +178,38 @@ export default function PitchShowCard({
           : undefined
       }
     >
-      {!videoReady || videoFailed || !pitch.video || !shouldLoadVideo ? (
-        <div
-          className={`pitch-show-media ${variant === "hot" ? "on-dark" : "on-light"}`}
-          style={{
-            backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
-            backgroundColor:
-              variant === "hot"
-                ? "var(--pitch-hot-fallback)"
-                : "var(--pitch-regular-fallback)",
-          }}
-        >
-          {!pitch.poster ? <span className="pitch-placeholder">Poster pending</span> : null}
-        </div>
-      ) : null}
-      {pitch.video && shouldLoadVideo && !videoFailed ? (
+      <div
+        className={`pitch-show-media pitch-show-poster ${variant === "hot" ? "on-dark" : "on-light"}${
+          videoReady && !videoFailed && hasPlayableVideo && shouldLoadVideo ? " is-hidden" : ""
+        }`}
+        style={{
+          backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
+          backgroundColor:
+            variant === "hot"
+              ? "var(--pitch-hot-fallback)"
+              : "var(--pitch-regular-fallback)",
+        }}
+      >
+        {!pitch.poster ? <span className="pitch-placeholder">Poster pending</span> : null}
+      </div>
+      {hasPlayableVideo && shouldLoadVideo && !videoFailed ? (
         <video
+          key={`${pitch.id}:${hlsVideoSrc ?? "none"}:${mp4VideoSrc ?? "none"}`}
           ref={videoRef}
           className={`pitch-show-media pitch-show-media-video ${videoReady ? "is-ready" : "is-loading"}`}
-          src={pitch.video}
           poster={pitch.poster}
           muted
           playsInline
           autoPlay
           loop
-          preload={shouldLazyVideo && !isMobileViewport ? "metadata" : "auto"}
+          preload="metadata"
           onLoadedData={() => setVideoReady(true)}
           onCanPlay={() => setVideoReady(true)}
           onError={() => setVideoFailed(true)}
-        />
+        >
+          {hlsVideoSrc ? <source src={hlsVideoSrc} type="application/vnd.apple.mpegurl" /> : null}
+          {mp4VideoSrc ? <source src={mp4VideoSrc} type="video/mp4" /> : null}
+        </video>
       ) : null}
       <div className={`pitch-show-overlay ${variant === "hot" ? "on-dark" : "on-light"}`}>
         <div className="pitch-show-text">
