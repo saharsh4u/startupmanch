@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 export type RoundtableSeatViewModel = {
   seatNo: number;
@@ -43,6 +43,45 @@ export default function RoundtableSeatCircle({
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
   const [pointerEyeVector, setPointerEyeVector] = useState<{ x: number; y: number } | null>(null);
+  const rouletteRef = useRef<HTMLDivElement | null>(null);
+
+  const setEyeFromClientPoint = useCallback((clientX: number, clientY: number) => {
+    const clamp = (value: number) => Math.max(-1, Math.min(1, value));
+    const rect = rouletteRef.current?.getBoundingClientRect();
+    const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+    const halfW = rect ? rect.width / 2 || 1 : window.innerWidth / 2 || 1;
+    const halfH = rect ? rect.height / 2 || 1 : window.innerHeight / 2 || 1;
+    const dx = (clientX - cx) / halfW;
+    const dy = (clientY - cy) / halfH;
+
+    setPointerEyeVector({
+      x: clamp(dx) * 18,
+      y: clamp(dy) * 18,
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      setEyeFromClientPoint(touch.clientX, touch.clientY);
+    };
+
+    const clearVector = () => {
+      setPointerEyeVector(null);
+    };
+
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", clearVector, { passive: true });
+    window.addEventListener("touchcancel", clearVector, { passive: true });
+
+    return () => {
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", clearVector);
+      window.removeEventListener("touchcancel", clearVector);
+    };
+  }, [setEyeFromClientPoint]);
 
   const fallbackEyeVector = useMemo(() => {
     if (!eyeTargetSeatNo) {
@@ -61,19 +100,23 @@ export default function RoundtableSeatCircle({
   return (
     <section className="roundtable-seat-circle roundtable-roulette-shell" aria-label="Roulette roundtable seats">
       <div
+        ref={rouletteRef}
         className="roundtable-roulette"
         onPointerMove={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect();
-          const cx = rect.left + rect.width / 2;
-          const cy = rect.top + rect.height / 2;
-          const dx = (event.clientX - cx) / (rect.width / 2 || 1);
-          const dy = (event.clientY - cy) / (rect.height / 2 || 1);
-          const clamp = (value: number) => Math.max(-1, Math.min(1, value));
-          setPointerEyeVector({
-            x: clamp(dx) * 18,
-            y: clamp(dy) * 18,
-          });
+          setEyeFromClientPoint(event.clientX, event.clientY);
         }}
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          if (!touch) return;
+          setEyeFromClientPoint(touch.clientX, touch.clientY);
+        }}
+        onTouchMove={(event) => {
+          const touch = event.touches[0];
+          if (!touch) return;
+          setEyeFromClientPoint(touch.clientX, touch.clientY);
+        }}
+        onTouchEnd={() => setPointerEyeVector(null)}
+        onTouchCancel={() => setPointerEyeVector(null)}
         onPointerLeave={() => setPointerEyeVector(null)}
       >
         <div key={flareToken ?? "none"} className="roundtable-roulette-glow" aria-hidden />

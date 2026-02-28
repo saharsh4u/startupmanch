@@ -11,6 +11,7 @@ import {
   type WheelEvent,
 } from "react";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
+import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type ApiPitch = {
   pitch_id: string;
@@ -52,6 +53,20 @@ const INTERACTION_PAUSE_MS = 1400;
 const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
 const PIP_EDGE_GAP_PX = 8;
 const RESOLVE_TIMEOUT_MS = 9000;
+
+type RoundtableHomepageVideoRailProps = {
+  sessionId: string;
+  participantId: string | null;
+};
+
+type SharedMiniPlayerPayload = {
+  senderId: string;
+  action: "open" | "close" | "state";
+  pitchId?: string;
+  timeSec?: number;
+  paused?: boolean;
+  sentAt?: number;
+};
 
 const asNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
@@ -120,13 +135,17 @@ const mapPitch = (item: ApiPitch, index: number): PitchShow => {
   };
 };
 
-export default function RoundtableHomepageVideoRail() {
+export default function RoundtableHomepageVideoRail({
+  sessionId,
+  participantId,
+}: RoundtableHomepageVideoRailProps) {
   const [pitches, setPitches] = useState<PitchShow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pipIndex, setPipIndex] = useState<number | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [instagramResolveByUrl, setInstagramResolveByUrl] = useState<Record<string, InstagramResolveState>>({});
+  const [pipPlaybackError, setPipPlaybackError] = useState<string | null>(null);
   const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const pipPlayerRef = useRef<HTMLElement | null>(null);
@@ -281,6 +300,7 @@ export default function RoundtableHomepageVideoRail() {
     if (pipVideoRef.current) {
       pipVideoRef.current.pause();
     }
+    setPipPlaybackError(null);
     setPipIndex(null);
   }, []);
 
@@ -309,11 +329,20 @@ export default function RoundtableHomepageVideoRail() {
   const pipVideoMp4Src = pipPitch?.videoMp4Url ?? pipPitch?.video ?? null;
   const pipVideoHlsSrc = HLS_ENABLED ? pipPitch?.videoHlsUrl ?? null : null;
   const pipHasDirectPlayableVideo = Boolean(pipVideoMp4Src || pipVideoHlsSrc);
-  const pipInstagramResolved = pipInstagramUrl ? instagramResolveByUrl[pipInstagramUrl] : null;
-  const pipResolvedInstagramVideoSrc = pipInstagramResolved?.videoUrl ?? null;
-  const pipEmbedUrl = pipInstagramResolved?.embedUrl ?? buildInstagramEmbedUrl(pipInstagramUrl);
+  const pipResolveState = pipInstagramUrl ? instagramResolveByUrl[pipInstagramUrl] : null;
+  const pipResolvedInstagramVideoSrc = pipResolveState?.videoUrl ?? null;
+  const pipEmbedUrl = pipResolveState?.embedUrl ?? buildInstagramEmbedUrl(pipInstagramUrl);
   const pipVideoSrc = pipVideoMp4Src ?? pipResolvedInstagramVideoSrc;
   const pipHasPlayableVideo = Boolean(pipVideoSrc || pipVideoHlsSrc);
+  const pipNeedsResolve = Boolean(pipInstagramUrl && !pipHasDirectPlayableVideo);
+  const pipIsResolving = Boolean(pipNeedsResolve && (!pipResolveState || pipResolveState.loading));
+  const pipResolveFailed = Boolean(
+    pipNeedsResolve &&
+      pipResolveState &&
+      pipResolveState.attempted &&
+      !pipResolveState.loading &&
+      !pipResolveState.videoUrl
+  );
 
   useEffect(() => {
     if (!pipInstagramUrl) return;
@@ -446,10 +475,108 @@ export default function RoundtableHomepageVideoRail() {
   }, [clampPipPosition, pipPosition]);
 
   useEffect(() => {
+    setPipPlaybackError(null);
+  }, [pipPitch?.id, pipVideoHlsSrc, pipVideoSrc]);
+
+  const retryPipResolve = useCallback(() => {
+    if (!pipInstagramUrl) return;
+    setInstagramResolveByUrl((previous) => ({
+      ...previous,
+      [pipInstagramUrl]: {
+        videoUrl: previous[pipInstagramUrl]?.videoUrl ?? null,
+        embedUrl: previous[pipInstagramUrl]?.embedUrl ?? buildInstagramEmbedUrl(pipInstagramUrl),
+        loading: false,
+        attempted: false,
+      },
+    }));
+    setPipPlaybackError(null);
+  }, [pipInstagramUrl]);
+
+  const retryPipPlayback = useCallback(() => {
+    const video = pipVideoRef.current;
+    if (!video) return;
+    setPipPlaybackError(null);
+    video.load();
+    video.play().catch(() => {
+      setPipPlaybackError("Video could not start. Tap Retry, or use Next.");
+    });
+  }, []);
+
+  useEffect(() => {
     const video = pipVideoRef.current;
     if (!video || !pipHasPlayableVideo) return;
-    video.muted = true;
-    video.play().catch(() => undefined);
+
+    let progressTimer: ReturnType<typeof setTimeout> | null = null;
+    let didCleanup = false;
+
+    const clearProgressTimer = () => {
+      if (progressTimer !== null) {
+        clearTimeout(progressTimer);
+        progressTimer = null;
+      }
+    };
+
+    const attemptPlay = () => {
+      if (didCleanup) return;
+      video.muted = true;
+      video.play().catch(() => {
+        if (!didCleanup) {
+          setPipPlaybackError("Video could not start. Tap Retry, or use Next.");
+        }
+      });
+    };
+
+    const verifyProgress = () => {
+      clearProgressTimer();
+      const startAt = video.currentTime;
+      progressTimer = setTimeout(() => {
+        if (didCleanup || video.paused || video.ended) return;
+        if (video.currentTime <= startAt + 0.01) {
+          video.load();
+          attemptPlay();
+        }
+      }, 1300);
+    };
+
+    const handlePlaying = () => {
+      setPipPlaybackError(null);
+      clearProgressTimer();
+    };
+
+    const handlePlay = () => {
+      verifyProgress();
+    };
+
+    const handleStalled = () => {
+      if (didCleanup) return;
+      video.load();
+      attemptPlay();
+      verifyProgress();
+    };
+
+    const handleError = () => {
+      setPipPlaybackError("Video could not start. Tap Retry, or use Next.");
+    };
+
+    video.addEventListener("playing", handlePlaying);
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("stalled", handleStalled);
+    video.addEventListener("waiting", handleStalled);
+    video.addEventListener("error", handleError);
+
+    video.load();
+    attemptPlay();
+    verifyProgress();
+
+    return () => {
+      didCleanup = true;
+      clearProgressTimer();
+      video.removeEventListener("playing", handlePlaying);
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("stalled", handleStalled);
+      video.removeEventListener("waiting", handleStalled);
+      video.removeEventListener("error", handleError);
+    };
   }, [pipHasPlayableVideo, pipPitch?.id, pipVideoHlsSrc, pipVideoSrc]);
 
   const handleWheel = useCallback(
@@ -593,22 +720,40 @@ export default function RoundtableHomepageVideoRail() {
                 {pipVideoSrc ? <source src={pipVideoSrc} type="video/mp4" /> : null}
               </video>
             </div>
-          ) : pipEmbedUrl ? (
-            <div className="roundtable-pip-video-wrap">
-              <iframe
-                key={`${pipPitch.id}:${pipEmbedUrl}`}
-                className="roundtable-pip-embed"
-                src={pipEmbedUrl}
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                allowFullScreen
-                loading="eager"
-                title={`${pipPitch.name} Instagram video`}
-                referrerPolicy="strict-origin-when-cross-origin"
-              />
+          ) : pipIsResolving ? (
+            <div className="roundtable-pip-fallback">
+              <span>Preparing video...</span>
             </div>
           ) : (
             <div className="roundtable-pip-fallback">
-              <span>Video unavailable.</span>
+              <span>{pipResolveFailed ? "Could not load a direct video stream." : "Video unavailable."}</span>
+              {pipInstagramUrl ? (
+                <div className="roundtable-pip-actions">
+                  <button type="button" className="roundtable-pip-btn" onClick={retryPipResolve}>
+                    Retry source
+                  </button>
+                  <a
+                    className="roundtable-pip-btn"
+                    href={pipInstagramUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label="Open Instagram video in a new tab"
+                  >
+                    Open Instagram
+                  </a>
+                </div>
+              ) : null}
+              {pipEmbedUrl ? (
+                <a
+                  className="roundtable-pip-btn"
+                  href={pipEmbedUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label="Open embed in a new tab"
+                >
+                  Open embed
+                </a>
+              ) : null}
             </div>
           )}
 
@@ -616,10 +761,16 @@ export default function RoundtableHomepageVideoRail() {
             <button type="button" className="roundtable-pip-btn" onClick={() => shiftPip(-1)} aria-label="Previous video">
               ← Prev
             </button>
+            {pipHasPlayableVideo ? (
+              <button type="button" className="roundtable-pip-btn" onClick={retryPipPlayback} aria-label="Retry playback">
+                Retry
+              </button>
+            ) : null}
             <button type="button" className="roundtable-pip-btn" onClick={() => shiftPip(1)} aria-label="Next video">
               Next →
             </button>
           </div>
+          {pipPlaybackError ? <p className="roundtable-pip-note">{pipPlaybackError}</p> : null}
           <p className="roundtable-pip-note">Roundtable stays active while this mini player is open.</p>
         </aside>
       ) : null}
