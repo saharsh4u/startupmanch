@@ -22,7 +22,7 @@ export async function POST(
 
   const { data: session, error: sessionError } = await supabaseAdmin
     .from("roundtable_sessions")
-    .select("id, status")
+    .select("id, topic_id, status")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -43,13 +43,47 @@ export async function POST(
     return NextResponse.json({ error: membersCountError.message }, { status: 500 });
   }
 
-  const { error: deleteError } = await supabaseAdmin
-    .from("roundtable_sessions")
-    .delete()
-    .eq("id", sessionId);
+  const cleanupBySessionId = async (table: string) =>
+    supabaseAdmin
+      .from(table)
+      .delete()
+      .eq("session_id", sessionId);
+
+  const cleanupSteps: Array<{ table: string; error: string }> = [
+    { table: "roundtable_turn_votes", error: "Unable to clear turn votes." },
+    { table: "roundtable_turn_reports", error: "Unable to clear turn reports." },
+    { table: "roundtable_raise_hands", error: "Unable to clear raised hands." },
+    { table: "roundtable_scores", error: "Unable to clear scores." },
+    { table: "roundtable_turns", error: "Unable to clear turns." },
+    { table: "roundtable_members", error: "Unable to clear members." },
+    { table: "roundtable_action_audit", error: "Unable to clear audit records." },
+  ];
+
+  for (const step of cleanupSteps) {
+    const { error } = await cleanupBySessionId(step.table);
+    if (error) {
+      if ((error as { code?: string }).code === "42P01") {
+        continue;
+      }
+      return NextResponse.json({ error: `${step.error} ${error.message}` }, { status: 500 });
+    }
+  }
+
+  const { error: deleteError } = await supabaseAdmin.from("roundtable_sessions").delete().eq("id", sessionId);
 
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  }
+
+  if (session.topic_id) {
+    const { count: remainingForTopic, error: topicCountError } = await supabaseAdmin
+      .from("roundtable_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("topic_id", session.topic_id);
+
+    if (!topicCountError && Number(remainingForTopic ?? 0) === 0) {
+      await supabaseAdmin.from("roundtable_topics").delete().eq("id", session.topic_id);
+    }
   }
 
   await logRoundtableEvent(

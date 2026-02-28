@@ -729,12 +729,16 @@ export default function AdminPage() {
     setRoundtableNote(null);
 
     try {
-      const res = await fetch(`/api/roundtable/sessions/${sessionId}/members/${memberId}/remove`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${sessionToken}`,
+      const res = await fetch(
+        `/api/admin/roundtable/sessions/${encodeURIComponent(sessionId)}/members/${encodeURIComponent(memberId)}/remove`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`,
+          },
         },
-      });
+      );
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(payload.error ?? "Unable to kick participant.");
@@ -763,9 +767,10 @@ export default function AdminPage() {
     setRoundtableNote(null);
 
     try {
-      const res = await fetch(`/api/admin/roundtable/sessions/${sessionId}/delete`, {
+      const res = await fetch(`/api/admin/roundtable/sessions/${encodeURIComponent(sessionId)}/delete`, {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${sessionToken}`,
         },
       });
