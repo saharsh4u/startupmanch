@@ -626,6 +626,58 @@ button:disabled {
   gap: 14px;
 }
 
+.admin-card.admin-card-collapsible {
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-card-toggle {
+  list-style: none;
+  cursor: pointer;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid transparent;
+}
+
+.admin-card-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.admin-card-toggle-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f4f4f4;
+}
+
+.admin-card-toggle-meta {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: rgba(235, 235, 235, 0.65);
+}
+
+.admin-card-toggle::after {
+  content: "▾";
+  color: rgba(235, 235, 235, 0.72);
+  transition: transform 0.18s ease;
+}
+
+.admin-card-collapsible[open] .admin-card-toggle {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.admin-card-collapsible[open] .admin-card-toggle::after {
+  transform: rotate(180deg);
+}
+
+.admin-card-content {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .admin-card-header {
   display: flex;
   align-items: center;
@@ -752,7 +804,22 @@ button:disabled {
   font-weight: 600;
 }
 
+.admin-action-link {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 16px;
+  font-weight: 600;
+  text-decoration: none;
+  color: rgba(235, 235, 235, 0.92);
+  background: transparent;
+}
+
 .admin-actions button.ghost {
+  background: transparent;
+  color: rgba(235, 235, 235, 0.9);
+}
+
+.admin-action-link.ghost {
   background: transparent;
   color: rgba(235, 235, 235, 0.9);
 }
@@ -778,6 +845,54 @@ button:disabled {
 .admin-empty {
   font-size: 0.85rem;
   color: rgba(235, 235, 235, 0.6);
+}
+
+.admin-roundtable-row {
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 180px);
+}
+
+.admin-roundtable-members {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-roundtable-members h5 {
+  margin: 0;
+  font-size: 0.84rem;
+  color: rgba(235, 235, 235, 0.75);
+}
+
+.admin-roundtable-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-roundtable-member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(8, 8, 8, 0.65);
+  padding: 10px 12px;
+}
+
+.admin-roundtable-member-item p {
+  margin: 4px 0 0;
+}
+
+.admin-roundtable-member-item button {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: transparent;
+  color: rgba(235, 235, 235, 0.9);
 }
 
 .hero-tabs {

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import AdRailsScaffold from "@/components/AdRailsScaffold";
 import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
@@ -47,6 +47,27 @@ type AdminStartupOption = {
   social_instagram: string | null;
 };
 
+type RoundtableMemberAdminItem = {
+  id: string;
+  seat_no: number;
+  display_name: string;
+  joined_at: string;
+  profile_id: string | null;
+  guest_id: string | null;
+};
+
+type RoundtableSessionAdminItem = {
+  session_id: string;
+  status: string;
+  max_seats: number;
+  seats_taken: number;
+  created_at: string | null;
+  updated_at: string | null;
+  topic_title: string;
+  topic_description: string | null;
+  joined_members: RoundtableMemberAdminItem[];
+};
+
 const AUTH_UNAVAILABLE_MESSAGE = "Admin sign-in is temporarily unavailable. Please try again shortly.";
 const VIDEO_PROCESSING_STATES = new Set(["queued", "processing"]);
 const CATEGORY_MAX_LENGTH = 80;
@@ -54,6 +75,35 @@ const SOCIAL_LINK_MAX_LENGTH = 300;
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message.trim().length ? error.message : fallback;
+
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return "Unknown";
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return "Unknown";
+  return new Date(ms).toLocaleString();
+};
+
+type AdminDisclosureCardProps = {
+  title: string;
+  meta: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+};
+
+const AdminDisclosureCard = ({
+  title,
+  meta,
+  defaultOpen = false,
+  children,
+}: AdminDisclosureCardProps) => (
+  <details className="admin-card admin-card-collapsible" open={defaultOpen}>
+    <summary className="admin-card-toggle">
+      <span className="admin-card-toggle-title">{title}</span>
+      <span className="admin-card-toggle-meta">{meta}</span>
+    </summary>
+    <div className="admin-card-content">{children}</div>
+  </details>
+);
 
 export default function AdminPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
@@ -67,6 +117,9 @@ export default function AdminPage() {
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [queueNote, setQueueNote] = useState<string | null>(null);
   const [moderationNote, setModerationNote] = useState<string | null>(null);
+  const [roundtableSessions, setRoundtableSessions] = useState<RoundtableSessionAdminItem[]>([]);
+  const [roundtableError, setRoundtableError] = useState<string | null>(null);
+  const [roundtableNote, setRoundtableNote] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
   const [startupOptions, setStartupOptions] = useState<AdminStartupOption[]>([]);
   const [startupOptionsError, setStartupOptionsError] = useState<string | null>(null);
@@ -124,11 +177,24 @@ export default function AdminPage() {
     });
   }, []);
 
+  const loadRoundtableSessions = useCallback(async (token: string) => {
+    setRoundtableError(null);
+    const res = await fetch("/api/admin/roundtable/sessions?limit=120&scope=all", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload.error ?? "Unable to load roundtable rooms.");
+    }
+    setRoundtableSessions((payload.sessions ?? []) as RoundtableSessionAdminItem[]);
+  }, []);
+
   const refreshAdminData = useCallback(async (token: string) => {
-    const [queueResult, moderationResult, startupsResult] = await Promise.allSettled([
+    const [queueResult, moderationResult, startupsResult, roundtableResult] = await Promise.allSettled([
       loadQueue(token),
       loadModeration(token),
       loadApprovedStartups(token),
+      loadRoundtableSessions(token),
     ]);
     if (queueResult.status === "rejected") {
       setQueueError(errorMessage(queueResult.reason, "Unable to load queue."));
@@ -139,7 +205,10 @@ export default function AdminPage() {
     if (startupsResult.status === "rejected") {
       setStartupOptionsError(errorMessage(startupsResult.reason, "Unable to load startup list."));
     }
-  }, [loadApprovedStartups, loadModeration, loadQueue]);
+    if (roundtableResult.status === "rejected") {
+      setRoundtableError(errorMessage(roundtableResult.reason, "Unable to load roundtable rooms."));
+    }
+  }, [loadApprovedStartups, loadModeration, loadQueue, loadRoundtableSessions]);
 
   const knownCategories = useMemo(
     () =>
@@ -241,6 +310,9 @@ export default function AdminPage() {
     setModerationError(null);
     setQueueNote(null);
     setModerationNote(null);
+    setRoundtableSessions([]);
+    setRoundtableError(null);
+    setRoundtableNote(null);
     setStartupOptions([]);
     setEmbedStartupId("");
     setEmbedStartupName("");
@@ -640,6 +712,80 @@ export default function AdminPage() {
     }
   };
 
+  const handleKickRoundtableMember = async (
+    sessionId: string,
+    memberId: string,
+    displayName: string
+  ) => {
+    if (!sessionToken) return;
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(`Kick "${displayName}" from this room?`);
+      if (!confirmed) return;
+    }
+
+    const nextActionId = `roundtable-kick-${sessionId}-${memberId}`;
+    setActionId(nextActionId);
+    setRoundtableError(null);
+    setRoundtableNote(null);
+
+    try {
+      const res = await fetch(`/api/roundtable/sessions/${sessionId}/members/${memberId}/remove`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Unable to kick participant.");
+      }
+      setRoundtableNote(`Removed "${displayName}" from room ${sessionId.slice(0, 8)}.`);
+      await refreshAdminData(sessionToken);
+    } catch (error) {
+      setRoundtableError(errorMessage(error, "Unable to kick participant."));
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleDeleteRoundtableRoom = async (sessionId: string, topicTitle: string) => {
+    if (!sessionToken) return;
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `Delete room "${topicTitle}" permanently? This removes members and turn history for this room.`
+      );
+      if (!confirmed) return;
+    }
+
+    const nextActionId = `roundtable-delete-${sessionId}`;
+    setActionId(nextActionId);
+    setRoundtableError(null);
+    setRoundtableNote(null);
+
+    try {
+      const res = await fetch(`/api/admin/roundtable/sessions/${sessionId}/delete`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Unable to delete room.");
+      }
+
+      const removedCount = Number(payload.joined_members_removed ?? 0);
+      setRoundtableNote(
+        `Deleted room "${topicTitle}" and removed ${Number.isFinite(removedCount) ? removedCount : 0} joined members.`
+      );
+      await refreshAdminData(sessionToken);
+    } catch (error) {
+      setRoundtableError(errorMessage(error, "Unable to delete room."));
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const hasActionInFlight = Boolean(actionId);
 
   return (
@@ -655,11 +801,11 @@ export default function AdminPage() {
           <p>Approve, remove, or block startup videos from one place.</p>
         </header>
 
-        <section className="admin-card">
-          <div className="admin-card-header">
-            <h3>Admin access</h3>
-            <span>{authStatus === "authed" ? "Signed in" : "Sign in to manage the platform."}</span>
-          </div>
+        <AdminDisclosureCard
+          title="Admin access"
+          meta={authStatus === "authed" ? "Signed in" : "Sign in required"}
+          defaultOpen
+        >
           {authStatus !== "authed" ? (
             <div className="submit-grid">
               <div className="form-field">
@@ -705,13 +851,104 @@ export default function AdminPage() {
               </button>
             </div>
           )}
-        </section>
+        </AdminDisclosureCard>
 
-        <section className="admin-card">
-          <div className="admin-card-header">
-            <h3>Publish Instagram embed</h3>
-            <span>Auto-publishes to live feed</span>
-          </div>
+        <AdminDisclosureCard
+          title="Roundtable rooms"
+          meta={`${roundtableSessions.length} rooms`}
+          defaultOpen
+        >
+          <p className="admin-section-note">
+            Monitor room status, review who is seated, kick participants, or delete a room from admin.
+          </p>
+          {roundtableError ? <p className="submit-error">{roundtableError}</p> : null}
+          {roundtableNote ? <p className="submit-note">{roundtableNote}</p> : null}
+          {roundtableSessions.length === 0 ? (
+            <p className="admin-empty">No roundtable rooms found.</p>
+          ) : (
+            <div className="admin-list">
+              {roundtableSessions.map((session) => {
+                const deleteActionId = `roundtable-delete-${session.session_id}`;
+                return (
+                  <div className="admin-row admin-roundtable-row" key={`roundtable-${session.session_id}`}>
+                    <div className="admin-info">
+                      <h4>{session.topic_title}</h4>
+                      <p>{session.topic_description ?? "No topic description."}</p>
+                      <div className="admin-tags">
+                        <span>Room: {session.session_id.slice(0, 8)}</span>
+                        <span>Status: {session.status}</span>
+                        <span>
+                          Seats: {session.seats_taken}/{session.max_seats}
+                        </span>
+                        <span>Created: {formatDateTime(session.created_at)}</span>
+                        <span>Updated: {formatDateTime(session.updated_at)}</span>
+                      </div>
+                      <div className="admin-roundtable-members">
+                        <h5>Joined participants</h5>
+                        {!session.joined_members.length ? (
+                          <p className="admin-empty">No one currently seated.</p>
+                        ) : (
+                          <div className="admin-roundtable-member-list">
+                            {session.joined_members.map((member) => {
+                              const kickActionId = `roundtable-kick-${session.session_id}-${member.id}`;
+                              return (
+                                <div key={member.id} className="admin-roundtable-member-item">
+                                  <div>
+                                    <strong>{member.display_name}</strong>
+                                    <p>
+                                      Seat {member.seat_no} · Joined {formatDateTime(member.joined_at)}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="ghost"
+                                    disabled={hasActionInFlight}
+                                    onClick={() =>
+                                      void handleKickRoundtableMember(
+                                        session.session_id,
+                                        member.id,
+                                        member.display_name
+                                      )
+                                    }
+                                  >
+                                    {actionId === kickActionId ? "Removing..." : "Kick"}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="admin-actions">
+                      <a
+                        href={`/roundtable/${session.session_id}`}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="admin-action-link ghost"
+                      >
+                        Open room
+                      </a>
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={hasActionInFlight}
+                        onClick={() => void handleDeleteRoundtableRoom(session.session_id, session.topic_title)}
+                      >
+                        {actionId === deleteActionId ? "Deleting..." : "Delete room"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </AdminDisclosureCard>
+
+        <AdminDisclosureCard
+          title="Publish Instagram embed"
+          meta="Direct publish tools"
+        >
           <p className="admin-section-note">
             Paste an Instagram Reel/Post URL and publish it instantly from admin. This bypasses queue and goes live.
           </p>
@@ -831,13 +1068,12 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
-        </section>
+        </AdminDisclosureCard>
 
-        <section className="admin-card">
-          <div className="admin-card-header">
-            <h3>Pending approvals</h3>
-            <span>{queue.length} items</span>
-          </div>
+        <AdminDisclosureCard
+          title="Pending approvals"
+          meta={`${queue.length} items`}
+        >
           {queueError ? <p className="submit-error">{queueError}</p> : null}
           {queueNote ? <p className="submit-note">{queueNote}</p> : null}
           {queue.length === 0 ? (
@@ -998,13 +1234,12 @@ export default function AdminPage() {
               })}
             </div>
           )}
-        </section>
+        </AdminDisclosureCard>
 
-        <section className="admin-card">
-          <div className="admin-card-header">
-            <h3>Live moderation</h3>
-            <span>{moderation.length} live videos</span>
-          </div>
+        <AdminDisclosureCard
+          title="Live moderation"
+          meta={`${moderation.length} live videos`}
+        >
           <p className="admin-section-note">
             Take down scam, porn, or abusive videos instantly. Use block startup to reject all its videos.
           </p>
@@ -1147,7 +1382,7 @@ export default function AdminPage() {
               })}
             </div>
           )}
-        </section>
+        </AdminDisclosureCard>
         <SiteFooter />
       </div>
     </AdRailsScaffold>
