@@ -84,23 +84,6 @@ export default function RoundtableLobby() {
         </div>
       </section>
 
-      <section className="roundtable-panel roundtable-lobby-leaderboard" aria-label="Weekly top contributors">
-        <h4>Weekly top contributors</h4>
-        {!data.leaderboard.length ? <p className="roundtable-muted">Leaderboard will populate after activity.</p> : null}
-        <div className="roundtable-score-list">
-          {data.leaderboard.map((entry, index) => (
-            <div key={`${entry.member_id}-${index}`} className="roundtable-score-item">
-              <div>
-                <strong>#{index + 1} {entry.display_name}</strong>
-                <p>
-                  Turns {entry.approved_turns} · Upvotes {entry.upvotes_received}
-                </p>
-              </div>
-              <span>{entry.points}</span>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
