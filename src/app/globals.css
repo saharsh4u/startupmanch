@@ -9373,7 +9373,7 @@ body {
 
 .roundtable-pip-player {
   position: fixed;
-  right: max(14px, env(safe-area-inset-right));
+  right: max(14px, calc((100vw - 1080px) / 2 + 14px));
   bottom: max(14px, env(safe-area-inset-bottom));
   width: min(360px, calc(100vw - 28px));
   border: 1px solid #5a4b37;
@@ -9383,7 +9383,7 @@ body {
     0 18px 34px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   padding: 10px;
-  z-index: 72;
+  z-index: 160;
 }
 
 .roundtable-pip-head {

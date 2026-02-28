@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent,
   type WheelEvent,
 } from "react";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
@@ -104,10 +103,6 @@ export default function RoundtableHomepageVideoRail() {
   const carryRef = useRef(0);
   const pauseUntilRef = useRef(0);
   const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draggingRef = useRef(false);
-  const pointerLastXRef = useRef(0);
-  const pointerLastTimeRef = useRef(0);
-  const pointerVelocityRef = useRef(0);
 
   const markInteraction = useCallback((pauseMs = INTERACTION_PAUSE_MS) => {
     pauseUntilRef.current = Date.now() + pauseMs;
@@ -288,51 +283,6 @@ export default function RoundtableHomepageVideoRail() {
     [applyScrollDelta, markInteraction, pitches.length]
   );
 
-  const handlePointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!pitches.length) return;
-      draggingRef.current = true;
-      pointerLastXRef.current = event.clientX;
-      pointerLastTimeRef.current = performance.now();
-      pointerVelocityRef.current = 0;
-      markInteraction(2400);
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [markInteraction, pitches.length]
-  );
-
-  const handlePointerMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!draggingRef.current) return;
-      event.preventDefault();
-      const deltaX = event.clientX - pointerLastXRef.current;
-      const now = performance.now();
-      const elapsed = Math.max(1, now - pointerLastTimeRef.current);
-      pointerVelocityRef.current = pointerVelocityRef.current * 0.76 + (deltaX / elapsed) * 0.24;
-      pointerLastXRef.current = event.clientX;
-      pointerLastTimeRef.current = now;
-      applyScrollDelta(-deltaX);
-    },
-    [applyScrollDelta]
-  );
-
-  const finishPointer = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-
-      if (Math.abs(pointerVelocityRef.current) >= 0.58) {
-        shiftRail(pointerVelocityRef.current < 0 ? 1 : -1);
-      } else {
-        markInteraction(950);
-      }
-    },
-    [markInteraction, shiftRail]
-  );
-
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (event.key === "ArrowRight") {
@@ -383,11 +333,7 @@ export default function RoundtableHomepageVideoRail() {
           className={`roundtable-video-rail${isInteracting ? " is-interacting" : ""}`}
           ref={railRef}
           onWheel={handleWheel}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={finishPointer}
-          onPointerCancel={finishPointer}
-          onLostPointerCapture={finishPointer}
+          onPointerDown={() => markInteraction(2200)}
           onFocusCapture={() => markInteraction(2200)}
           onBlurCapture={() => markInteraction(700)}
           onMouseEnter={() => markInteraction(2000)}
