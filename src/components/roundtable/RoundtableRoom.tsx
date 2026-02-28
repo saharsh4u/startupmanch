@@ -178,6 +178,10 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     );
   }, [guestId, selfMemberId, snapshot]);
 
+  const seatsTaken = snapshot?.session.seats_taken ?? 0;
+  const maxSeats = snapshot?.session.max_seats ?? 5;
+  const isRoomFull = seatsTaken >= maxSeats;
+
   const seats = useMemo<RoundtableSeatViewModel[]>(() => {
     if (!snapshot) return [];
     const bySeat = new Map<number, (typeof snapshot.members)[number]>();
@@ -425,6 +429,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     );
   }
 
+  const canJoinSeat = !currentMember && !isRoomFull;
+  const seatOptions = Array.from({ length: snapshot.session.max_seats }, (_, index) => index + 1);
+
   return (
     <div className="roundtable-shell">
       <section className="roundtable-hero">
@@ -433,7 +440,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         <p>{snapshot.topic.description ?? "No topic description."}</p>
       </section>
 
-      <section className="roundtable-controls">
+      <form
+        className="roundtable-controls"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (currentMember) return;
+          void handleJoin();
+        }}
+      >
         <label>
           Display name
           <input
@@ -452,15 +466,19 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             }}
           >
             <option value="auto">Auto seat</option>
-            <option value={1}>Seat 1</option>
-            <option value={2}>Seat 2</option>
-            <option value={3}>Seat 3</option>
-            <option value={4}>Seat 4</option>
-            <option value={5}>Seat 5</option>
+            {seatOptions.map((seatNo) => (
+              <option key={seatNo} value={seatNo}>
+                Seat {seatNo}
+              </option>
+            ))}
           </select>
         </label>
         {!currentMember ? (
-          <button type="button" className="roundtable-cta" disabled={busyAction === "join"} onClick={() => void handleJoin()}>
+          <button
+            type="submit"
+            className="roundtable-cta"
+            disabled={busyAction === "join" || !displayName.trim().length || !canJoinSeat}
+          >
             {busyAction === "join" ? "Joining..." : "Join seat"}
           </button>
         ) : (
@@ -470,7 +488,13 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             </button>
           </>
         )}
-      </section>
+      </form>
+
+      {!currentMember && isRoomFull ? (
+        <p className="roundtable-error">
+          Room is full. Only {maxSeats} people can join this roundtable.
+        </p>
+      ) : null}
 
       {actionError ? <p className="roundtable-error">{actionError}</p> : null}
       {micError ? <p className="roundtable-error">{micError}</p> : null}
@@ -526,7 +550,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           setIsMyMicMuted(true);
         }}
       />
-      <RoundtableHomepageVideoRail sessionId={sessionId} participantId={currentMember?.id ?? guestId} />
+      {currentMember ? (
+        <RoundtableHomepageVideoRail sessionId={sessionId} participantId={currentMember.id} />
+      ) : null}
     </div>
   );
 }

@@ -11,12 +11,16 @@ type JoinPayload = {
   captcha_token?: string;
 };
 
-const resolveSeat = (requestedSeat: number | undefined, occupied: Set<number>) => {
-  if (Number.isInteger(requestedSeat) && (requestedSeat as number) >= 1 && (requestedSeat as number) <= 5) {
+const resolveSeat = (requestedSeat: number | undefined, occupied: Set<number>, maxSeats: number) => {
+  if (
+    Number.isInteger(requestedSeat) &&
+    (requestedSeat as number) >= 1 &&
+    (requestedSeat as number) <= maxSeats
+  ) {
     return occupied.has(requestedSeat as number) ? null : (requestedSeat as number);
   }
 
-  for (let seat = 1; seat <= 5; seat += 1) {
+  for (let seat = 1; seat <= maxSeats; seat += 1) {
     if (!occupied.has(seat)) return seat;
   }
 
@@ -62,7 +66,7 @@ export async function POST(
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("roundtable_sessions")
-      .select("id, status")
+      .select("id, status, max_seats")
       .eq("id", params.sessionId)
       .maybeSingle();
 
@@ -80,7 +84,7 @@ export async function POST(
 
     let existingQuery = supabaseAdmin
       .from("roundtable_members")
-      .select("id, seat_no")
+      .select("id, seat_no, display_name")
       .eq("session_id", params.sessionId)
       .eq("state", "joined");
 
@@ -97,6 +101,19 @@ export async function POST(
     }
 
     if (existing?.id) {
+      const incomingName = actor.displayName?.trim() ?? "";
+      const existingName = existing.display_name?.trim() ?? "";
+      if (incomingName.length && incomingName !== existingName) {
+        const { error: renameError } = await supabaseAdmin
+          .from("roundtable_members")
+          .update({ display_name: incomingName })
+          .eq("id", existing.id)
+          .eq("state", "joined");
+        if (renameError) {
+          return NextResponse.json({ error: renameError.message }, { status: 500 });
+        }
+      }
+
       const response = NextResponse.json({ ok: true, member_id: existing.id, seat_no: existing.seat_no }, { status: 200 });
       return withGuestCookie(response, actor.guestId);
     }
@@ -112,10 +129,13 @@ export async function POST(
     }
 
     const occupied = new Set((occupiedRows ?? []).map((row) => Number(row.seat_no)));
-    const seatNo = resolveSeat(payload.seat_no, occupied);
+    const seatNo = resolveSeat(payload.seat_no, occupied, Number(session.max_seats) || 5);
 
     if (!seatNo) {
-      return NextResponse.json({ error: "No seats available." }, { status: 409 });
+      return NextResponse.json(
+        { error: `Room is full. Only ${session.max_seats} people can join.` },
+        { status: 409 }
+      );
     }
 
     let member: { id: string; seat_no: number } | null = null;
