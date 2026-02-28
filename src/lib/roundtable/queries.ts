@@ -226,6 +226,7 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
 
   return {
     viewer_member_id: null,
+    viewer_can_manage_members: false,
     session: {
       session_id: session.id,
       topic_id: session.topic_id,

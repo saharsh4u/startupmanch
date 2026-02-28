@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
-import type { RoundtableSessionSnapshot } from "@/lib/roundtable/types";
+import type { RoundtableLeaderboardEntry, RoundtableSessionSnapshot } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type RoundtableRoomProps = {
@@ -18,6 +18,11 @@ type ActionResponse = {
   seat_no?: number;
   turn_id?: string;
   seats_cleared?: number;
+};
+
+type LeaderboardResponse = {
+  leaderboard?: RoundtableLeaderboardEntry[];
+  error?: string;
 };
 
 const mapMicError = (errorValue: unknown) => {
@@ -68,6 +73,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [isMyMicMuted, setIsMyMicMuted] = useState(true);
   const [micError, setMicError] = useState<string | null>(null);
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null);
+  const [weeklyContributors, setWeeklyContributors] = useState<RoundtableLeaderboardEntry[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
@@ -87,14 +93,35 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }
   }, [sessionId]);
 
+  const loadWeeklyContributors = useCallback(async () => {
+    try {
+      const response = await fetch("/api/roundtable/leaderboard", { cache: "no-store" });
+      const payload = (await response.json()) as LeaderboardResponse;
+      if (!response.ok) {
+        return;
+      }
+      setWeeklyContributors(Array.isArray(payload.leaderboard) ? payload.leaderboard.slice(0, 5) : []);
+    } catch {
+      // Keep previous list on transient fetch errors.
+    }
+  }, []);
+
   useEffect(() => {
     ensureGuestId();
     void loadSnapshot();
+    void loadWeeklyContributors();
     const timer = window.setInterval(() => {
       void loadSnapshot();
     }, 12000);
     return () => window.clearInterval(timer);
-  }, [loadSnapshot]);
+  }, [loadSnapshot, loadWeeklyContributors]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadWeeklyContributors();
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [loadWeeklyContributors]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -207,6 +234,15 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       ) ?? null
     );
   }, [guestId, selfMemberId, snapshot]);
+
+  const canManageMembers = Boolean(snapshot?.viewer_can_manage_members);
+  const joinedMembers = useMemo(
+    () =>
+      (snapshot?.members ?? [])
+        .filter((member) => member.state === "joined")
+        .sort((a, b) => a.seat_no - b.seat_no),
+    [snapshot?.members]
+  );
 
   const seatsTaken = snapshot?.session.seats_taken ?? 0;
   const maxSeats = snapshot?.session.max_seats ?? 5;
@@ -458,6 +494,28 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }
   };
 
+  const handleRemoveMember = async (memberId: string, displayNameValue: string) => {
+    if (!canManageMembers) return;
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(`Remove ${displayNameValue} from this roundtable?`);
+      if (!confirmed) return;
+    }
+    const payload = await callApi(
+      `/api/roundtable/sessions/${sessionId}/members/${memberId}/remove`,
+      {},
+      `remove-member-${memberId}`
+    );
+    if (!payload?.ok) return;
+
+    if (currentMember?.id === memberId) {
+      stopMicStream();
+      setSelfMemberId(null);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(memberStorageKey);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="roundtable-shell">
@@ -541,14 +599,16 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             </button>
           </>
         )}
-        <button
-          type="button"
-          className="roundtable-ghost-btn"
-          disabled={busyAction === "reset-seats"}
-          onClick={() => void handleResetSeats()}
-        >
-          {busyAction === "reset-seats" ? "Clearing..." : "Clear all seats"}
-        </button>
+        {canManageMembers ? (
+          <button
+            type="button"
+            className="roundtable-ghost-btn"
+            disabled={busyAction === "reset-seats"}
+            onClick={() => void handleResetSeats()}
+          >
+            {busyAction === "reset-seats" ? "Clearing..." : "Clear all seats"}
+          </button>
+        ) : null}
       </form>
 
       {!currentMember && isRoomFull ? (
@@ -611,6 +671,52 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           setIsMyMicMuted(true);
         }}
       />
+      <section className="roundtable-panel" aria-label="Current room participants">
+        <h4>Current room participants</h4>
+        {!joinedMembers.length ? <p className="roundtable-muted">No one is currently seated.</p> : null}
+        <div className="roundtable-score-list">
+          {joinedMembers.map((member) => {
+            const removeBusy = busyAction === `remove-member-${member.id}`;
+            return (
+              <div key={member.id} className="roundtable-score-item">
+                <div>
+                  <strong>{member.display_name}</strong>
+                  <p>Seat {member.seat_no} · Joined</p>
+                </div>
+                {canManageMembers ? (
+                  <button
+                    type="button"
+                    className="roundtable-ghost-btn"
+                    disabled={removeBusy}
+                    onClick={() => void handleRemoveMember(member.id, member.display_name)}
+                  >
+                    {removeBusy ? "Removing..." : "Remove"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="roundtable-panel" aria-label="Weekly top contributors in this page">
+        <h4>Weekly top contributors</h4>
+        <p className="roundtable-muted">This list is across all roundtables in the last 7 days.</p>
+        {!weeklyContributors.length ? <p className="roundtable-muted">Leaderboard is empty right now.</p> : null}
+        <div className="roundtable-score-list">
+          {weeklyContributors.map((entry, index) => (
+            <div key={`${entry.member_id}-${index}`} className="roundtable-score-item">
+              <div>
+                <strong>#{index + 1} {entry.display_name}</strong>
+                <p>
+                  Turns {entry.approved_turns} · Upvotes {entry.upvotes_received}
+                </p>
+              </div>
+              <span>{entry.points}</span>
+            </div>
+          ))}
+        </div>
+      </section>
       <RoundtableHomepageVideoRail sessionId={sessionId} participantId={currentMember?.id ?? guestId} />
     </div>
   );
