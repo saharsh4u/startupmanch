@@ -103,10 +103,7 @@ export default function RoundtableSeatCircle({
                   } as CSSProperties
                 }
               >
-                <div className="roundtable-seat-person" aria-hidden>
-                  <span className="roundtable-seat-avatar">{seat.initials || "?"}</span>
-                  <span className="roundtable-seat-chair" />
-                </div>
+                <span className="roundtable-seat-avatar" aria-hidden>{seat.initials || "?"}</span>
                 <div className="roundtable-seat-copy">
                   <span className="roundtable-seat-name">{seat.displayName}</span>
                   <span className="roundtable-seat-state">Seat {seat.seatNo} · {seat.stateLabel}</span>
