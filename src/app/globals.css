@@ -8571,7 +8571,8 @@ body {
   flex-direction: column;
   gap: 22px;
   background: #000000;
-  width: min(100%, 1040px);
+  width: 100%;
+  max-width: 1040px;
   margin: 0 auto;
 }
 
@@ -8579,7 +8580,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  width: min(100%, 980px);
+  width: 100%;
+  max-width: 980px;
   margin: 0 auto;
 }
 
@@ -8588,12 +8590,25 @@ body {
 }
 
 .roundtable-page .center-panel {
-  width: min(100%, 1080px);
+  width: 100%;
+  max-width: 1080px;
+  min-width: 0;
   margin: 0 auto;
 }
 
 .roundtable-page .anchor-block {
   width: 100%;
+}
+
+.roundtable-page .layout-grid {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.roundtable-page .ad-column {
+  display: none;
 }
 
 .roundtable-hero,
@@ -9740,6 +9755,24 @@ body {
 
   .roundtable-video-strip-head {
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .page.roundtable-page {
+    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-bottom: calc(22px + env(safe-area-inset-bottom));
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .roundtable-page-shell,
+  .roundtable-shell,
+  .roundtable-page .center-panel,
+  .roundtable-page .layout-grid {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 }
 
