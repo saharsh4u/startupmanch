@@ -68,18 +68,31 @@ export default function RoundtableSeatCircle({
       setEyeFromClientPoint(touch.clientX, touch.clientY);
     };
 
+    const handlePointerTouch = (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      setEyeFromClientPoint(event.clientX, event.clientY);
+    };
+
     const clearVector = () => {
       setPointerEyeVector(null);
     };
 
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("pointermove", handlePointerTouch, { passive: true });
+    window.addEventListener("pointerdown", handlePointerTouch, { passive: true });
     window.addEventListener("touchend", clearVector, { passive: true });
     window.addEventListener("touchcancel", clearVector, { passive: true });
+    window.addEventListener("pointerup", clearVector, { passive: true });
+    window.addEventListener("pointercancel", clearVector, { passive: true });
 
     return () => {
       window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("pointermove", handlePointerTouch);
+      window.removeEventListener("pointerdown", handlePointerTouch);
       window.removeEventListener("touchend", clearVector);
       window.removeEventListener("touchcancel", clearVector);
+      window.removeEventListener("pointerup", clearVector);
+      window.removeEventListener("pointercancel", clearVector);
     };
   }, [setEyeFromClientPoint]);
 

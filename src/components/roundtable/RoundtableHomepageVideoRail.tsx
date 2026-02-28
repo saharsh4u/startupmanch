@@ -164,6 +164,7 @@ export default function RoundtableHomepageVideoRail({
     offsetY: number;
     active: boolean;
   } | null>(null);
+  const pipRecoveryAttemptsRef = useRef(0);
   const syncSenderId = useMemo(
     () => `${participantId ?? "guest"}:${Math.random().toString(36).slice(2, 8)}`,
     [participantId]
@@ -592,6 +593,7 @@ export default function RoundtableHomepageVideoRail({
 
   useEffect(() => {
     setPipPlaybackError(null);
+    pipRecoveryAttemptsRef.current = 0;
   }, [pipPitch?.id, pipVideoHlsSrc, pipVideoSrc]);
 
   const retryPipResolve = useCallback(() => {
@@ -623,7 +625,10 @@ export default function RoundtableHomepageVideoRail({
     if (!video || !pipHasPlayableVideo) return;
 
     let progressTimer: ReturnType<typeof setTimeout> | null = null;
+    let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
     let didCleanup = false;
+    let lastObservedTime = video.currentTime;
+    let hasStarted = video.currentTime > 0;
 
     const clearProgressTimer = () => {
       if (progressTimer !== null) {
@@ -632,65 +637,111 @@ export default function RoundtableHomepageVideoRail({
       }
     };
 
-    const attemptPlay = () => {
+    const clearRecoveryTimer = () => {
+      if (recoveryTimer !== null) {
+        clearTimeout(recoveryTimer);
+        recoveryTimer = null;
+      }
+    };
+
+    const attemptPlay = (showErrorOnFail = true) => {
       if (didCleanup) return;
       video.muted = true;
       video.play().catch(() => {
-        if (!didCleanup) {
+        if (!didCleanup && showErrorOnFail) {
           setPipPlaybackError("Video could not start. Tap Retry, or use Next.");
         }
       });
     };
 
-    const verifyProgress = () => {
+    const verifyProgress = (windowMs = 1700) => {
       clearProgressTimer();
       const startAt = video.currentTime;
       progressTimer = setTimeout(() => {
         if (didCleanup || video.paused || video.ended) return;
-        if (video.currentTime <= startAt + 0.01) {
-          video.load();
-          attemptPlay();
+        if (video.currentTime <= startAt + 0.03) {
+          maybeRecover();
         }
-      }, 1300);
+      }, windowMs);
+    };
+
+    const maybeRecover = () => {
+      if (didCleanup || video.ended) return;
+      if (pipRecoveryAttemptsRef.current >= 2) {
+        setPipPlaybackError("Video is stalled. Tap Retry, or use Next.");
+        return;
+      }
+
+      pipRecoveryAttemptsRef.current += 1;
+      clearRecoveryTimer();
+      recoveryTimer = setTimeout(() => {
+        if (didCleanup) return;
+        video.load();
+        attemptPlay(false);
+        verifyProgress(2200);
+      }, 220);
     };
 
     const handlePlaying = () => {
+      hasStarted = true;
       setPipPlaybackError(null);
+      pipRecoveryAttemptsRef.current = 0;
       clearProgressTimer();
+      clearRecoveryTimer();
     };
 
     const handlePlay = () => {
       verifyProgress();
     };
 
+    const handleTimeUpdate = () => {
+      const time = video.currentTime;
+      if (time > lastObservedTime + 0.02) {
+        hasStarted = true;
+        pipRecoveryAttemptsRef.current = 0;
+        setPipPlaybackError(null);
+      }
+      lastObservedTime = time;
+    };
+
     const handleStalled = () => {
-      if (didCleanup) return;
-      video.load();
-      attemptPlay();
-      verifyProgress();
+      maybeRecover();
     };
 
     const handleError = () => {
-      setPipPlaybackError("Video could not start. Tap Retry, or use Next.");
+      if (!hasStarted) {
+        maybeRecover();
+      } else {
+        setPipPlaybackError("Video could not start. Tap Retry, or use Next.");
+      }
+    };
+
+    const handleCanPlay = () => {
+      if (!hasStarted && video.paused) {
+        attemptPlay(false);
+      }
     };
 
     video.addEventListener("playing", handlePlaying);
     video.addEventListener("play", handlePlay);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("canplay", handleCanPlay);
     video.addEventListener("stalled", handleStalled);
-    video.addEventListener("waiting", handleStalled);
     video.addEventListener("error", handleError);
 
     video.load();
-    attemptPlay();
+    attemptPlay(false);
     verifyProgress();
 
     return () => {
       didCleanup = true;
       clearProgressTimer();
+      clearRecoveryTimer();
       video.removeEventListener("playing", handlePlaying);
       video.removeEventListener("play", handlePlay);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("canplay", handleCanPlay);
       video.removeEventListener("stalled", handleStalled);
-      video.removeEventListener("waiting", handleStalled);
       video.removeEventListener("error", handleError);
     };
   }, [pipHasPlayableVideo, pipPitch?.id, pipVideoHlsSrc, pipVideoSrc]);
