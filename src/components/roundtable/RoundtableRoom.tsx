@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RoundtableQueue from "@/components/roundtable/RoundtableQueue";
 import RoundtableScoreboard from "@/components/roundtable/RoundtableScoreboard";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
@@ -19,6 +19,9 @@ type ActionResponse = {
   member_id?: string;
   turn_id?: string;
 };
+
+const SLICE_TEXT_LIMIT = 84;
+const DRAFT_SYNC_DEBOUNCE_MS = 450;
 
 const parseError = (value: unknown, fallback: string) => {
   if (value && typeof value === "object" && "error" in value && typeof (value as { error?: unknown }).error === "string") {
@@ -47,6 +50,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [draft, setDraft] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const draftSyncTimerRef = useRef<number | null>(null);
+  const lastDraftSyncedRef = useRef<string>("");
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -166,23 +171,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     });
   }, [activeTurn?.member_id, currentMember?.id, queuedMemberIds, snapshot]);
 
-  const wheelFocusSeatNo = useMemo(() => {
-    if (!seats.length) return 1;
-    const activeSeat = seats.find((seat) => seat.isActive);
-    if (activeSeat) return activeSeat.seatNo;
-
-    for (const memberId of queuedMemberIds) {
-      const queuedSeat = seats.find((seat) => seat.memberId === memberId);
-      if (queuedSeat) return queuedSeat.seatNo;
-    }
-
-    const mySeat = seats.find((seat) => seat.isMe);
-    if (mySeat) return mySeat.seatNo;
-
-    const firstTaken = seats.find((seat) => !seat.isEmpty);
-    return firstTaken?.seatNo ?? 1;
-  }, [queuedMemberIds, seats]);
-
   const wheelFlareToken = useMemo(() => {
     if (activeTurn?.id) {
       return `active-${activeTurn.id}-${activeTurn.starts_at ?? ""}`;
@@ -192,9 +180,26 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return `recent-${latestTurn.id}-${latestTurn.status}`;
   }, [activeTurn?.id, activeTurn?.starts_at, snapshot?.recent_turns]);
 
+  const activeSpeech = useMemo(() => {
+    if (!activeTurn) return null;
+    const activeSeat = seats.find((seat) => seat.memberId === activeTurn.member_id);
+    if (!activeSeat) return null;
+    const source = canSubmit ? draft : (activeTurn.body ?? "");
+    const collapsed = source.replace(/\s+/g, " ").trim();
+    if (!collapsed.length) return null;
+    const text = collapsed.length > SLICE_TEXT_LIMIT
+      ? collapsed.slice(collapsed.length - SLICE_TEXT_LIMIT)
+      : collapsed;
+
+    return {
+      seatNo: activeSeat.seatNo,
+      text,
+    };
+  }, [activeTurn, canSubmit, draft, seats]);
+
   const silentSeatTarget = useMemo(() => {
     if (!snapshot || !seats.length) {
-      return { seatNo: null as number | null, label: null as string | null };
+      return { seatNo: null as number | null };
     }
 
     const queuedSet = new Set(queuedMemberIds);
@@ -214,7 +219,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
     const joinedMembers = snapshot.members.filter((member) => member.state === "joined");
     const silenceThresholdMs = 5 * 60 * 1000;
-    let picked: { memberId: string; displayName: string; inactiveForMs: number } | null = null;
+    let picked: { memberId: string; inactiveForMs: number } | null = null;
 
     for (const member of joinedMembers) {
       if (member.id === activeTurn?.member_id) continue;
@@ -228,22 +233,79 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       if (!picked || inactiveForMs > picked.inactiveForMs) {
         picked = {
           memberId: member.id,
-          displayName: member.display_name,
           inactiveForMs,
         };
       }
     }
 
     if (!picked) {
-      return { seatNo: null as number | null, label: null as string | null };
+      return { seatNo: null as number | null };
     }
 
     const pickedSeat = seats.find((seat) => seat.memberId === picked.memberId);
     return {
       seatNo: pickedSeat?.seatNo ?? null,
-      label: picked.displayName,
     };
   }, [activeTurn?.member_id, nowMs, queuedMemberIds, seats, snapshot]);
+
+  useEffect(() => {
+    lastDraftSyncedRef.current = activeTurn?.body ?? "";
+    if (canSubmit && !draft && activeTurn?.body) {
+      setDraft(activeTurn.body);
+    }
+  }, [activeTurn?.body, canSubmit, draft]);
+
+  useEffect(() => {
+    return () => {
+      if (draftSyncTimerRef.current) {
+        window.clearTimeout(draftSyncTimerRef.current);
+        draftSyncTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canSubmit || !activeTurn?.id || !guestId) return;
+
+    const body = draft.slice(0, 600);
+    if (body === lastDraftSyncedRef.current) return;
+
+    if (draftSyncTimerRef.current) {
+      window.clearTimeout(draftSyncTimerRef.current);
+    }
+
+    draftSyncTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch(`/api/roundtable/sessions/${sessionId}/turn/draft`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-roundtable-guest-id": guestId,
+            },
+            body: JSON.stringify({
+              display_name: displayName,
+              turn_id: activeTurn.id,
+              body,
+            }),
+          });
+
+          if (response.ok) {
+            lastDraftSyncedRef.current = body;
+          }
+        } catch {
+          // Draft sync failures are non-blocking; submit still sends final turn content.
+        }
+      })();
+    }, DRAFT_SYNC_DEBOUNCE_MS);
+
+    return () => {
+      if (draftSyncTimerRef.current) {
+        window.clearTimeout(draftSyncTimerRef.current);
+        draftSyncTimerRef.current = null;
+      }
+    };
+  }, [activeTurn?.id, canSubmit, displayName, draft, guestId, sessionId]);
 
   const callApi = async (
     path: string,
@@ -404,9 +466,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
       <RoundtableSeatCircle
         seats={seats}
-        focusSeatNo={wheelFocusSeatNo}
         flareToken={wheelFlareToken}
         eyeTargetSeatNo={silentSeatTarget.seatNo}
+        activeSpeech={activeSpeech}
       />
 
       <section className="roundtable-grid">

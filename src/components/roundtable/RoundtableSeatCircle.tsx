@@ -14,9 +14,12 @@ export type RoundtableSeatViewModel = {
 
 type RoundtableSeatCircleProps = {
   seats: RoundtableSeatViewModel[];
-  focusSeatNo: number;
   flareToken: string | null;
   eyeTargetSeatNo: number | null;
+  activeSpeech: {
+    seatNo: number;
+    text: string;
+  } | null;
 };
 
 const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => {
@@ -31,12 +34,12 @@ const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => 
 
 export default function RoundtableSeatCircle({
   seats,
-  focusSeatNo,
   flareToken,
   eyeTargetSeatNo,
+  activeSpeech,
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
-  const focusRotation = ((focusSeatNo - 1) * 360) / seatCount;
+  const speechPosition = activeSpeech ? seatPolar(activeSpeech.seatNo, seatCount, 26) : null;
   const eyeVector = (() => {
     if (!eyeTargetSeatNo) {
       return { x: 0, y: 0 };
@@ -54,10 +57,7 @@ export default function RoundtableSeatCircle({
       <div className="roundtable-roulette">
         <div key={flareToken ?? "none"} className="roundtable-roulette-glow" aria-hidden />
 
-        <div
-          className="roundtable-roulette-wheel"
-          style={{ "--rt-focus-rotation": `${focusRotation}deg` } as CSSProperties}
-        >
+        <div className="roundtable-roulette-wheel">
           <div className="roundtable-roulette-wheel-ambient">
             <div className="roundtable-roulette-slices" aria-hidden>
               {seats.map((seat, index) => {
@@ -78,6 +78,21 @@ export default function RoundtableSeatCircle({
                 );
               })}
             </div>
+            {activeSpeech?.text ? (
+              <div className="roundtable-slice-speech-layer" aria-live="polite">
+                <p
+                  className="roundtable-slice-speech"
+                  style={
+                    {
+                      left: `${speechPosition?.x ?? 50}%`,
+                      top: `${speechPosition?.y ?? 50}%`,
+                    } as CSSProperties
+                  }
+                >
+                  {activeSpeech.text}
+                </p>
+              </div>
+            ) : null}
           </div>
           <div className="roundtable-roulette-hub">
             <div

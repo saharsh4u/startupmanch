@@ -8561,6 +8561,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 22px;
+  background: #000000;
 }
 
 .roundtable-shell {
@@ -8569,17 +8570,18 @@ body {
   gap: 14px;
 }
 
+.roundtable-page {
+  background: #000000;
+}
+
 .roundtable-hero,
 .roundtable-panel,
 .roundtable-rules,
 .roundtable-controls,
 .roundtable-seat-circle {
-  border: 1px solid #2f3138;
+  border: 1px solid #2d2d2d;
   border-radius: 18px;
-  background:
-    radial-gradient(circle at 18% 12%, rgba(66, 118, 255, 0.12), transparent 42%),
-    radial-gradient(circle at 84% 12%, rgba(241, 177, 61, 0.12), transparent 46%),
-    #0d0f14;
+  background: #000000;
 }
 
 .roundtable-hero,
@@ -8594,13 +8596,7 @@ body {
 }
 
 .roundtable-lobby-hero::after {
-  content: "";
-  position: absolute;
-  inset: -35% -10%;
-  border-radius: 50%;
-  background: conic-gradient(from 120deg, rgba(247, 188, 82, 0.12), rgba(83, 156, 255, 0.1), transparent 70%);
-  filter: blur(24px);
-  pointer-events: none;
+  display: none;
 }
 
 .roundtable-kicker {
@@ -8722,10 +8718,8 @@ body {
 .roundtable-session-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid #3a3f53;
-  background:
-    radial-gradient(circle at 8% 8%, rgba(90, 150, 255, 0.18), transparent 44%),
-    #111621;
+  border: 1px solid #363636;
+  background: #050505;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -8734,15 +8728,7 @@ body {
 }
 
 .roundtable-session-card::after {
-  content: "";
-  position: absolute;
-  right: -40px;
-  top: -40px;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(242, 177, 61, 0.22), transparent 72%);
-  pointer-events: none;
+  display: none;
 }
 
 .roundtable-session-card h4 {
@@ -8775,18 +8761,9 @@ body {
   width: 72px;
   aspect-ratio: 1;
   border-radius: 50%;
-  border: 1px solid #49506a;
-  background: conic-gradient(
-    from -90deg,
-    #1a2233 0deg 72deg,
-    #0f1828 72deg 144deg,
-    #171f31 144deg 216deg,
-    #10182a 216deg 288deg,
-    #182133 288deg 360deg
-  );
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 10px 20px rgba(0, 0, 0, 0.35);
+  border: 1px solid #c58b21;
+  background: repeating-conic-gradient(from -90deg, #f2b13d 0deg 70deg, #101010 70deg 72deg);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.24);
 }
 
 .roundtable-session-mini-seat {
@@ -8806,7 +8783,7 @@ body {
 }
 
 .roundtable-session-mini-seat.is-empty {
-  background: #2a3143;
+  background: #1c1c1c;
 }
 
 .roundtable-session-mini-core {
@@ -8817,8 +8794,8 @@ body {
   height: 18px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  border: 1px solid #56617e;
-  background: #111827;
+  border: 1px solid #c58b21;
+  background: #121212;
 }
 
 .roundtable-status {
@@ -8854,6 +8831,7 @@ body {
 
 .roundtable-seat-circle {
   padding: 20px;
+  background: #000000;
 }
 
 .roundtable-roulette-shell {
@@ -8869,74 +8847,48 @@ body {
 }
 
 .roundtable-roulette-glow {
-  position: absolute;
-  inset: 14%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(248, 201, 83, 0.34), rgba(72, 152, 255, 0.1) 50%, transparent 76%);
-  pointer-events: none;
-  animation: roundtableTurnFlare 860ms ease-out;
+  display: none;
 }
 
 .roundtable-roulette-wheel {
   position: absolute;
   inset: 14%;
   border-radius: 50%;
-  border: 1px solid #56607d;
+  border: 1px solid #cf9226;
   overflow: hidden;
-  transform: rotate(calc(0deg - var(--rt-focus-rotation, 0deg)));
-  transition: transform 620ms cubic-bezier(0.2, 0.95, 0.3, 1);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
-    0 22px 40px rgba(0, 0, 0, 0.36);
+  transform: none;
+  transition: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
 .roundtable-roulette-wheel-ambient {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  animation: roundtableAmbientSpin 30s linear infinite;
+  animation: none;
 }
 
 .roundtable-roulette-slices {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(
-    from -90deg,
-    #1e2436 0deg 72deg,
-    #111a2d 72deg 144deg,
-    #212b40 144deg 216deg,
-    #101a2f 216deg 288deg,
-    #1c2538 288deg 360deg
-  );
+  background: repeating-conic-gradient(from -90deg, #f2b13d 0deg 70deg, #101010 70deg 72deg);
 }
 
 .roundtable-roulette-slice {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(
-    from calc(-90deg + (var(--rt-slice-index) * 72deg)),
-    rgba(125, 146, 196, 0.14) 0deg 68deg,
-    transparent 68deg 360deg
-  );
+  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(0, 0, 0, 0.06) 0deg 68deg, transparent 68deg 360deg);
 }
 
 .roundtable-roulette-slice.is-queued {
-  background: conic-gradient(
-    from calc(-90deg + (var(--rt-slice-index) * 72deg)),
-    rgba(94, 198, 255, 0.26) 0deg 68deg,
-    transparent 68deg 360deg
-  );
+  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(255, 255, 255, 0.18) 0deg 68deg, transparent 68deg 360deg);
   animation: roundtableQueuedShimmer 1.6s ease-in-out infinite;
 }
 
 .roundtable-roulette-slice.is-active {
-  background: conic-gradient(
-    from calc(-90deg + (var(--rt-slice-index) * 72deg)),
-    rgba(246, 188, 72, 0.38) 0deg 68deg,
-    transparent 68deg 360deg
-  );
+  background: conic-gradient(from calc(-90deg + (var(--rt-slice-index) * 72deg)), rgba(255, 255, 255, 0.32) 0deg 68deg, transparent 68deg 360deg);
   animation: roundtableSliceActivePulse 1.25s ease-in-out infinite;
 }
 
@@ -8957,6 +8909,28 @@ body {
   pointer-events: none;
 }
 
+.roundtable-slice-speech-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.roundtable-slice-speech {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: min(30%, 160px);
+  max-height: 72px;
+  margin: 0;
+  overflow: hidden;
+  color: #131313;
+  font-size: clamp(0.68rem, 1.3vw, 0.86rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
 .roundtable-eye-mascot {
   --rt-eye-size: clamp(60px, 9vw, 94px);
   position: relative;
@@ -8966,7 +8940,7 @@ body {
   width: min(76%, 420px);
   gap: clamp(16px, 2.8vw, 28px);
   animation: roundtableEyeFloat 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 10px 18px rgba(5, 15, 34, 0.56));
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.56));
 }
 
 .roundtable-eye-ball {
@@ -8974,7 +8948,7 @@ body {
   height: calc(var(--rt-eye-size) * 0.72);
   border-radius: 999px;
   border: 2px solid rgba(212, 222, 246, 0.94);
-  background: linear-gradient(to bottom, #fdfefe, #d8dfef);
+  background: #f2f2f2;
   position: relative;
   overflow: hidden;
 }
@@ -9005,11 +8979,9 @@ body {
   transform: translate(-50%, -50%);
   width: clamp(128px, 17vw, 154px);
   min-height: 92px;
-  border: 1px solid #4a5571;
+  border: 1px solid #b88324;
   border-radius: 18px;
-  background:
-    linear-gradient(to bottom, rgba(47, 58, 89, 0.9), rgba(22, 30, 50, 0.9)),
-    rgba(15, 22, 38, 0.78);
+  background: #070707;
   backdrop-filter: blur(5px);
   padding: 36px 10px 9px;
   display: flex;
@@ -9017,9 +8989,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    0 14px 22px rgba(0, 0, 0, 0.44);
+  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.44);
   animation: roundtableTokenBob 3s ease-in-out infinite;
 }
 
@@ -9032,7 +9002,7 @@ body {
   height: min(24vw, 140px);
   transform-origin: center top;
   transform: rotate(calc(var(--rt-seat-angle) + 90deg)) translateY(-8px);
-  background: linear-gradient(to bottom, rgba(246, 188, 72, 0.8), rgba(246, 188, 72, 0));
+  background: linear-gradient(to bottom, rgba(242, 177, 61, 0.72), rgba(242, 177, 61, 0));
   opacity: 0;
   pointer-events: none;
 }
@@ -9045,7 +9015,7 @@ body {
   top: 10px;
   height: 20px;
   border-radius: 12px;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
+  background: rgba(255, 255, 255, 0.08);
   pointer-events: none;
 }
 
@@ -9062,8 +9032,7 @@ body {
   height: 60px;
   border-radius: 50%;
   border: 3px solid rgba(244, 248, 255, 0.92);
-  background:
-    radial-gradient(circle at 30% 28%, #f0d58c, #b7772e 58%, #5b3915 100%);
+  background: #f2b13d;
   color: #1a1204;
   display: grid;
   place-items: center;
@@ -9088,7 +9057,7 @@ body {
 }
 
 .roundtable-seat-name {
-  color: #f4f7ff;
+  color: #f7f2e2;
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.2;
@@ -9099,7 +9068,7 @@ body {
 }
 
 .roundtable-seat-state {
-  color: rgba(220, 228, 248, 0.9);
+  color: rgba(242, 225, 188, 0.88);
   font-size: 0.8rem;
   letter-spacing: 0.02em;
 }
@@ -9142,10 +9111,8 @@ body {
 
 .roundtable-seat-token.is-empty {
   opacity: 0.86;
-  border-color: #3f4b66;
-  background:
-    linear-gradient(to bottom, rgba(39, 48, 74, 0.86), rgba(19, 26, 44, 0.9)),
-    rgba(15, 22, 38, 0.72);
+  border-color: #7a5a24;
+  background: #090909;
 }
 
 .roundtable-seat-token.is-empty .roundtable-seat-avatar {
@@ -9470,6 +9437,12 @@ body {
     width: min(82%, 360px);
   }
 
+  .roundtable-slice-speech {
+    width: min(34%, 140px);
+    font-size: clamp(0.64rem, 2vw, 0.8rem);
+    max-height: 66px;
+  }
+
   .roundtable-seat-token::before {
     height: min(26vw, 120px);
   }
@@ -9490,6 +9463,12 @@ body {
   .roundtable-eye-mascot {
     --rt-eye-size: clamp(42px, 17vw, 64px);
     width: min(88%, 290px);
+  }
+
+  .roundtable-slice-speech {
+    width: min(38%, 124px);
+    font-size: clamp(0.6rem, 2.5vw, 0.72rem);
+    max-height: 58px;
   }
 
   .roundtable-seat-name {
