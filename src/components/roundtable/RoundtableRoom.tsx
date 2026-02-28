@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
@@ -25,6 +26,23 @@ type LeaderboardResponse = {
   leaderboard?: RoundtableLeaderboardEntry[];
   error?: string;
 };
+
+type VoiceSignalPayload = {
+  sender_id: string;
+  target_id?: string | null;
+  kind: "presence" | "offer" | "answer" | "ice" | "leave";
+  sdp?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit;
+};
+
+const VOICE_ICE_SERVERS: RTCIceServer[] = [
+  {
+    urls: [
+      "stun:stun.l.google.com:19302",
+      "stun:stun1.l.google.com:19302",
+    ],
+  },
+];
 
 const mapMicError = (errorValue: unknown) => {
   const fallback = "Could not access microphone.";
@@ -93,7 +111,13 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null);
   const [weeklyContributors, setWeeklyContributors] = useState<RoundtableLeaderboardEntry[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const voiceChannelRef = useRef<RealtimeChannel | null>(null);
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const peerAudioSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
+  const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const joinedMemberIdSetRef = useRef<Set<string>>(new Set());
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -358,14 +382,283 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     };
   }, [currentMember, isMyMicMuted, nowMs, seats, snapshot]);
 
+  const currentParticipantId = currentMember?.id ?? null;
+
+  const setRemoteStreamForMember = useCallback((memberId: string, stream: MediaStream) => {
+    setRemoteAudioStreams((current) => {
+      if (current[memberId] === stream) return current;
+      return {
+        ...current,
+        [memberId]: stream,
+      };
+    });
+  }, []);
+
+  const removeRemoteStreamForMember = useCallback((memberId: string) => {
+    setRemoteAudioStreams((current) => {
+      if (!Object.prototype.hasOwnProperty.call(current, memberId)) return current;
+      const next = { ...current };
+      delete next[memberId];
+      return next;
+    });
+  }, []);
+
+  const closePeerConnectionForMember = useCallback((memberId: string) => {
+    const peer = peerConnectionsRef.current.get(memberId);
+    if (peer) {
+      peer.onicecandidate = null;
+      peer.ontrack = null;
+      peer.onconnectionstatechange = null;
+      peer.close();
+    }
+
+    peerConnectionsRef.current.delete(memberId);
+    peerAudioSendersRef.current.delete(memberId);
+    pendingIceCandidatesRef.current.delete(memberId);
+    removeRemoteStreamForMember(memberId);
+  }, [removeRemoteStreamForMember]);
+
+  const closeAllPeerConnections = useCallback(() => {
+    for (const memberId of Array.from(peerConnectionsRef.current.keys())) {
+      closePeerConnectionForMember(memberId);
+    }
+    setRemoteAudioStreams({});
+  }, [closePeerConnectionForMember]);
+
+  const flushPendingIceCandidates = useCallback(async (memberId: string, peer: RTCPeerConnection) => {
+    const queued = pendingIceCandidatesRef.current.get(memberId) ?? [];
+    if (!queued.length) return;
+    pendingIceCandidatesRef.current.delete(memberId);
+
+    for (const candidate of queued) {
+      try {
+        await peer.addIceCandidate(candidate);
+      } catch {
+        // Ignore malformed/stale candidates and continue.
+      }
+    }
+  }, []);
+
+  const syncLocalAudioTrackToPeers = useCallback(async () => {
+    const localTrack = mediaStreamRef.current?.getAudioTracks()[0] ?? null;
+    for (const sender of peerAudioSendersRef.current.values()) {
+      try {
+        await sender.replaceTrack(localTrack);
+      } catch {
+        // Peer could be reconnecting; next signaling cycle will resync track.
+      }
+    }
+  }, []);
+
+  const sendVoiceSignal = useCallback((payload: Omit<VoiceSignalPayload, "sender_id">) => {
+    const channel = voiceChannelRef.current;
+    if (!channel || !currentParticipantId) return;
+    void channel.send({
+      type: "broadcast",
+      event: "voice-signal",
+      payload: {
+        ...payload,
+        sender_id: currentParticipantId,
+      } satisfies VoiceSignalPayload,
+    });
+  }, [currentParticipantId]);
+
+  const getOrCreatePeerConnection = useCallback((remoteMemberId: string) => {
+    const existing = peerConnectionsRef.current.get(remoteMemberId);
+    if (existing) return existing;
+
+    const peer = new RTCPeerConnection({
+      iceServers: VOICE_ICE_SERVERS,
+    });
+
+    const transceiver = peer.addTransceiver("audio", { direction: "sendrecv" });
+    peerAudioSendersRef.current.set(remoteMemberId, transceiver.sender);
+
+    const localTrack = mediaStreamRef.current?.getAudioTracks()[0] ?? null;
+    void transceiver.sender.replaceTrack(localTrack).catch(() => {
+      // Track will be attached on the next mic state sync.
+    });
+
+    peer.onicecandidate = (event) => {
+      if (!event.candidate) return;
+      sendVoiceSignal({
+        kind: "ice",
+        target_id: remoteMemberId,
+        candidate: event.candidate.toJSON(),
+      });
+    };
+
+    peer.ontrack = (event) => {
+      const [stream] = event.streams;
+      if (stream) {
+        setRemoteStreamForMember(remoteMemberId, stream);
+        return;
+      }
+      setRemoteStreamForMember(remoteMemberId, new MediaStream([event.track]));
+    };
+
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === "failed" || peer.connectionState === "closed") {
+        closePeerConnectionForMember(remoteMemberId);
+      }
+    };
+
+    peerConnectionsRef.current.set(remoteMemberId, peer);
+    return peer;
+  }, [closePeerConnectionForMember, sendVoiceSignal, setRemoteStreamForMember]);
+
+  const createAndSendOffer = useCallback(async (remoteMemberId: string) => {
+    const peer = getOrCreatePeerConnection(remoteMemberId);
+    if (peer.signalingState !== "stable") return;
+
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    sendVoiceSignal({
+      kind: "offer",
+      target_id: remoteMemberId,
+      sdp: peer.localDescription ?? offer,
+    });
+  }, [getOrCreatePeerConnection, sendVoiceSignal]);
+
+  useEffect(() => {
+    joinedMemberIdSetRef.current = new Set(joinedMembers.map((member) => member.id));
+  }, [joinedMembers]);
+
+  const handleVoiceSignal = useCallback(async (signal: VoiceSignalPayload) => {
+    const senderId = signal.sender_id?.trim();
+    if (!senderId || !currentParticipantId || senderId === currentParticipantId) return;
+    if (signal.target_id && signal.target_id !== currentParticipantId) return;
+
+    const joinedSet = joinedMemberIdSetRef.current;
+    if (!joinedSet.has(senderId) && signal.kind !== "leave") {
+      closePeerConnectionForMember(senderId);
+      return;
+    }
+
+    try {
+      if (signal.kind === "leave") {
+        closePeerConnectionForMember(senderId);
+        return;
+      }
+
+      if (signal.kind === "presence") {
+        // Lower member id starts the offer to avoid glare.
+        if (currentParticipantId.localeCompare(senderId) < 0) {
+          await createAndSendOffer(senderId);
+        }
+        return;
+      }
+
+      if (signal.kind === "offer" && signal.sdp) {
+        const peer = getOrCreatePeerConnection(senderId);
+        await peer.setRemoteDescription(signal.sdp);
+        await flushPendingIceCandidates(senderId, peer);
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        sendVoiceSignal({
+          kind: "answer",
+          target_id: senderId,
+          sdp: peer.localDescription ?? answer,
+        });
+        return;
+      }
+
+      if (signal.kind === "answer" && signal.sdp) {
+        const peer = peerConnectionsRef.current.get(senderId);
+        if (!peer) return;
+        await peer.setRemoteDescription(signal.sdp);
+        await flushPendingIceCandidates(senderId, peer);
+        return;
+      }
+
+      if (signal.kind === "ice" && signal.candidate) {
+        const peer = peerConnectionsRef.current.get(senderId);
+        if (!peer) {
+          const queue = pendingIceCandidatesRef.current.get(senderId) ?? [];
+          queue.push(signal.candidate);
+          pendingIceCandidatesRef.current.set(senderId, queue);
+          return;
+        }
+        if (!peer.remoteDescription) {
+          const queue = pendingIceCandidatesRef.current.get(senderId) ?? [];
+          queue.push(signal.candidate);
+          pendingIceCandidatesRef.current.set(senderId, queue);
+          return;
+        }
+        await peer.addIceCandidate(signal.candidate);
+      }
+    } catch {
+      closePeerConnectionForMember(senderId);
+    }
+  }, [
+    closePeerConnectionForMember,
+    createAndSendOffer,
+    currentParticipantId,
+    flushPendingIceCandidates,
+    getOrCreatePeerConnection,
+    sendVoiceSignal,
+  ]);
+
+  useEffect(() => {
+    if (!hasBrowserSupabaseEnv || !currentParticipantId) return;
+
+    const channel = supabaseBrowser
+      .channel(`roundtable-voice-${sessionId}`)
+      .on("broadcast", { event: "voice-signal" }, ({ payload }) => {
+        void handleVoiceSignal(payload as VoiceSignalPayload);
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          sendVoiceSignal({ kind: "presence" });
+        }
+      });
+
+    voiceChannelRef.current = channel;
+    const heartbeat = window.setInterval(() => {
+      sendVoiceSignal({ kind: "presence" });
+    }, 8000);
+
+    return () => {
+      window.clearInterval(heartbeat);
+      sendVoiceSignal({ kind: "leave" });
+      voiceChannelRef.current = null;
+      void supabaseBrowser.removeChannel(channel);
+      closeAllPeerConnections();
+    };
+  }, [closeAllPeerConnections, currentParticipantId, handleVoiceSignal, sendVoiceSignal, sessionId]);
+
+  useEffect(() => {
+    if (!currentParticipantId) {
+      closeAllPeerConnections();
+      return;
+    }
+
+    const joinedSet = new Set(joinedMembers.map((member) => member.id));
+    for (const remoteId of Array.from(peerConnectionsRef.current.keys())) {
+      if (!joinedSet.has(remoteId) || remoteId === currentParticipantId) {
+        closePeerConnectionForMember(remoteId);
+      }
+    }
+
+    // Prompt peers to establish/refresh voice links when room membership changes.
+    sendVoiceSignal({ kind: "presence" });
+  }, [
+    closeAllPeerConnections,
+    closePeerConnectionForMember,
+    currentParticipantId,
+    joinedMembers,
+    sendVoiceSignal,
+  ]);
+
   const stopMicStream = useCallback(() => {
     if (!mediaStreamRef.current) return;
     for (const track of mediaStreamRef.current.getTracks()) {
       track.stop();
     }
     mediaStreamRef.current = null;
+    void syncLocalAudioTrackToPeers();
     setIsMyMicMuted(true);
-  }, []);
+  }, [syncLocalAudioTrackToPeers]);
 
   const enableMic = useCallback(async () => {
     if (!currentMember) return;
@@ -409,6 +702,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       for (const track of stream.getAudioTracks()) {
         track.enabled = true;
       }
+      await syncLocalAudioTrackToPeers();
       setMicError(null);
       setIsMyMicMuted(false);
     } catch (errorValue) {
@@ -416,7 +710,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setMicError(message);
       setIsMyMicMuted(true);
     }
-  }, [currentMember]);
+  }, [currentMember, syncLocalAudioTrackToPeers]);
 
   useEffect(() => {
     return () => {
@@ -746,6 +1040,24 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           ))}
         </div>
       </section>
+      <div style={{ display: "none" }} aria-hidden>
+        {Object.entries(remoteAudioStreams).map(([memberId, stream]) => (
+          <audio
+            key={memberId}
+            autoPlay
+            playsInline
+            ref={(element) => {
+              if (!element) return;
+              if (element.srcObject !== stream) {
+                element.srcObject = stream;
+              }
+              void element.play().catch(() => {
+                // Playback may require a user interaction; retry on next render.
+              });
+            }}
+          />
+        ))}
+      </div>
       <RoundtableHomepageVideoRail sessionId={sessionId} participantId={currentMember?.id ?? guestId} />
     </div>
   );
