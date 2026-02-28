@@ -27,3 +27,10 @@ export const applyPublicEdgeCache = (
   response.headers.set("CDN-Cache-Control", cacheValue);
   response.headers.set("Vercel-CDN-Cache-Control", cacheValue);
 };
+
+export const applyNoStoreCache = (response: NextResponse) => {
+  const cacheValue = "no-store, no-cache, must-revalidate";
+  response.headers.set("Cache-Control", cacheValue);
+  response.headers.set("CDN-Cache-Control", cacheValue);
+  response.headers.set("Vercel-CDN-Cache-Control", cacheValue);
+};

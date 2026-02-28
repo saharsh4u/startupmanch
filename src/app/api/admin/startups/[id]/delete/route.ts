@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 
@@ -33,6 +34,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
   }
+
+  revalidatePath("/");
+  revalidatePath("/roundtable");
+  revalidatePath("/api/pitches");
+  revalidatePath("/api/pitches/teasers");
+  revalidatePath("/api/roundtable/lobby");
 
   return NextResponse.json({
     deleted: true,

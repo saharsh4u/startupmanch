@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
-import { applyPublicEdgeCache } from "@/lib/http/cache";
+import { applyNoStoreCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
 import {
   isExternalMediaUrl,
@@ -11,6 +11,8 @@ import {
 import { pitches as fallbackPitches } from "@/data/pitches";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const validTabs = new Set(["trending", "fresh", "food", "fashion", "category"]);
 const validModes = new Set(["week", "feed"]);
@@ -189,10 +191,7 @@ const fallbackFeedResponse = (options: {
     { status: options.status ?? 200 }
   );
 
-  applyPublicEdgeCache(response, {
-    sMaxAgeSeconds: 60,
-    staleWhileRevalidateSeconds: 300,
-  });
+  applyNoStoreCache(response);
 
   return response;
 };
@@ -576,17 +575,7 @@ export async function GET(request: Request) {
     next_shuffle_at: shuffleWindow?.nextShuffleAt ?? null,
   });
 
-  if (shuffleWindow) {
-    applyPublicEdgeCache(response, {
-      sMaxAgeSeconds: 240,
-      staleWhileRevalidateSeconds: 30,
-    });
-  } else {
-    applyPublicEdgeCache(response, {
-      sMaxAgeSeconds: 60,
-      staleWhileRevalidateSeconds: 300,
-    });
-  }
+  applyNoStoreCache(response);
 
   return response;
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyNoStoreCache } from "@/lib/http/cache";
 import { resolveActor } from "@/lib/roundtable/api";
 import { getSessionSnapshot } from "@/lib/roundtable/queries";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
@@ -7,6 +8,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(
   request: Request,
@@ -48,7 +51,7 @@ export async function GET(
       console.error("roundtable viewer identity resolution failed", viewerError);
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ...snapshot,
         viewer_member_id: viewerMemberId,
@@ -56,8 +59,12 @@ export async function GET(
       },
       { status: 200 }
     );
+    applyNoStoreCache(response);
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load session.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const response = NextResponse.json({ error: message }, { status: 500 });
+    applyNoStoreCache(response);
+    return response;
   }
 }

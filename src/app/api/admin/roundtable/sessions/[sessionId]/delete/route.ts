@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { logRoundtableEvent } from "@/lib/roundtable/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -60,6 +61,11 @@ export async function POST(
     },
     authContext.userId
   );
+
+  revalidatePath("/roundtable");
+  revalidatePath(`/roundtable/${sessionId}`);
+  revalidatePath("/api/roundtable/lobby");
+  revalidatePath(`/api/roundtable/sessions/${sessionId}`);
 
   return NextResponse.json({
     deleted: true,
