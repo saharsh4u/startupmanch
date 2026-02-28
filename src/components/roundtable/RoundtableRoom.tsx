@@ -405,11 +405,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       <RoundtableSeatCircle
         seats={seats}
         focusSeatNo={wheelFocusSeatNo}
-        topicTitle={snapshot.topic.title}
-        sessionStatus={snapshot.session.status}
         flareToken={wheelFlareToken}
         eyeTargetSeatNo={silentSeatTarget.seatNo}
-        eyeTargetLabel={silentSeatTarget.label}
       />
 
       <section className="roundtable-grid">

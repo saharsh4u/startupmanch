@@ -8946,44 +8946,35 @@ body {
 
 .roundtable-roulette-hub {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(52%, 230px);
-  min-height: 120px;
+  inset: 7%;
   border-radius: 50%;
-  border: 1px solid #5d6785;
-  background:
-    radial-gradient(circle at 32% 24%, rgba(252, 206, 105, 0.2), transparent 58%),
-    #12192b;
+  border: none;
+  background: none;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 6px;
-  text-align: center;
-  padding: 16px 18px;
-  box-shadow:
-    0 14px 28px rgba(0, 0, 0, 0.4),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  padding: 0;
+  pointer-events: none;
 }
 
 .roundtable-eye-mascot {
+  --rt-eye-size: clamp(60px, 9vw, 94px);
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  margin-bottom: 3px;
+  justify-content: space-between;
+  width: min(76%, 420px);
+  gap: clamp(16px, 2.8vw, 28px);
   animation: roundtableEyeFloat 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 10px 18px rgba(5, 15, 34, 0.56));
 }
 
 .roundtable-eye-ball {
-  width: 22px;
-  height: 16px;
+  width: var(--rt-eye-size);
+  height: calc(var(--rt-eye-size) * 0.72);
   border-radius: 999px;
-  border: 1px solid rgba(212, 222, 246, 0.95);
-  background: linear-gradient(to bottom, #fcfdff, #d7deef);
+  border: 2px solid rgba(212, 222, 246, 0.94);
+  background: linear-gradient(to bottom, #fdfefe, #d8dfef);
   position: relative;
   overflow: hidden;
 }
@@ -8992,8 +8983,8 @@ body {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: calc(var(--rt-eye-size) * 0.26);
+  height: calc(var(--rt-eye-size) * 0.26);
   border-radius: 50%;
   background: #111b2d;
   transform: translate(calc(-50% + var(--rt-eye-x, 0px)), calc(-50% + var(--rt-eye-y, 0px)));
@@ -9002,47 +8993,6 @@ body {
 
 .roundtable-eye-mascot.is-watching .roundtable-eye-pupil {
   animation: roundtableEyeRoll 2.2s ease-in-out infinite;
-}
-
-.roundtable-eye-mascot::after {
-  content: "";
-  position: absolute;
-  width: 54px;
-  height: 2px;
-  transform: translateY(16px);
-  border-radius: 999px;
-  background: rgba(218, 229, 255, 0.38);
-}
-
-.roundtable-roulette-hub strong {
-  color: #f2f6ff;
-  max-width: 90%;
-  font-size: clamp(0.86rem, 1.7vw, 1rem);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.roundtable-roulette-status {
-  border: 1px solid #4f5e80;
-  border-radius: 999px;
-  background: #16213a;
-  color: #d9e2ff;
-  padding: 4px 10px;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-}
-
-.roundtable-eye-status {
-  margin-top: 2px;
-  color: rgba(212, 221, 244, 0.82);
-  font-size: 0.64rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.roundtable-eye-status.is-live {
-  color: #f8d48a;
 }
 
 .roundtable-seat-token-ring {
@@ -9442,24 +9392,18 @@ body {
   }
 
   .roundtable-roulette-hub {
-    width: min(48%, 246px);
-    min-height: 138px;
+    inset: 5%;
+  }
+
+  .roundtable-eye-mascot {
+    --rt-eye-size: clamp(72px, 8vw, 114px);
+    width: min(78%, 500px);
   }
 
   .roundtable-seat-token {
     width: 162px;
     min-height: 104px;
     padding-top: 40px;
-  }
-
-  .roundtable-eye-ball {
-    width: 24px;
-    height: 17px;
-  }
-
-  .roundtable-eye-pupil {
-    width: 7px;
-    height: 7px;
   }
 
   .roundtable-seat-avatar {
@@ -9517,8 +9461,13 @@ body {
     padding-top: 34px;
   }
 
-  .roundtable-eye-status {
-    font-size: 0.6rem;
+  .roundtable-roulette-hub {
+    inset: 8%;
+  }
+
+  .roundtable-eye-mascot {
+    --rt-eye-size: clamp(54px, 13vw, 82px);
+    width: min(82%, 360px);
   }
 
   .roundtable-seat-token::before {
@@ -9539,17 +9488,8 @@ body {
   }
 
   .roundtable-eye-mascot {
-    gap: 5px;
-  }
-
-  .roundtable-eye-ball {
-    width: 18px;
-    height: 14px;
-  }
-
-  .roundtable-eye-pupil {
-    width: 5px;
-    height: 5px;
+    --rt-eye-size: clamp(42px, 17vw, 64px);
+    width: min(88%, 290px);
   }
 
   .roundtable-seat-name {
@@ -9575,9 +9515,7 @@ body {
   }
 
   .roundtable-roulette-hub {
-    min-height: 102px;
-    width: min(60%, 208px);
-    padding: 12px 14px;
+    inset: 9%;
   }
 }
 

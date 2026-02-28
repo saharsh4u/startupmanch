@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import type { RoundtableSessionStatus } from "@/lib/roundtable/types";
 
 export type RoundtableSeatViewModel = {
   seatNo: number;
@@ -16,11 +15,8 @@ export type RoundtableSeatViewModel = {
 type RoundtableSeatCircleProps = {
   seats: RoundtableSeatViewModel[];
   focusSeatNo: number;
-  topicTitle: string;
-  sessionStatus: RoundtableSessionStatus;
   flareToken: string | null;
   eyeTargetSeatNo: number | null;
-  eyeTargetLabel: string | null;
 };
 
 const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => {
@@ -36,11 +32,8 @@ const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => 
 export default function RoundtableSeatCircle({
   seats,
   focusSeatNo,
-  topicTitle,
-  sessionStatus,
   flareToken,
   eyeTargetSeatNo,
-  eyeTargetLabel,
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
   const focusRotation = ((focusSeatNo - 1) * 360) / seatCount;
@@ -51,8 +44,8 @@ export default function RoundtableSeatCircle({
     const angle = -90 + ((eyeTargetSeatNo - 1) * 360) / seatCount;
     const rad = (angle * Math.PI) / 180;
     return {
-      x: Math.cos(rad) * 7,
-      y: Math.sin(rad) * 7,
+      x: Math.cos(rad) * 16,
+      y: Math.sin(rad) * 16,
     };
   })();
 
@@ -104,12 +97,6 @@ export default function RoundtableSeatCircle({
                 <span className="roundtable-eye-pupil" />
               </span>
             </div>
-            <p className="roundtable-kicker">Roulette room</p>
-            <strong>{topicTitle}</strong>
-            <span className="roundtable-roulette-status">{sessionStatus.toUpperCase()}</span>
-            <span className={`roundtable-eye-status ${eyeTargetSeatNo ? "is-live" : ""}`}>
-              {eyeTargetSeatNo ? `Eyes on ${eyeTargetLabel ?? "silent member"}` : "Everyone is active"}
-            </span>
           </div>
         </div>
 
