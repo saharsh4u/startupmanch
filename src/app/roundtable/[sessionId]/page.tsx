@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import AdRailsScaffold from "@/components/AdRailsScaffold";
 import RoundtableRoom from "@/components/roundtable/RoundtableRoom";
-import SiteFooter from "@/components/SiteFooter";
 import TopNav from "@/components/TopNav";
 
 type RoundtableSessionPageProps = {
@@ -23,7 +22,6 @@ export default function RoundtableSessionPage({ params }: RoundtableSessionPageP
         <div className="anchor-block">
           <RoundtableRoom sessionId={params.sessionId} />
         </div>
-        <SiteFooter showCredit={false} showThemeToggle={false} />
       </div>
     </AdRailsScaffold>
   );
