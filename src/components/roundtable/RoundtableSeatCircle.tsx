@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
 export type RoundtableSeatViewModel = {
   seatNo: number;
@@ -16,10 +16,10 @@ type RoundtableSeatCircleProps = {
   seats: RoundtableSeatViewModel[];
   flareToken: string | null;
   eyeTargetSeatNo: number | null;
-  activeSpeech: {
-    seatNo: number;
-    text: string;
-  } | null;
+  activeSpeakerSeatNo: number | null;
+  canToggleMyMic: boolean;
+  isMyMicMuted: boolean;
+  onToggleMyMic: () => void;
 };
 
 const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => {
@@ -36,11 +36,15 @@ export default function RoundtableSeatCircle({
   seats,
   flareToken,
   eyeTargetSeatNo,
-  activeSpeech,
+  activeSpeakerSeatNo,
+  canToggleMyMic,
+  isMyMicMuted,
+  onToggleMyMic,
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
-  const speechPosition = activeSpeech ? seatPolar(activeSpeech.seatNo, seatCount, 26) : null;
-  const eyeVector = (() => {
+  const [pointerEyeVector, setPointerEyeVector] = useState<{ x: number; y: number } | null>(null);
+
+  const fallbackEyeVector = useMemo(() => {
     if (!eyeTargetSeatNo) {
       return { x: 0, y: 0 };
     }
@@ -50,11 +54,28 @@ export default function RoundtableSeatCircle({
       x: Math.cos(rad) * 16,
       y: Math.sin(rad) * 16,
     };
-  })();
+  }, [eyeTargetSeatNo, seatCount]);
+
+  const eyeVector = pointerEyeVector ?? fallbackEyeVector;
 
   return (
     <section className="roundtable-seat-circle roundtable-roulette-shell" aria-label="Roulette roundtable seats">
-      <div className="roundtable-roulette">
+      <div
+        className="roundtable-roulette"
+        onPointerMove={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dx = (event.clientX - cx) / (rect.width / 2 || 1);
+          const dy = (event.clientY - cy) / (rect.height / 2 || 1);
+          const clamp = (value: number) => Math.max(-1, Math.min(1, value));
+          setPointerEyeVector({
+            x: clamp(dx) * 18,
+            y: clamp(dy) * 18,
+          });
+        }}
+        onPointerLeave={() => setPointerEyeVector(null)}
+      >
         <div key={flareToken ?? "none"} className="roundtable-roulette-glow" aria-hidden />
 
         <div className="roundtable-roulette-wheel">
@@ -78,21 +99,6 @@ export default function RoundtableSeatCircle({
                 );
               })}
             </div>
-            {activeSpeech?.text ? (
-              <div className="roundtable-slice-speech-layer" aria-live="polite">
-                <p
-                  className="roundtable-slice-speech"
-                  style={
-                    {
-                      left: `${speechPosition?.x ?? 50}%`,
-                      top: `${speechPosition?.y ?? 50}%`,
-                    } as CSSProperties
-                  }
-                >
-                  {activeSpeech.text}
-                </p>
-              </div>
-            ) : null}
           </div>
           <div className="roundtable-roulette-hub">
             <div
@@ -141,6 +147,34 @@ export default function RoundtableSeatCircle({
                 }
               >
                 <span className="roundtable-seat-avatar" aria-hidden>{seat.initials || "?"}</span>
+                <button
+                  type="button"
+                  className={`roundtable-seat-mic ${seat.seatNo === activeSpeakerSeatNo && !(seat.isMe ? isMyMicMuted : false) ? "is-live" : "is-muted"}`}
+                  onClick={() => {
+                    if (seat.isMe && canToggleMyMic) {
+                      onToggleMyMic();
+                    }
+                  }}
+                  disabled={!(seat.isMe && canToggleMyMic)}
+                  aria-label={
+                    seat.isMe && canToggleMyMic
+                      ? isMyMicMuted
+                        ? "Unmute microphone"
+                        : "Mute microphone"
+                      : "Microphone status"
+                  }
+                  title={
+                    seat.isMe && canToggleMyMic
+                      ? isMyMicMuted
+                        ? "Unmute mic"
+                        : "Mute mic"
+                      : seat.seatNo === activeSpeakerSeatNo
+                        ? "Speaking"
+                        : "Muted"
+                  }
+                >
+                  {seat.seatNo === activeSpeakerSeatNo && !(seat.isMe ? isMyMicMuted : false) ? "MIC" : "MUTE"}
+                </button>
                 <div className="roundtable-seat-copy">
                   <span className="roundtable-seat-name">{seat.displayName}</span>
                   <span className="roundtable-seat-state">Seat {seat.seatNo} · {seat.stateLabel}</span>

@@ -8762,7 +8762,7 @@ body {
   aspect-ratio: 1;
   border-radius: 50%;
   border: 1px solid #c58b21;
-  background: repeating-conic-gradient(from -90deg, #f2b13d 0deg 70deg, #101010 70deg 72deg);
+  background: repeating-conic-gradient(from -90deg, #f2b13d 0deg 71.5deg, #de9f31 71.5deg 72deg);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.24);
 }
 
@@ -8872,7 +8872,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: repeating-conic-gradient(from -90deg, #f2b13d 0deg 70deg, #101010 70deg 72deg);
+  background: repeating-conic-gradient(from -90deg, #f2b13d 0deg 71.5deg, #de9f31 71.5deg 72deg);
 }
 
 .roundtable-roulette-slice {
@@ -8907,28 +8907,6 @@ body {
   align-items: center;
   padding: 0;
   pointer-events: none;
-}
-
-.roundtable-slice-speech-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.roundtable-slice-speech {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: min(30%, 160px);
-  max-height: 72px;
-  margin: 0;
-  overflow: hidden;
-  color: #131313;
-  font-size: clamp(0.68rem, 1.3vw, 0.86rem);
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
-  text-align: center;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
 .roundtable-eye-mascot {
@@ -9044,6 +9022,32 @@ body {
   box-shadow:
     0 0 0 2px rgba(13, 19, 32, 0.3),
     0 12px 20px rgba(0, 0, 0, 0.44);
+}
+
+.roundtable-seat-mic {
+  position: absolute;
+  right: 8px;
+  top: -12px;
+  z-index: 3;
+  border-radius: 999px;
+  border: 1px solid #7d7d7d;
+  background: #121212;
+  color: #e9e9e9;
+  padding: 2px 7px;
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.roundtable-seat-mic.is-live {
+  border-color: #d99d32;
+  background: #f2b13d;
+  color: #1a1204;
+}
+
+.roundtable-seat-mic:disabled {
+  cursor: default;
+  opacity: 0.92;
 }
 
 .roundtable-seat-copy {
@@ -9206,6 +9210,13 @@ body {
 
 .roundtable-live-compose .roundtable-submit-box {
   margin-top: 10px;
+}
+
+.roundtable-voice-controls {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .roundtable-turn-list {
@@ -9449,12 +9460,6 @@ body {
     width: min(82%, 360px);
   }
 
-  .roundtable-slice-speech {
-    width: min(34%, 140px);
-    font-size: clamp(0.64rem, 2vw, 0.8rem);
-    max-height: 66px;
-  }
-
   .roundtable-seat-token::before {
     height: min(26vw, 120px);
   }
@@ -9475,12 +9480,6 @@ body {
   .roundtable-eye-mascot {
     --rt-eye-size: clamp(42px, 17vw, 64px);
     width: min(88%, 290px);
-  }
-
-  .roundtable-slice-speech {
-    width: min(38%, 124px);
-    font-size: clamp(0.6rem, 2.5vw, 0.72rem);
-    max-height: 58px;
   }
 
   .roundtable-seat-name {
