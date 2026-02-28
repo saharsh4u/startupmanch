@@ -19,6 +19,8 @@ type RoundtableSeatCircleProps = {
   topicTitle: string;
   sessionStatus: RoundtableSessionStatus;
   flareToken: string | null;
+  eyeTargetSeatNo: number | null;
+  eyeTargetLabel: string | null;
 };
 
 const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => {
@@ -37,9 +39,22 @@ export default function RoundtableSeatCircle({
   topicTitle,
   sessionStatus,
   flareToken,
+  eyeTargetSeatNo,
+  eyeTargetLabel,
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
   const focusRotation = ((focusSeatNo - 1) * 360) / seatCount;
+  const eyeVector = (() => {
+    if (!eyeTargetSeatNo) {
+      return { x: 0, y: 0 };
+    }
+    const angle = -90 + ((eyeTargetSeatNo - 1) * 360) / seatCount;
+    const rad = (angle * Math.PI) / 180;
+    return {
+      x: Math.cos(rad) * 7,
+      y: Math.sin(rad) * 7,
+    };
+  })();
 
   return (
     <section className="roundtable-seat-circle roundtable-roulette-shell" aria-label="Roulette roundtable seats">
@@ -72,9 +87,29 @@ export default function RoundtableSeatCircle({
             </div>
           </div>
           <div className="roundtable-roulette-hub">
+            <div
+              className={`roundtable-eye-mascot ${eyeTargetSeatNo ? "is-watching" : "is-idle"}`}
+              style={
+                {
+                  "--rt-eye-x": `${eyeVector.x}px`,
+                  "--rt-eye-y": `${eyeVector.y}px`,
+                } as CSSProperties
+              }
+              aria-hidden
+            >
+              <span className="roundtable-eye-ball">
+                <span className="roundtable-eye-pupil" />
+              </span>
+              <span className="roundtable-eye-ball">
+                <span className="roundtable-eye-pupil" />
+              </span>
+            </div>
             <p className="roundtable-kicker">Roulette room</p>
             <strong>{topicTitle}</strong>
             <span className="roundtable-roulette-status">{sessionStatus.toUpperCase()}</span>
+            <span className={`roundtable-eye-status ${eyeTargetSeatNo ? "is-live" : ""}`}>
+              {eyeTargetSeatNo ? `Eyes on ${eyeTargetLabel ?? "silent member"}` : "Everyone is active"}
+            </span>
           </div>
         </div>
 

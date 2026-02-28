@@ -8960,6 +8960,52 @@ body {
     inset 0 0 0 1px rgba(255, 255, 255, 0.07);
 }
 
+.roundtable-eye-mascot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  animation: roundtableEyeFloat 2.4s ease-in-out infinite;
+}
+
+.roundtable-eye-ball {
+  width: 22px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 222, 246, 0.95);
+  background: linear-gradient(to bottom, #fcfdff, #d7deef);
+  position: relative;
+  overflow: hidden;
+}
+
+.roundtable-eye-pupil {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #111b2d;
+  transform: translate(calc(-50% + var(--rt-eye-x, 0px)), calc(-50% + var(--rt-eye-y, 0px)));
+  transition: transform 420ms cubic-bezier(0.2, 0.9, 0.35, 1);
+}
+
+.roundtable-eye-mascot.is-watching .roundtable-eye-pupil {
+  animation: roundtableEyeRoll 2.2s ease-in-out infinite;
+}
+
+.roundtable-eye-mascot::after {
+  content: "";
+  position: absolute;
+  width: 54px;
+  height: 2px;
+  transform: translateY(16px);
+  border-radius: 999px;
+  background: rgba(218, 229, 255, 0.38);
+}
+
 .roundtable-roulette-hub strong {
   color: #f2f6ff;
   max-width: 90%;
@@ -8977,6 +9023,18 @@ body {
   padding: 4px 10px;
   font-size: 0.7rem;
   letter-spacing: 0.08em;
+}
+
+.roundtable-eye-status {
+  margin-top: 2px;
+  color: rgba(212, 221, 244, 0.82);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.roundtable-eye-status.is-live {
+  color: #f8d48a;
 }
 
 .roundtable-seat-token-ring {
@@ -9323,6 +9381,33 @@ body {
   }
 }
 
+@keyframes roundtableEyeFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes roundtableEyeRoll {
+  0%,
+  60%,
+  100% {
+    transform: translate(calc(-50% + var(--rt-eye-x, 0px)), calc(-50% + var(--rt-eye-y, 0px)));
+  }
+  68% {
+    transform: translate(calc(-50% + var(--rt-eye-x, 0px) + 2px), calc(-50% + var(--rt-eye-y, 0px) - 6px));
+  }
+  76% {
+    transform: translate(calc(-50% + var(--rt-eye-x, 0px) - 2px), calc(-50% + var(--rt-eye-y, 0px) - 6px));
+  }
+  84% {
+    transform: translate(calc(-50% + var(--rt-eye-x, 0px)), calc(-50% + var(--rt-eye-y, 0px)));
+  }
+}
+
 @media (min-width: 1200px) {
   .roundtable-seat-circle {
     padding: 28px 34px;
@@ -9357,6 +9442,16 @@ body {
     width: 162px;
     min-height: 104px;
     padding-top: 40px;
+  }
+
+  .roundtable-eye-ball {
+    width: 24px;
+    height: 17px;
+  }
+
+  .roundtable-eye-pupil {
+    width: 7px;
+    height: 7px;
   }
 
   .roundtable-seat-avatar {
@@ -9414,6 +9509,10 @@ body {
     padding-top: 34px;
   }
 
+  .roundtable-eye-status {
+    font-size: 0.6rem;
+  }
+
   .roundtable-seat-token::before {
     height: min(26vw, 120px);
   }
@@ -9429,6 +9528,20 @@ body {
     min-height: 78px;
     padding-top: 30px;
     gap: 2px;
+  }
+
+  .roundtable-eye-mascot {
+    gap: 5px;
+  }
+
+  .roundtable-eye-ball {
+    width: 18px;
+    height: 14px;
+  }
+
+  .roundtable-eye-pupil {
+    width: 5px;
+    height: 5px;
   }
 
   .roundtable-seat-name {
@@ -9470,7 +9583,9 @@ body {
   .roundtable-seat-token.is-active,
   .roundtable-roulette-slice.is-active,
   .roundtable-roulette-slice.is-queued,
-  .roundtable-roulette-glow {
+  .roundtable-roulette-glow,
+  .roundtable-eye-mascot,
+  .roundtable-eye-mascot.is-watching .roundtable-eye-pupil {
     animation: none !important;
   }
 }

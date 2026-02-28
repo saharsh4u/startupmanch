@@ -46,6 +46,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [seatChoice, setSeatChoice] = useState<number | "auto">("auto");
   const [draft, setDraft] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -71,6 +72,13 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }, 12000);
     return () => window.clearInterval(timer);
   }, [loadSnapshot]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!hasBrowserSupabaseEnv) return;
@@ -183,6 +191,59 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     if (!latestTurn) return null;
     return `recent-${latestTurn.id}-${latestTurn.status}`;
   }, [activeTurn?.id, activeTurn?.starts_at, snapshot?.recent_turns]);
+
+  const silentSeatTarget = useMemo(() => {
+    if (!snapshot || !seats.length) {
+      return { seatNo: null as number | null, label: null as string | null };
+    }
+
+    const queuedSet = new Set(queuedMemberIds);
+    const lastSpokenAtMs = new Map<string, number>();
+
+    for (const turn of snapshot.recent_turns) {
+      const memberId = turn.member_id;
+      const body = (turn.body ?? "").trim();
+      if (!body.length) continue;
+      const stamp = Date.parse(turn.submitted_at ?? turn.updated_at ?? "");
+      if (!Number.isFinite(stamp)) continue;
+      const current = lastSpokenAtMs.get(memberId) ?? 0;
+      if (stamp > current) {
+        lastSpokenAtMs.set(memberId, stamp);
+      }
+    }
+
+    const joinedMembers = snapshot.members.filter((member) => member.state === "joined");
+    const silenceThresholdMs = 5 * 60 * 1000;
+    let picked: { memberId: string; displayName: string; inactiveForMs: number } | null = null;
+
+    for (const member of joinedMembers) {
+      if (member.id === activeTurn?.member_id) continue;
+      if (queuedSet.has(member.id)) continue;
+
+      const joinedAtMs = Date.parse(member.joined_at ?? "");
+      const lastSpokenMs = lastSpokenAtMs.get(member.id) ?? (Number.isFinite(joinedAtMs) ? joinedAtMs : nowMs);
+      const inactiveForMs = nowMs - lastSpokenMs;
+
+      if (inactiveForMs < silenceThresholdMs) continue;
+      if (!picked || inactiveForMs > picked.inactiveForMs) {
+        picked = {
+          memberId: member.id,
+          displayName: member.display_name,
+          inactiveForMs,
+        };
+      }
+    }
+
+    if (!picked) {
+      return { seatNo: null as number | null, label: null as string | null };
+    }
+
+    const pickedSeat = seats.find((seat) => seat.memberId === picked.memberId);
+    return {
+      seatNo: pickedSeat?.seatNo ?? null,
+      label: picked.displayName,
+    };
+  }, [activeTurn?.member_id, nowMs, queuedMemberIds, seats, snapshot]);
 
   const callApi = async (
     path: string,
@@ -347,6 +408,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         topicTitle={snapshot.topic.title}
         sessionStatus={snapshot.session.status}
         flareToken={wheelFlareToken}
+        eyeTargetSeatNo={silentSeatTarget.seatNo}
+        eyeTargetLabel={silentSeatTarget.label}
       />
 
       <section className="roundtable-grid">
