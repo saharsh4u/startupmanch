@@ -562,9 +562,13 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         <label>
           Display name
           <input
-            value={displayName}
-            onChange={(event) => setDisplayNameState(event.target.value)}
+            value={currentMember?.display_name ?? displayName}
+            onChange={(event) => {
+              if (currentMember) return;
+              setDisplayNameState(event.target.value);
+            }}
             placeholder="Your name"
+            disabled={Boolean(currentMember)}
           />
         </label>
         <label>
@@ -572,9 +576,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           <select
             value={seatChoice}
             onChange={(event) => {
+              if (currentMember) return;
               const value = event.target.value;
               setSeatChoice(value === "auto" ? "auto" : Number(value));
             }}
+            disabled={Boolean(currentMember)}
           >
             <option value="auto">Auto seat</option>
             {seatOptions.map((seatNo) => (
@@ -610,6 +616,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           </button>
         ) : null}
       </form>
+      {currentMember ? (
+        <p className="roundtable-muted">
+          Joined as <strong>{currentMember.display_name}</strong> on seat {currentMember.seat_no}. Leave seat to rejoin with a different name.
+        </p>
+      ) : null}
 
       {!currentMember && isRoomFull ? (
         <p className="roundtable-error">
