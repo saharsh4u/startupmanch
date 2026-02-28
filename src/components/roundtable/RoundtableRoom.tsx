@@ -129,6 +129,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const peerAudioSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
   const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const joinedMemberIdSetRef = useRef<Set<string>>(new Set());
+  const autoMicPermissionPromptedMemberRef = useRef<string | null>(null);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -697,8 +698,17 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     setIsMyMicMuted(true);
   }, [syncLocalAudioTrackToPeers]);
 
+  const muteMic = useCallback(() => {
+    if (mediaStreamRef.current) {
+      for (const track of mediaStreamRef.current.getAudioTracks()) {
+        track.enabled = false;
+      }
+    }
+    void syncLocalAudioTrackToPeers();
+    setIsMyMicMuted(true);
+  }, [syncLocalAudioTrackToPeers]);
+
   const enableMic = useCallback(async () => {
-    if (!currentMember) return;
     try {
       if (!window.isSecureContext) {
         setMicError("Microphone works only on HTTPS pages.");
@@ -735,7 +745,20 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setMicError(message);
       setIsMyMicMuted(true);
     }
-  }, [attemptPlayRemoteAudioElements, currentMember, syncLocalAudioTrackToPeers]);
+  }, [attemptPlayRemoteAudioElements, syncLocalAudioTrackToPeers]);
+
+  useEffect(() => {
+    const memberId = currentMember?.id ?? null;
+    if (!memberId) {
+      autoMicPermissionPromptedMemberRef.current = null;
+      return;
+    }
+    if (autoMicPermissionPromptedMemberRef.current === memberId) return;
+
+    autoMicPermissionPromptedMemberRef.current = memberId;
+    attemptPlayRemoteAudioElements();
+    void enableMic();
+  }, [attemptPlayRemoteAudioElements, currentMember?.id, enableMic]);
 
   useEffect(() => {
     return () => {
@@ -802,6 +825,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         window.localStorage.setItem(memberStorageKey, memberId);
       }
       setActionError(null);
+      autoMicPermissionPromptedMemberRef.current = memberId;
+      attemptPlayRemoteAudioElements();
+      await enableMic();
     }
   };
 
@@ -983,12 +1009,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
                     void enableMic();
                     return;
                   }
-                  if (mediaStreamRef.current) {
-                    for (const track of mediaStreamRef.current.getAudioTracks()) {
-                      track.enabled = false;
-                    }
-                  }
-                  setIsMyMicMuted(true);
+                  muteMic();
                 }}
               >
                 {isMyMicMuted ? "Unmute mic" : "Mute mic"}
@@ -1013,12 +1034,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             void enableMic();
             return;
           }
-          if (mediaStreamRef.current) {
-            for (const track of mediaStreamRef.current.getAudioTracks()) {
-              track.enabled = false;
-            }
-          }
-          setIsMyMicMuted(true);
+          muteMic();
         }}
       />
       <section className="roundtable-panel" aria-label="Current room participants">
