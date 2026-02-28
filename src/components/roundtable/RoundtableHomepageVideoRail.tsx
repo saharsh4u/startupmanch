@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type WheelEvent,
 } from "react";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
@@ -49,6 +50,8 @@ const VIDEO_FETCH_LIMIT = 48;
 const AUTO_SCROLL_SPEED_PX_PER_MS = 0.06;
 const INTERACTION_PAUSE_MS = 1400;
 const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
+const PIP_EDGE_GAP_PX = 8;
+const RESOLVE_TIMEOUT_MS = 9000;
 
 const asNumber = (value: unknown) => {
   const parsed = Number(value ?? 0);
@@ -83,6 +86,19 @@ const dedupeById = (items: PitchShow[]) => {
 const hasPlayableUpload = (item: PitchShow) =>
   Boolean(item.video || item.videoHlsUrl || item.videoMp4Url || item.instagramUrl);
 
+const buildInstagramEmbedUrl = (instagramUrl: string | null) => {
+  if (!instagramUrl) return null;
+  const normalized = instagramUrl.trim();
+  if (!normalized.length) return null;
+  if (/\/embed\/?/i.test(normalized)) {
+    return normalized.includes("?")
+      ? normalized
+      : `${normalized}${normalized.endsWith("/") ? "" : "/"}?autoplay=1&muted=1`;
+  }
+  const root = normalized.replace(/\/+$/, "");
+  return `${root}/embed/?autoplay=1&muted=1`;
+};
+
 const mapPitch = (item: ApiPitch, index: number): PitchShow => {
   const fallbackPoster = `/pitches/pitch-0${(index % 4) + 1}.svg?v=2`;
   return {
@@ -111,11 +127,19 @@ export default function RoundtableHomepageVideoRail() {
   const [pipIndex, setPipIndex] = useState<number | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [instagramResolveByUrl, setInstagramResolveByUrl] = useState<Record<string, InstagramResolveState>>({});
+  const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
+  const pipPlayerRef = useRef<HTMLElement | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
   const carryRef = useRef(0);
   const pauseUntilRef = useRef(0);
   const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pipDragStateRef = useRef<{
+    pointerId: number;
+    offsetX: number;
+    offsetY: number;
+    active: boolean;
+  } | null>(null);
 
   const markInteraction = useCallback((pauseMs = INTERACTION_PAUSE_MS) => {
     pauseUntilRef.current = Date.now() + pauseMs;
@@ -287,6 +311,7 @@ export default function RoundtableHomepageVideoRail() {
   const pipHasDirectPlayableVideo = Boolean(pipVideoMp4Src || pipVideoHlsSrc);
   const pipInstagramResolved = pipInstagramUrl ? instagramResolveByUrl[pipInstagramUrl] : null;
   const pipResolvedInstagramVideoSrc = pipInstagramResolved?.videoUrl ?? null;
+  const pipEmbedUrl = pipInstagramResolved?.embedUrl ?? buildInstagramEmbedUrl(pipInstagramUrl);
   const pipVideoSrc = pipVideoMp4Src ?? pipResolvedInstagramVideoSrc;
   const pipHasPlayableVideo = Boolean(pipVideoSrc || pipVideoHlsSrc);
 
@@ -298,6 +323,9 @@ export default function RoundtableHomepageVideoRail() {
     if (current?.attempted || current?.loading) return;
 
     let active = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), RESOLVE_TIMEOUT_MS);
+
     setInstagramResolveByUrl((previous) => ({
       ...previous,
       [pipInstagramUrl]: {
@@ -310,6 +338,7 @@ export default function RoundtableHomepageVideoRail() {
 
     void fetch(`/api/video/instagram/resolve?url=${encodeURIComponent(pipInstagramUrl)}`, {
       cache: "no-store",
+      signal: controller.signal,
     })
       .then(async (response) => {
         if (!response.ok) return { video_url: null, embed_url: null } as InstagramResolvePayload;
@@ -321,7 +350,7 @@ export default function RoundtableHomepageVideoRail() {
           ...previous,
           [pipInstagramUrl]: {
             videoUrl: payload.video_url ?? null,
-            embedUrl: payload.embed_url ?? null,
+            embedUrl: payload.embed_url ?? previous[pipInstagramUrl]?.embedUrl ?? null,
             loading: false,
             attempted: true,
           },
@@ -342,8 +371,79 @@ export default function RoundtableHomepageVideoRail() {
 
     return () => {
       active = false;
+      clearTimeout(timeoutId);
+      controller.abort();
     };
   }, [instagramResolveByUrl, pipHasDirectPlayableVideo, pipInstagramUrl]);
+
+  const clampPipPosition = useCallback((x: number, y: number) => {
+    const panel = pipPlayerRef.current;
+    const width = panel?.offsetWidth ?? 360;
+    const height = panel?.offsetHeight ?? 250;
+    const maxX = Math.max(PIP_EDGE_GAP_PX, window.innerWidth - width - PIP_EDGE_GAP_PX);
+    const maxY = Math.max(PIP_EDGE_GAP_PX, window.innerHeight - height - PIP_EDGE_GAP_PX);
+    return {
+      x: Math.min(maxX, Math.max(PIP_EDGE_GAP_PX, x)),
+      y: Math.min(maxY, Math.max(PIP_EDGE_GAP_PX, y)),
+    };
+  }, []);
+
+  const handlePipDragStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("button, a, input, textarea")) return;
+
+      const panel = pipPlayerRef.current;
+      if (!panel) return;
+
+      const rect = panel.getBoundingClientRect();
+      const origin = pipPosition ?? { x: rect.left, y: rect.top };
+      const clampedOrigin = clampPipPosition(origin.x, origin.y);
+      setPipPosition(clampedOrigin);
+      pipDragStateRef.current = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - clampedOrigin.x,
+        offsetY: event.clientY - clampedOrigin.y,
+        active: true,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      markInteraction(2600);
+    },
+    [clampPipPosition, markInteraction, pipPosition]
+  );
+
+  const handlePipDragMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = pipDragStateRef.current;
+      if (!drag?.active || drag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const next = clampPipPosition(event.clientX - drag.offsetX, event.clientY - drag.offsetY);
+      setPipPosition(next);
+    },
+    [clampPipPosition]
+  );
+
+  const handlePipDragEnd = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = pipDragStateRef.current;
+    if (!drag?.active || drag.pointerId !== event.pointerId) return;
+    drag.active = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!pipPosition) return;
+    const handleResize = () => {
+      setPipPosition((current) => {
+        if (!current) return current;
+        return clampPipPosition(current.x, current.y);
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [clampPipPosition, pipPosition]);
 
   useEffect(() => {
     const video = pipVideoRef.current;
@@ -444,8 +544,29 @@ export default function RoundtableHomepageVideoRail() {
       ) : null}
 
       {pipPitch ? (
-        <aside className="roundtable-pip-player" aria-label="Video mini player">
-          <div className="roundtable-pip-head">
+        <aside
+          ref={pipPlayerRef}
+          className="roundtable-pip-player"
+          aria-label="Video mini player"
+          style={
+            pipPosition
+              ? {
+                  left: `${pipPosition.x}px`,
+                  top: `${pipPosition.y}px`,
+                  right: "auto",
+                  bottom: "auto",
+                }
+              : undefined
+          }
+        >
+          <div
+            className="roundtable-pip-head"
+            onPointerDown={handlePipDragStart}
+            onPointerMove={handlePipDragMove}
+            onPointerUp={handlePipDragEnd}
+            onPointerCancel={handlePipDragEnd}
+            onLostPointerCapture={handlePipDragEnd}
+          >
             <div className="roundtable-pip-meta">
               <strong>{pipPitch.name}</strong>
               <span>{pipPitch.category ?? "Video"}</span>
@@ -472,12 +593,12 @@ export default function RoundtableHomepageVideoRail() {
                 {pipVideoSrc ? <source src={pipVideoSrc} type="video/mp4" /> : null}
               </video>
             </div>
-          ) : pipInstagramResolved?.embedUrl ? (
+          ) : pipEmbedUrl ? (
             <div className="roundtable-pip-video-wrap">
               <iframe
-                key={`${pipPitch.id}:${pipInstagramResolved.embedUrl}`}
+                key={`${pipPitch.id}:${pipEmbedUrl}`}
                 className="roundtable-pip-embed"
-                src={pipInstagramResolved.embedUrl}
+                src={pipEmbedUrl}
                 allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
                 allowFullScreen
                 loading="eager"
@@ -487,11 +608,7 @@ export default function RoundtableHomepageVideoRail() {
             </div>
           ) : (
             <div className="roundtable-pip-fallback">
-              {pipInstagramUrl && pipInstagramResolved?.loading ? (
-                <span>Loading video...</span>
-              ) : (
-                <span>Video unavailable.</span>
-              )}
+              <span>Video unavailable.</span>
             </div>
           )}
 
