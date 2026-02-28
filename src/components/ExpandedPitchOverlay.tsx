@@ -78,6 +78,11 @@ type RevenueData = {
   series: { date: string; amount: number }[];
 };
 
+type InstagramResolveResult = {
+  videoUrl: string | null;
+  embedUrl: string | null;
+};
+
 const toExternalUrl = (value: string | null | undefined): string | null => {
   if (!value) return null;
   const trimmed = value.trim();
@@ -98,12 +103,68 @@ function InstagramLogo() {
 }
 
 const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
+const INSTAGRAM_RESOLVE_TIMEOUT_MS = 9000;
+const instagramResolveCache = new Map<string, InstagramResolveResult>();
+const instagramResolveInFlight = new Map<string, Promise<InstagramResolveResult>>();
 
 const pickPreferredVideoUrl = (hlsUrl: string | null, mp4Url: string | null) =>
   HLS_ENABLED ? hlsUrl ?? mp4Url : mp4Url ?? hlsUrl;
 
 const pickFallbackVideoUrl = (hlsUrl: string | null, mp4Url: string | null) =>
   HLS_ENABLED ? mp4Url ?? hlsUrl : hlsUrl ?? mp4Url;
+
+const resolveInstagramMedia = async (instagramUrl: string) => {
+  const normalized = instagramUrl.trim();
+  if (!normalized.length) {
+    return { videoUrl: null, embedUrl: null } as InstagramResolveResult;
+  }
+
+  if (instagramResolveCache.has(normalized)) {
+    return instagramResolveCache.get(normalized) as InstagramResolveResult;
+  }
+
+  const inFlight = instagramResolveInFlight.get(normalized);
+  if (inFlight) return inFlight;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), INSTAGRAM_RESOLVE_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`/api/video/instagram/resolve?url=${encodeURIComponent(normalized)}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const fallback = { videoUrl: null, embedUrl: null } as InstagramResolveResult;
+        instagramResolveCache.set(normalized, fallback);
+        return fallback;
+      }
+
+      const payload = (await response.json()) as {
+        video_url?: string | null;
+        embed_url?: string | null;
+      };
+
+      const resolved = {
+        videoUrl: payload.video_url ?? null,
+        embedUrl: payload.embed_url ?? null,
+      } as InstagramResolveResult;
+      instagramResolveCache.set(normalized, resolved);
+      return resolved;
+    } catch {
+      const fallback = { videoUrl: null, embedUrl: null } as InstagramResolveResult;
+      instagramResolveCache.set(normalized, fallback);
+      return fallback;
+    } finally {
+      window.clearTimeout(timer);
+      instagramResolveInFlight.delete(normalized);
+    }
+  })();
+
+  instagramResolveInFlight.set(normalized, request);
+  return request;
+};
 
 export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -125,6 +186,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [revenue, setRevenue] = useState<RevenueData | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [activeVideoSrc, setActiveVideoSrc] = useState<string | null>(null);
+  const [instagramResolved, setInstagramResolved] = useState<InstagramResolveResult | null>(null);
   const [videoUnavailable, setVideoUnavailable] = useState(false);
   const [upNextLabel, setUpNextLabel] = useState<string | null>(null);
   const [founderStoryExpanded, setFounderStoryExpanded] = useState(false);
@@ -256,8 +318,10 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const detailFallbackVideoSrc = pickFallbackVideoUrl(detailVideoHlsSrc, detailVideoMp4Src);
   const feedFallbackVideoSrc = pickFallbackVideoUrl(feedVideoHlsSrc, feedVideoMp4Src);
   const feedVideoSrc = pickPreferredVideoUrl(feedVideoHlsSrc, feedVideoMp4Src);
-
-  const videoSrc = activeVideoSrc ?? feedVideoSrc ?? detailVideoSrc ?? null;
+  const overlayInstagramUrl = pitch?.instagramUrl ?? detail?.pitch.instagram_url ?? null;
+  const resolvedInstagramVideoSrc = instagramResolved?.videoUrl ?? null;
+  const resolvedInstagramEmbedSrc = instagramResolved?.embedUrl ?? null;
+  const videoSrc = activeVideoSrc ?? feedVideoSrc ?? detailVideoSrc ?? resolvedInstagramVideoSrc ?? null;
   const poster = detail?.pitch.poster_url ?? pitch?.poster ?? undefined;
 
   useEffect(() => {
@@ -275,8 +339,30 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     setComments([]);
     setCommentDraft("");
     setActiveVideoSrc(feedVideoSrc ?? null);
+    setInstagramResolved(null);
     clearUpNext();
   }, [clearUpNext, pitchId, feedVideoSrc]);
+
+  useEffect(() => {
+    if (feedVideoSrc || detailVideoSrc || activeVideoSrc) return;
+    if (!overlayInstagramUrl) return;
+
+    let active = true;
+    const cached = instagramResolveCache.get(overlayInstagramUrl);
+    if (cached) {
+      setInstagramResolved(cached);
+      return;
+    }
+
+    void resolveInstagramMedia(overlayInstagramUrl).then((resolved) => {
+      if (!active) return;
+      setInstagramResolved(resolved);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [activeVideoSrc, detailVideoSrc, feedVideoSrc, overlayInstagramUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -607,7 +693,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     }
   }, [canFetchPitchDetails, commentDraft, getAccessToken, pitchId, refreshDetail]);
 
-  const showVideoFallback = !videoSrc || videoUnavailable;
+  const showInstagramEmbedFallback = !videoSrc && !videoUnavailable && Boolean(resolvedInstagramEmbedSrc);
+  const showVideoFallback = (!videoSrc && !showInstagramEmbedFallback) || videoUnavailable;
 
   if (!pitch) return null;
 
@@ -664,6 +751,15 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 onError={handleVideoError}
                 onLoadedData={() => setVideoUnavailable(false)}
                 onEnded={handleVideoEnded}
+              />
+            ) : showInstagramEmbedFallback ? (
+              <iframe
+                key={resolvedInstagramEmbedSrc ?? "instagram-embed"}
+                className="expand-media"
+                src={resolvedInstagramEmbedSrc ?? undefined}
+                title={`${startupName} Instagram video`}
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowFullScreen
               />
             ) : (
               <div
