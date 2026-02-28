@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 import type { RoundtableSessionSnapshot } from "@/lib/roundtable/types";
@@ -523,6 +524,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           setIsMyMicMuted(true);
         }}
       />
+      <RoundtableHomepageVideoRail />
     </div>
   );
 }
