@@ -45,8 +45,13 @@ const VOICE_ICE_SERVERS: RTCIceServer[] = [
   {
     urls: [
       "stun:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:80?transport=udp",
+      "turn:openrelay.metered.ca:80?transport=tcp",
       "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443?transport=udp",
+      "turn:openrelay.metered.ca:443?transport=tcp",
       "turn:openrelay.metered.ca:443",
+      "turns:openrelay.metered.ca:443?transport=tcp",
       "turns:openrelay.metered.ca:443",
     ],
     username: "openrelayproject",
@@ -132,6 +137,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const peerReconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const joinedMemberIdSetRef = useRef<Set<string>>(new Set());
   const autoMicPermissionPromptedMemberRef = useRef<string | null>(null);
+  const lastVoiceRecoveryAtRef = useRef(0);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -509,6 +515,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
     const peer = new RTCPeerConnection({
       iceServers: VOICE_ICE_SERVERS,
+      iceCandidatePoolSize: 4,
     });
 
     const transceiver = peer.addTransceiver("audio", { direction: "sendrecv" });
@@ -719,6 +726,35 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     joinedMembers,
     sendVoiceSignal,
   ]);
+
+  useEffect(() => {
+    if (!currentParticipantId) return;
+
+    const timer = window.setInterval(() => {
+      const remoteJoinedIds = joinedMembers
+        .map((member) => member.id)
+        .filter((memberId) => memberId !== currentParticipantId);
+      if (!remoteJoinedIds.length) return;
+
+      const hasAtLeastOneRemoteStream = Object.keys(remoteAudioStreams).length > 0;
+      if (hasAtLeastOneRemoteStream) return;
+
+      const now = Date.now();
+      if (now - lastVoiceRecoveryAtRef.current < 6000) return;
+      lastVoiceRecoveryAtRef.current = now;
+
+      sendVoiceSignal({ kind: "presence" });
+      for (const remoteId of remoteJoinedIds) {
+        if (currentParticipantId.localeCompare(remoteId) < 0) {
+          void createAndSendOffer(remoteId).catch(() => {
+            // Recovery is best-effort; next interval retries.
+          });
+        }
+      }
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [createAndSendOffer, currentParticipantId, joinedMembers, remoteAudioStreams, sendVoiceSignal]);
 
   useEffect(() => {
     if (!Object.keys(remoteAudioStreams).length) {
