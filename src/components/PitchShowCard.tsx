@@ -32,7 +32,83 @@ type PitchShowCardProps = {
   interactive?: boolean;
 };
 
+type InstagramResolveResult = {
+  videoUrl: string | null;
+  embedUrl: string | null;
+};
+
 const HLS_ENABLED = process.env.NEXT_PUBLIC_VIDEO_HLS_ENABLED === "1";
+const INSTAGRAM_RESOLVE_TIMEOUT_MS = 9000;
+const instagramResolveCache = new Map<string, InstagramResolveResult>();
+const instagramResolveInFlight = new Map<string, Promise<InstagramResolveResult>>();
+
+const normalizeInstagramEmbedUrl = (value: string | null | undefined) => {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  if (/\/embed\/?/i.test(raw)) {
+    return raw.includes("?") ? raw : `${raw}${raw.endsWith("/") ? "" : "/"}?autoplay=1&muted=1`;
+  }
+  const cleaned = raw.replace(/\/+$/, "");
+  return `${cleaned}/embed/?autoplay=1&muted=1`;
+};
+
+const resolveInstagramMedia = async (instagramUrl: string) => {
+  const normalized = instagramUrl.trim();
+  if (!normalized.length) return { videoUrl: null, embedUrl: null } as InstagramResolveResult;
+
+  if (instagramResolveCache.has(normalized)) {
+    return instagramResolveCache.get(normalized) as InstagramResolveResult;
+  }
+
+  const inFlight = instagramResolveInFlight.get(normalized);
+  if (inFlight) return inFlight;
+
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), INSTAGRAM_RESOLVE_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`/api/video/instagram/resolve?url=${encodeURIComponent(normalized)}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const fallback = {
+          videoUrl: null,
+          embedUrl: normalizeInstagramEmbedUrl(normalized),
+        } as InstagramResolveResult;
+        instagramResolveCache.set(normalized, fallback);
+        return fallback;
+      }
+
+      const payload = (await response.json()) as {
+        video_url?: string | null;
+        embed_url?: string | null;
+      };
+
+      const resolved = {
+        videoUrl: payload.video_url ?? null,
+        embedUrl: payload.embed_url ?? normalizeInstagramEmbedUrl(normalized),
+      } as InstagramResolveResult;
+      instagramResolveCache.set(normalized, resolved);
+      return resolved;
+    } catch {
+      const fallback = {
+        videoUrl: null,
+        embedUrl: normalizeInstagramEmbedUrl(normalized),
+      } as InstagramResolveResult;
+      instagramResolveCache.set(normalized, fallback);
+      return fallback;
+    } finally {
+      window.clearTimeout(timer);
+      instagramResolveInFlight.delete(normalized);
+    }
+  })();
+
+  instagramResolveInFlight.set(normalized, request);
+  return request;
+};
 
 export default function PitchShowCard({
   pitch,
@@ -52,19 +128,48 @@ export default function PitchShowCard({
   const [shouldLoadVideo, setShouldLoadVideo] = useState(!shouldLazyVideo);
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [instagramResolved, setInstagramResolved] = useState<InstagramResolveResult | null>(null);
+  const [instagramEmbedReady, setInstagramEmbedReady] = useState(false);
   const mp4VideoSrc = pitch.videoMp4Url ?? pitch.video ?? null;
   const hlsVideoSrc = HLS_ENABLED ? pitch.videoHlsUrl ?? null : null;
-  const hasPlayableVideo = Boolean(hlsVideoSrc || mp4VideoSrc);
+  const resolvedMp4VideoSrc = mp4VideoSrc ?? instagramResolved?.videoUrl ?? null;
+  const instagramEmbedSrc = instagramResolved?.embedUrl ?? normalizeInstagramEmbedUrl(pitch.instagramUrl);
+  const hasPlayableVideo = Boolean(hlsVideoSrc || resolvedMp4VideoSrc);
+  const showInstagramEmbed = Boolean(!hasPlayableVideo && shouldLoadVideo && instagramEmbedSrc);
 
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.muted = true;
-  }, [hlsVideoSrc, mp4VideoSrc]);
+  }, [hlsVideoSrc, resolvedMp4VideoSrc]);
 
   useEffect(() => {
     setVideoReady(false);
     setVideoFailed(false);
-  }, [hlsVideoSrc, mp4VideoSrc, pitch.id, shouldLoadVideo]);
+    setInstagramEmbedReady(false);
+    setInstagramResolved(null);
+  }, [hlsVideoSrc, mp4VideoSrc, pitch.id, pitch.instagramUrl, shouldLoadVideo]);
+
+  useEffect(() => {
+    if (!shouldLoadVideo) return;
+    if (!pitch.instagramUrl) return;
+    if (hlsVideoSrc || mp4VideoSrc) return;
+
+    let active = true;
+    const cached = instagramResolveCache.get(pitch.instagramUrl);
+    if (cached) {
+      setInstagramResolved(cached);
+      return;
+    }
+
+    void resolveInstagramMedia(pitch.instagramUrl).then((resolved) => {
+      if (!active) return;
+      setInstagramResolved(resolved);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [hlsVideoSrc, mp4VideoSrc, pitch.instagramUrl, shouldLoadVideo]);
 
   useEffect(() => {
     if (!shouldLazyVideo) return;
@@ -101,7 +206,7 @@ export default function PitchShowCard({
     }
     video.addEventListener("canplay", replay, { once: true });
     return () => video.removeEventListener("canplay", replay);
-  }, [hasPlayableVideo, hlsVideoSrc, mp4VideoSrc, pitch.id, shouldLoadVideo]);
+  }, [hasPlayableVideo, hlsVideoSrc, pitch.id, resolvedMp4VideoSrc, shouldLoadVideo]);
 
   useEffect(() => {
     setLocalUpvotes(Number.isFinite(Number(pitch.upvotes)) ? Number(pitch.upvotes) : 0);
@@ -180,7 +285,10 @@ export default function PitchShowCard({
     >
       <div
         className={`pitch-show-media pitch-show-poster ${variant === "hot" ? "on-dark" : "on-light"}${
-          videoReady && !videoFailed && hasPlayableVideo && shouldLoadVideo ? " is-hidden" : ""
+          (videoReady && !videoFailed && hasPlayableVideo && shouldLoadVideo) ||
+          (instagramEmbedReady && showInstagramEmbed)
+            ? " is-hidden"
+            : ""
         }`}
         style={{
           backgroundImage: pitch.poster ? `url(${pitch.poster})` : "none",
@@ -194,7 +302,7 @@ export default function PitchShowCard({
       </div>
       {hasPlayableVideo && shouldLoadVideo && !videoFailed ? (
         <video
-          key={`${pitch.id}:${hlsVideoSrc ?? "none"}:${mp4VideoSrc ?? "none"}`}
+          key={`${pitch.id}:${hlsVideoSrc ?? "none"}:${resolvedMp4VideoSrc ?? "none"}`}
           ref={videoRef}
           className={`pitch-show-media pitch-show-media-video ${videoReady ? "is-ready" : "is-loading"}`}
           poster={pitch.poster}
@@ -208,8 +316,21 @@ export default function PitchShowCard({
           onError={() => setVideoFailed(true)}
         >
           {hlsVideoSrc ? <source src={hlsVideoSrc} type="application/vnd.apple.mpegurl" /> : null}
-          {mp4VideoSrc ? <source src={mp4VideoSrc} type="video/mp4" /> : null}
+          {resolvedMp4VideoSrc ? <source src={resolvedMp4VideoSrc} type="video/mp4" /> : null}
         </video>
+      ) : null}
+      {showInstagramEmbed ? (
+        <iframe
+          key={`${pitch.id}:${instagramEmbedSrc ?? "none"}`}
+          className="pitch-show-media instagram-frame"
+          src={instagramEmbedSrc ?? undefined}
+          loading="lazy"
+          title={`${pitch.name} Instagram embed`}
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          onLoad={() => setInstagramEmbedReady(true)}
+        />
       ) : null}
       <div className={`pitch-show-overlay ${variant === "hot" ? "on-dark" : "on-light"}`}>
         <div className="pitch-show-text">
