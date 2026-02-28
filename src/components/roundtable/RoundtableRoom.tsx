@@ -42,6 +42,16 @@ const VOICE_ICE_SERVERS: RTCIceServer[] = [
       "stun:stun1.l.google.com:19302",
     ],
   },
+  {
+    urls: [
+      "stun:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443",
+      "turns:openrelay.metered.ca:443",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 const mapMicError = (errorValue: unknown) => {
@@ -49,7 +59,7 @@ const mapMicError = (errorValue: unknown) => {
   if (!(errorValue instanceof Error)) return fallback;
 
   if (errorValue.name === "NotAllowedError" || /permission denied/i.test(errorValue.message)) {
-    return "Microphone is blocked in browser settings. Click the lock icon in the address bar, allow microphone, then reload this page.";
+    return "Microphone request was denied by browser or OS. If mic is already allowed, close other apps using mic, reload this page, and tap Unmute again.";
   }
   if (errorValue.name === "NotFoundError") {
     return "No microphone device was found.";
@@ -113,6 +123,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioElementMapRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const voiceChannelRef = useRef<RealtimeChannel | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const peerAudioSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
@@ -384,6 +395,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
   const currentParticipantId = currentMember?.id ?? null;
 
+  const attemptPlayRemoteAudioElements = useCallback(() => {
+    for (const element of remoteAudioElementMapRef.current.values()) {
+      void element.play().catch(() => {
+        // Mobile browsers can require a user gesture; retry happens on next interaction.
+      });
+    }
+  }, []);
+
   const setRemoteStreamForMember = useCallback((memberId: string, stream: MediaStream) => {
     setRemoteAudioStreams((current) => {
       if (current[memberId] === stream) return current;
@@ -422,6 +441,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     for (const memberId of Array.from(peerConnectionsRef.current.keys())) {
       closePeerConnectionForMember(memberId);
     }
+    remoteAudioElementMapRef.current.clear();
     setRemoteAudioStreams({});
   }, [closePeerConnectionForMember]);
 
@@ -650,6 +670,23 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     sendVoiceSignal,
   ]);
 
+  useEffect(() => {
+    if (!Object.keys(remoteAudioStreams).length) return;
+    attemptPlayRemoteAudioElements();
+  }, [attemptPlayRemoteAudioElements, remoteAudioStreams]);
+
+  useEffect(() => {
+    const unlock = () => {
+      attemptPlayRemoteAudioElements();
+    };
+    window.addEventListener("touchstart", unlock, { passive: true });
+    window.addEventListener("click", unlock);
+    return () => {
+      window.removeEventListener("touchstart", unlock);
+      window.removeEventListener("click", unlock);
+    };
+  }, [attemptPlayRemoteAudioElements]);
+
   const stopMicStream = useCallback(() => {
     if (!mediaStreamRef.current) return;
     for (const track of mediaStreamRef.current.getTracks()) {
@@ -675,19 +712,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         return;
       }
 
-      if ("permissions" in navigator && navigator.permissions?.query) {
-        try {
-          const permission = await navigator.permissions.query({ name: "microphone" as PermissionName });
-          if (permission.state === "denied") {
-            setMicError("Microphone is blocked in browser settings. Click the lock icon in the address bar, allow microphone, then reload this page.");
-            setIsMyMicMuted(true);
-            return;
-          }
-        } catch {
-          // Ignore permissions API failures and continue to getUserMedia.
-        }
-      }
-
       let stream = mediaStreamRef.current;
       if (!stream) {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -703,6 +727,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         track.enabled = true;
       }
       await syncLocalAudioTrackToPeers();
+      attemptPlayRemoteAudioElements();
       setMicError(null);
       setIsMyMicMuted(false);
     } catch (errorValue) {
@@ -710,7 +735,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setMicError(message);
       setIsMyMicMuted(true);
     }
-  }, [currentMember, syncLocalAudioTrackToPeers]);
+  }, [attemptPlayRemoteAudioElements, currentMember, syncLocalAudioTrackToPeers]);
 
   useEffect(() => {
     return () => {
@@ -954,6 +979,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
                 className="roundtable-cta"
                 onClick={() => {
                   if (isMyMicMuted) {
+                    attemptPlayRemoteAudioElements();
                     void enableMic();
                     return;
                   }
@@ -983,6 +1009,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         isMyMicMuted={isMyMicMuted}
         onToggleMyMic={() => {
           if (isMyMicMuted) {
+            attemptPlayRemoteAudioElements();
             void enableMic();
             return;
           }
@@ -1047,12 +1074,16 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             autoPlay
             playsInline
             ref={(element) => {
-              if (!element) return;
+              if (!element) {
+                remoteAudioElementMapRef.current.delete(memberId);
+                return;
+              }
+              remoteAudioElementMapRef.current.set(memberId, element);
               if (element.srcObject !== stream) {
                 element.srcObject = stream;
               }
               void element.play().catch(() => {
-                // Playback may require a user interaction; retry on next render.
+                // Playback may require a user interaction; retry on next interaction.
               });
             }}
           />
