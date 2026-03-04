@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelEvent } from "react";
 import type { PitchShow } from "./PitchShowCard";
-import RevenueSparkline from "./RevenueSparkline";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Props = {
@@ -63,19 +62,6 @@ type PitchDetail = {
     out_count: number;
     comment_count: number;
   };
-};
-
-type RevenueData = {
-  provider: "stripe" | "razorpay" | null;
-  status: "active" | "error" | "revoked" | "missing";
-  last_updated: string | null;
-  metrics: {
-    all_time_revenue: number | null;
-    mrr: number | null;
-    active_subscriptions: number | null;
-  };
-  currency: string;
-  series: { date: string; amount: number }[];
 };
 
 type InstagramResolveResult = {
@@ -183,8 +169,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   const [detail, setDetail] = useState<PitchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [revenue, setRevenue] = useState<RevenueData | null>(null);
-  const [revenueLoading, setRevenueLoading] = useState(false);
   const [activeVideoSrc, setActiveVideoSrc] = useState<string | null>(null);
   const [instagramResolved, setInstagramResolved] = useState<InstagramResolveResult | null>(null);
   const [videoUnavailable, setVideoUnavailable] = useState(false);
@@ -394,15 +378,12 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   useEffect(() => {
     setDetail(null);
     setDetailError(null);
-    setRevenue(null);
     if (!canFetchPitchDetails) {
       setDetailLoading(false);
-      setRevenueLoading(false);
       return;
     }
 
     const detailAbort = new AbortController();
-    const revenueAbort = new AbortController();
     let active = true;
     const loadDetail = async () => {
       setDetailLoading(true);
@@ -426,31 +407,9 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       }
     };
     loadDetail();
-    const loadRevenue = async () => {
-      setRevenueLoading(true);
-      try {
-        const res = await fetch(`/api/pitches/${pitchId}/revenue`, {
-          cache: "no-store",
-          signal: revenueAbort.signal,
-        });
-        if (!res.ok) throw new Error("Unable to load revenue");
-        const payload = (await res.json()) as RevenueData;
-        if (!active) return;
-        setRevenue(payload);
-      } catch (err) {
-        if (!active) return;
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setRevenue(null);
-      } finally {
-        if (!active) return;
-        setRevenueLoading(false);
-      }
-    };
-    loadRevenue();
     return () => {
       active = false;
       detailAbort.abort();
-      revenueAbort.abort();
     };
   }, [canFetchPitchDetails, pitchId]);
 
@@ -575,26 +534,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     });
   }, [detail?.pitch.created_at]);
 
-  const lastUpdatedDisplay = useMemo(() => {
-    const ts = revenue?.last_updated ?? detail?.pitch.created_at;
-    if (!ts) return "—";
-    return new Date(ts).toLocaleString();
-  }, [revenue?.last_updated, detail?.pitch.created_at]);
-
-  const metricRank = "—";
-  const metricMrr = revenue?.metrics.mrr ?? detail?.startup.monthly_revenue ?? "—";
-  const metricActiveSubs = revenue?.metrics.active_subscriptions ?? "—";
-  const hasVerifiedRevenue = Boolean(revenue?.provider && revenue.status === "active");
-  const verificationBadgeText = hasVerifiedRevenue ? "Verified revenue" : "Self-reported revenue";
-  const verificationBadgeClassName = hasVerifiedRevenue
-    ? "trust-verify-badge is-verified"
-    : "trust-verify-badge is-self-reported";
-  const verificationSource = hasVerifiedRevenue
-    ? `Connected via ${revenue?.provider === "stripe" ? "Stripe" : "Razorpay"} (read-only)`
-    : detail?.startup.monthly_revenue
-      ? "Reported by founder. Not third-party verified."
-      : "No verification source connected";
-  const metricAllTime = revenue?.metrics.all_time_revenue ?? null;
   const inCount = detail?.stats.in_count ?? (Number(pitch.upvotes ?? 0) || 0);
   const outCount = detail?.stats.out_count ?? (Number(pitch.downvotes ?? 0) || 0);
   const commentCount = detail?.stats.comment_count ?? (Number(pitch.comments ?? 0) || 0);
@@ -917,30 +856,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               </div>
             ) : null}
 
-            <div className="trust-metric-grid">
-              {[
-                {
-                  label: "All-time revenue",
-                  value:
-                    metricAllTime !== null
-                      ? new Intl.NumberFormat(undefined, {
-                          style: "currency",
-                          currency: revenue?.currency?.toUpperCase?.() || "USD",
-                          maximumFractionDigits: 0,
-                        }).format(metricAllTime)
-                      : "—",
-                },
-                { label: "Rank", value: metricRank },
-                { label: "MRR (est.)", value: metricMrr },
-                { label: "Active subscriptions", value: metricActiveSubs },
-              ].map((metric) => (
-                <div key={metric.label} className="trust-metric">
-                  <p className="metric-label">{metric.label}</p>
-                  <p className="metric-value">{metric.value}</p>
-                </div>
-              ))}
-            </div>
-
             <div className="trust-meta">
               <div className="founder-card">
                 <div className="founder-avatar">
@@ -985,18 +900,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                 ) : null}
               </div>
             ) : null}
-
-            <div className="trust-verify">
-              <div className={verificationBadgeClassName}>{verificationBadgeText}</div>
-              <p className="metric-value">{verificationSource}</p>
-              <p className="metric-label">Last updated {lastUpdatedDisplay}</p>
-            </div>
-
-            <div className="trust-insight">
-              <h5>Revenue (last 90 days)</h5>
-              {revenueLoading ? <p className="metric-label">Loading revenue…</p> : null}
-              {!revenueLoading && <RevenueSparkline series={revenue?.series ?? []} currency={revenue?.currency ?? "USD"} />}
-            </div>
           </div>
         </div>
       </div>
