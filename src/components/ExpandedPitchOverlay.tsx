@@ -177,7 +177,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [engagementError, setEngagementError] = useState<string | null>(null);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(true);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [comments, setComments] = useState<PitchComment[]>([]);
   const [commentDraft, setCommentDraft] = useState("");
@@ -319,7 +319,7 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   useEffect(() => {
     fallbackAttemptedRef.current = false;
     setEngagementError(null);
-    setCommentsOpen(false);
+    setCommentsOpen(true);
     setComments([]);
     setCommentDraft("");
     setActiveVideoSrc(feedVideoSrc ?? null);
