@@ -11582,25 +11582,25 @@ html[data-theme="dark"] {
 html[data-theme="light"] {
   color-scheme: light;
   --bg: #f5e9d8;
-  --panel: #f5e9d8;
-  --panel-soft: #efe0cc;
-  --surface: #f5e9d8;
-  --surface-soft: #efe0cc;
-  --stroke: #d6c1a5;
-  --stroke-strong: #bea384;
-  --text: #17120e;
+  --panel: #fffaf2;
+  --panel-soft: #f3e5d2;
+  --surface: #fff8ef;
+  --surface-soft: #f7edde;
+  --stroke: #ddc2a2;
+  --stroke-strong: #c59e75;
+  --text: #23170f;
   --text-light: #ffffff;
-  --muted: #6d5c4e;
-  --muted-light: #8f7c6c;
+  --muted: #705a48;
+  --muted-light: #937762;
   --accent: #e50914;
   --accent-2: #b20710;
   --primary: #e50914;
   --primary-foreground: #ffffff;
   --ad-accent: #e50914;
-  --placeholder-light: #8f7c6c;
-  --placeholder-dark: #8f7c6c;
-  --shadow: none;
-  --shadow-soft: none;
+  --placeholder-light: #987d66;
+  --placeholder-dark: #987d66;
+  --shadow: 0 18px 38px rgba(84, 54, 29, 0.1);
+  --shadow-soft: 0 12px 24px rgba(84, 54, 29, 0.08);
   --focus-ring: rgba(229, 9, 20, 0.22);
   --pitch-hot-fallback: #f5e9d8;
   --pitch-regular-fallback: #f5e9d8;
@@ -11608,19 +11608,19 @@ html[data-theme="light"] {
   --row-fade: rgba(245, 233, 216, 0.96);
   --scrollbar-thumb: #b89e7f;
   --scrollbar-track: #f5e9d8;
-  --field-bg: #efe0cc;
-  --interactive-bg: #efe0cc;
-  --interactive-bg-strong: #e5d2bb;
+  --field-bg: #fffaf2;
+  --interactive-bg: #f3e5d2;
+  --interactive-bg-strong: #ead8bf;
   --verify-badge-bg: rgba(229, 9, 20, 0.12);
   --verify-badge-border: rgba(229, 9, 20, 0.24);
   --verify-badge-text: #e50914;
-  --overlay-strong: rgba(245, 233, 216, 0.92);
-  --overlay-soft: rgba(245, 233, 216, 0.88);
+  --overlay-strong: rgba(255, 248, 239, 0.92);
+  --overlay-soft: rgba(255, 248, 239, 0.88);
   --ad-rail-top-gradient: none;
   --ad-rail-bottom-gradient: none;
-  --fallback-label-bg: rgba(245, 233, 216, 0.9);
-  --fallback-label-border: rgba(23, 18, 14, 0.18);
-  --fallback-label-text: #17120e;
+  --fallback-label-bg: rgba(255, 250, 242, 0.94);
+  --fallback-label-border: rgba(35, 23, 15, 0.18);
+  --fallback-label-text: #23170f;
   --slot-soft-bg: rgba(23, 18, 14, 0.03);
   --slot-soft-bg-strong: rgba(23, 18, 14, 0.06);
 }
@@ -11872,4 +11872,247 @@ select,
     rgba(229, 9, 20, 0.36) 0deg 70deg,
     transparent 70deg 360deg
   ) !important;
+}
+
+/* Light-mode polish: warm paper surfaces, readable cards, and softer media shells */
+html[data-theme="light"] .site-nav,
+html[data-theme="light"] .site-footer,
+html[data-theme="light"] .hero,
+html[data-theme="light"] .featured,
+html[data-theme="light"] .pitch-section,
+html[data-theme="light"] .hot-band,
+html[data-theme="light"] .more-band,
+html[data-theme="light"] .submit-card,
+html[data-theme="light"] .admin-hero,
+html[data-theme="light"] .admin-card,
+html[data-theme="light"] .admin-row,
+html[data-theme="light"] .section-card,
+html[data-theme="light"] .leaderboard-section,
+html[data-theme="light"] .leaderboard,
+html[data-theme="light"] .leaderboard-row,
+html[data-theme="light"] .rankings-card,
+html[data-theme="light"] .pitch-drawer-panel,
+html[data-theme="light"] .expand-shell,
+html[data-theme="light"] .expand-layout,
+html[data-theme="light"] .expand-video,
+html[data-theme="light"] .expand-info,
+html[data-theme="light"] .expand-comments,
+html[data-theme="light"] .rankings-modal-panel,
+html[data-theme="light"] .ad-purchase-panel,
+html[data-theme="light"] .startup-profile-hero,
+html[data-theme="light"] .startup-edit-hero,
+html[data-theme="light"] .roundtable-lobby-hero,
+html[data-theme="light"] .roundtable-session-card,
+html[data-theme="light"] .roundtable-seat-circle,
+html[data-theme="light"] .roundtable-pip-video-wrap,
+html[data-theme="light"] .roundtable-pip-fallback,
+html[data-theme="light"] .roundtable-pip-shell {
+  box-shadow: var(--shadow-soft) !important;
+}
+
+html[data-theme="light"] .site-nav,
+html[data-theme="light"] .site-footer,
+html[data-theme="light"] .rankings-card,
+html[data-theme="light"] .leaderboard-section,
+html[data-theme="light"] .leaderboard,
+html[data-theme="light"] .leaderboard-row,
+html[data-theme="light"] .section-card,
+html[data-theme="light"] .submit-card,
+html[data-theme="light"] .admin-card,
+html[data-theme="light"] .admin-row {
+  background: var(--surface) !important;
+  border-color: var(--stroke) !important;
+}
+
+html[data-theme="light"] .site-nav-links a,
+html[data-theme="light"] .theme-toggle-label,
+html[data-theme="light"] .site-footer-links a {
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .site-nav-search,
+html[data-theme="light"] .theme-toggle,
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select,
+html[data-theme="light"] .chip,
+html[data-theme="light"] .admin-tags span,
+html[data-theme="light"] .expand-counter,
+html[data-theme="light"] .trust-action.ghost,
+html[data-theme="light"] .trust-action.secondary,
+html[data-theme="light"] .submit-actions button.ghost,
+html[data-theme="light"] .admin-actions button.ghost,
+html[data-theme="light"] .drawer-close,
+html[data-theme="light"] .roundtable-status,
+html[data-theme="light"] .roundtable-tags span,
+html[data-theme="light"] .roundtable-pip-btn {
+  background: var(--panel-soft) !important;
+  border-color: var(--stroke) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .expand-comments,
+html[data-theme="light"] .expand-comment {
+  border-color: var(--stroke) !important;
+}
+
+html[data-theme="light"] .expand-comment {
+  background: var(--panel-soft) !important;
+}
+
+html[data-theme="light"] .expand-comment-body,
+html[data-theme="light"] .expand-comments-header h5 {
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .expand-comment-meta {
+  color: var(--muted) !important;
+}
+
+html[data-theme="light"] .expand-engage-btn {
+  background: var(--panel-soft) !important;
+  border-color: var(--stroke) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .expand-engage-btn:hover:not(:disabled),
+html[data-theme="light"] .expand-nav:hover,
+html[data-theme="light"] .expand-nav:focus-visible,
+html[data-theme="light"] .expand-close:hover,
+html[data-theme="light"] .expand-close:focus-visible {
+  background: var(--interactive-bg-strong) !important;
+  border-color: var(--stroke-strong) !important;
+}
+
+html[data-theme="light"] .page-home .hero.hero-story,
+html[data-theme="light"] .page-home .pitch-section,
+html[data-theme="light"] .page-home .hot-band,
+html[data-theme="light"] .page-home .more-band {
+  background: var(--surface) !important;
+  border-color: var(--stroke) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+html[data-theme="light"] .page-home .hero.hero-story {
+  padding-inline: 20px;
+}
+
+html[data-theme="light"] .page-home .hero-story-title,
+html[data-theme="light"] .page-home .hero-story-fade-quote {
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .page-home .hero-story-brand,
+html[data-theme="light"] .page-home .hero-story-subline,
+html[data-theme="light"] .page-home .hero-story-meta {
+  color: var(--muted) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-header h3 {
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-subtext,
+html[data-theme="light"] .page-home .pitch-link,
+html[data-theme="light"] .page-home .pitch-category-picker span {
+  color: var(--muted) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-category-picker select {
+  background: var(--panel-soft) !important;
+  border-color: var(--stroke) !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-divider {
+  background: rgba(112, 90, 72, 0.16) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-divider.labeled span {
+  background: var(--surface) !important;
+  color: var(--muted) !important;
+}
+
+html[data-theme="light"] .page-home .ad-face.advertise {
+  background: var(--panel) !important;
+  border: 1px solid var(--stroke) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+html[data-theme="light"] .page-home .ad-face.advertise .ad-icon {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .page-home .ad-face.advertise h4 {
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .page-home .ad-face.advertise p {
+  color: var(--muted) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-show-card,
+html[data-theme="light"] .page-home .pitch-slot-open-card,
+html[data-theme="light"] .page-home .pitch-mobile-stack-card,
+html[data-theme="light"] .page-home .pitch-mobile-stack-card.is-open-slot,
+html[data-theme="light"] .page-home .pitch-mobile-stack-skeleton {
+  background: #fffdf8 !important;
+  border-color: var(--stroke) !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-show-card.is-hot,
+html[data-theme="light"] .page-home .pitch-slot-approved .pitch-show-card.row {
+  border-color: rgba(229, 9, 20, 0.28) !important;
+  box-shadow:
+    0 0 0 1px rgba(229, 9, 20, 0.08),
+    var(--shadow-soft) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-show-media {
+  filter: saturate(0.88) contrast(1.02) brightness(0.94) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-show-overlay,
+html[data-theme="light"] .page-home .hot-cinema-overlay,
+html[data-theme="light"] .page-home .pitch-mobile-stack-overlay {
+  background: linear-gradient(180deg, rgba(22, 14, 10, 0.05) 12%, rgba(22, 14, 10, 0.66) 100%) !important;
+}
+
+html[data-theme="light"] .page-home .pitch-show-badge {
+  background: rgba(255, 250, 242, 0.94) !important;
+  border-color: rgba(229, 9, 20, 0.24) !important;
+  color: #8e151b !important;
+}
+
+html[data-theme="light"] .page-home .pitch-slot-share {
+  background: rgba(229, 9, 20, 0.08) !important;
+  color: #8e151b !important;
+}
+
+html[data-theme="light"] .page-home .hot-cinema {
+  background: #f0e0cb !important;
+  border-color: var(--stroke) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4) !important;
+}
+
+html[data-theme="light"] .page-home .hot-cinema-card {
+  box-shadow: 0 14px 28px rgba(84, 54, 29, 0.2) !important;
+}
+
+html[data-theme="light"] .page-home .hot-cinema-card.pos-0 {
+  border-color: rgba(35, 23, 15, 0.14) !important;
+  box-shadow: 0 30px 60px rgba(84, 54, 29, 0.22) !important;
+}
+
+html[data-theme="light"] .page-home .hot-cinema-card.pos-1 {
+  border-color: rgba(35, 23, 15, 0.1) !important;
+  box-shadow: 0 18px 36px rgba(84, 54, 29, 0.18) !important;
+}
+
+html[data-theme="light"] .page-home .hot-cinema-play {
+  background: rgba(229, 9, 20, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.58) !important;
 }
