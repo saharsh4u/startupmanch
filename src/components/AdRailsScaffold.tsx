@@ -19,6 +19,7 @@ type AdRailsScaffoldProps = {
   children: ReactNode;
   mainClassName?: string;
   centerClassName?: string;
+  quietRails?: boolean;
 };
 
 const FLIP_ACTIVE_MS = 1050;
@@ -73,6 +74,7 @@ export default function AdRailsScaffold({
   children,
   mainClassName = "page page-home inner-rails-page",
   centerClassName = "center-panel",
+  quietRails = false,
 }: AdRailsScaffoldProps) {
   const [leftSlots, setLeftSlots] = useState<AdSlot[]>(leftAdSlots);
   const [rightSlots, setRightSlots] = useState<AdSlot[]>(rightAdSlots);
@@ -111,7 +113,7 @@ export default function AdRailsScaffold({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (quietRails || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setActiveFlipPair(null);
       return;
     }
@@ -161,10 +163,10 @@ export default function AdRailsScaffold({
       if (resetTimer) clearTimeout(resetTimer);
       setActiveFlipPair(null);
     };
-  }, [leftFlippableIndexes, rightFlippableIndexes]);
+  }, [leftFlippableIndexes, quietRails, rightFlippableIndexes]);
 
   return (
-    <main className={mainClassName}>
+    <main className={`${mainClassName}${quietRails ? " page-has-quiet-rails" : ""}`}>
       <div className="layout-grid">
         <AdColumn
           slots={leftSlots}

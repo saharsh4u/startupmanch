@@ -5,12 +5,12 @@ import TopNav from "@/components/TopNav";
 
 export const metadata: Metadata = {
   title: "Roundtable | StartupManch",
-  description: "Structured startup roundtable discussions with timed speaking and live scoring.",
+  description: "Join live founder roundtables with visible room activity, weekly rankings, and transparent scoring.",
 };
 
 export default function RoundtablePage() {
   return (
-    <AdRailsScaffold mainClassName="page roundtable-page inner-rails-page">
+    <AdRailsScaffold mainClassName="page roundtable-page inner-rails-page" quietRails>
       <div className="roundtable-page-shell">
         <TopNav context="inner" showPostPitch />
         <div className="anchor-block">
