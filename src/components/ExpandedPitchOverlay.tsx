@@ -846,11 +846,11 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
                   />
                   <button
                     type="button"
-                    className="trust-action secondary"
+                    className="trust-action secondary expand-comment-submit"
                     onClick={() => void handleSubmitComment()}
                     disabled={commentSubmitting || commentDraft.trim().length < 2}
                   >
-                    {commentSubmitting ? "Posting…" : "Post comment"}
+                    Post comment
                   </button>
                 </div>
               </div>

@@ -1342,6 +1342,11 @@ button:disabled {
   resize: vertical;
 }
 
+.expand-comments-form .expand-comment-submit {
+  color: #0f172a;
+  font-weight: 700;
+}
+
 .expand-startup {
   display: flex;
   flex-direction: column;
@@ -11513,4 +11518,201 @@ body {
   .page-home .hero-story-fade-item {
     transition: none !important;
   }
+}
+
+/* Final monochrome override: solid black surfaces with yellow as the only accent */
+:root,
+html[data-theme="light"],
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #000000;
+  --panel-soft: #000000;
+  --surface: #000000;
+  --surface-soft: #000000;
+  --stroke: #2a2a2a;
+  --stroke-strong: #434343;
+  --text: #ffffff;
+  --text-light: #ffffff;
+  --muted: #b3b3b3;
+  --muted-light: #8f8f8f;
+  --accent: #f2b13d;
+  --accent-2: #f2b13d;
+  --primary: #f2b13d;
+  --primary-foreground: #0b0b0b;
+  --placeholder-light: #747474;
+  --placeholder-dark: #747474;
+  --shadow: none;
+  --shadow-soft: none;
+  --focus-ring: rgba(242, 177, 61, 0.38);
+  --pitch-hot-fallback: #000000;
+  --pitch-regular-fallback: #000000;
+  --overlay-media-fallback: #000000;
+  --row-fade: rgba(0, 0, 0, 0.96);
+  --scrollbar-thumb: #2f2f2f;
+  --scrollbar-track: #000000;
+  --field-bg: #000000;
+  --interactive-bg: #000000;
+  --interactive-bg-strong: #000000;
+  --verify-badge-bg: rgba(242, 177, 61, 0.14);
+  --verify-badge-border: rgba(242, 177, 61, 0.28);
+  --verify-badge-text: #f2b13d;
+  --overlay-strong: rgba(0, 0, 0, 0.92);
+  --overlay-soft: rgba(0, 0, 0, 0.88);
+  --ad-rail-top-gradient: none;
+  --ad-rail-bottom-gradient: none;
+  --fallback-label-bg: rgba(0, 0, 0, 0.9);
+  --fallback-label-border: rgba(255, 255, 255, 0.18);
+  --fallback-label-text: #f4f4f4;
+  --slot-soft-bg: rgba(255, 255, 255, 0.02);
+  --slot-soft-bg-strong: rgba(255, 255, 255, 0.04);
+}
+
+html,
+body,
+.page,
+.page.page-home,
+.inner-rails-page,
+.layout-grid,
+.center-panel {
+  background: #000000 !important;
+  background-image: none !important;
+}
+
+body,
+.hero,
+.featured,
+.pitch-section,
+.pitch-mosaic,
+.hot-band,
+.more-band,
+.submit-card,
+.admin-shell,
+.admin-hero,
+.admin-card,
+.admin-row,
+.section-card,
+.leaderboard-section,
+.leaderboard,
+.leaderboard-row,
+.site-nav,
+.site-footer,
+.pitch-show-card,
+.pitch-show-card.is-hot,
+.pitch-slot-open-card,
+.pitch-mobile-stack-card,
+.pitch-mobile-stack-card.is-open-slot,
+.pitch-mobile-stack-skeleton,
+.pitch-drawer-panel,
+.expand-shell,
+.expand-layout,
+.expand-video,
+.expand-info,
+.expand-comments,
+.rankings-modal-panel,
+.ad-purchase-panel,
+.startup-profile-hero,
+.startup-edit-hero,
+.roundtable-lobby-hero,
+.roundtable-session-card,
+.roundtable-seat-circle,
+.roundtable-pip-video-wrap,
+.roundtable-pip-fallback,
+.roundtable-pip-shell {
+  background: #000000 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.hero-search,
+.hero-search input,
+.theme-toggle,
+.theme-toggle-track,
+.theme-toggle-thumb,
+input,
+textarea,
+select,
+.expand-comments-form textarea,
+.admin-tags span,
+.chip,
+.expand-counter,
+.trust-action.ghost,
+.trust-action.secondary,
+.submit-actions button.ghost,
+.admin-actions button.ghost,
+.drawer-close,
+.roundtable-status,
+.roundtable-tags span,
+.roundtable-pip-btn {
+  background: #000000 !important;
+  background-image: none !important;
+  color: var(--text) !important;
+  border-color: var(--stroke) !important;
+  box-shadow: none !important;
+}
+
+.hero-btn,
+.submit-actions button,
+.admin-actions button,
+.trust-action.primary,
+.danger,
+.page-home .hero-story-btn {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--primary) !important;
+  box-shadow: none !important;
+}
+
+.hero::before,
+.hero::after,
+.ad-face::before,
+.ad-face::after,
+.page-home .hot-cinema::before,
+.page-home .hot-cinema::after,
+.page-home .more-band::before,
+.page-home .more-band::after,
+.page-home .pitch-mobile-stack::before,
+.page-home .hero-story-brush::before,
+.page-home .hero-story-brush::after,
+.roundtable-lobby-hero::before,
+.roundtable-lobby-hero::after,
+.roundtable-session-card::before,
+.roundtable-session-card::after,
+.roundtable-roulette-glow,
+.roundtable-roulette-wheel-ambient,
+.roundtable-seat-token::before,
+.roundtable-seat-token::after {
+  background: none !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.roundtable-session-mini-wheel,
+.roundtable-session-mini-core,
+.roundtable-roulette-slices,
+.roundtable-roulette-slice,
+.roundtable-roulette-slice.is-queued,
+.roundtable-roulette-slice.is-active,
+.roundtable-roulette-hub,
+.roundtable-roulette-wheel {
+  background: #000000 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.roundtable-session-mini-seat.is-empty,
+.roundtable-seat-token,
+.roundtable-seat-token.is-empty {
+  background: #000000 !important;
+  border-color: var(--stroke) !important;
+}
+
+.roundtable-session-mini-seat.is-occupied,
+.roundtable-seat-token.is-active,
+.roundtable-seat-token.is-joined,
+.roundtable-status.is-live {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #0b0b0b !important;
 }
