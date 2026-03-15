@@ -3,13 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
-import RoundtableQueue from "@/components/roundtable/RoundtableQueue";
-import RoundtableRecentTurns from "@/components/roundtable/RoundtableRecentTurns";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
-import RoundtableScoreboard from "@/components/roundtable/RoundtableScoreboard";
-import RoundtableTurnTimer from "@/components/roundtable/RoundtableTurnTimer";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
-import { toInitials } from "@/lib/roundtable/present";
 import type { RoundtableSessionSnapshot } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
@@ -101,6 +96,16 @@ const mapActionError = (payload: ActionResponse, fallback: string) => {
     default:
       return payload.error ?? fallback;
   }
+};
+
+const toInitials = (displayName: string) => {
+  const parts = displayName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 };
 
 export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
@@ -277,11 +282,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const seatsTaken = snapshot?.session.seats_taken ?? 0;
   const maxSeats = snapshot?.session.max_seats ?? 5;
   const isRoomFull = seatsTaken >= maxSeats;
-  const queuedMemberIds = useMemo(
-    () => new Set((snapshot?.queue ?? []).map((turn) => turn.member_id)),
-    [snapshot?.queue]
-  );
-  const activeTurnMemberId = snapshot?.active_turn?.member_id ?? null;
 
   const seats = useMemo<RoundtableSeatViewModel[]>(() => {
     if (!snapshot) return [];
@@ -294,12 +294,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return Array.from({ length: snapshot.session.max_seats }, (_, index) => {
       const seatNo = index + 1;
       const member = bySeat.get(seatNo) ?? null;
-      const isTimedTurnLive = Boolean(member && activeTurnMemberId && member.id === activeTurnMemberId);
-      const isActive = Boolean(
-        member &&
-          (isTimedTurnLive || (!activeTurnMemberId && member.id === currentMember?.id && !isMyMicMuted))
-      );
-      const isQueued = Boolean(member && queuedMemberIds.has(member.id) && member.id !== activeTurnMemberId);
+      const isActive = Boolean(member && member.id === currentMember?.id && !isMyMicMuted);
+      const isQueued = false;
       const isMe = Boolean(member && member.id === currentMember?.id);
       const isEmpty = !member;
 
@@ -312,33 +308,24 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         isQueued,
         isMe,
         isEmpty,
-        stateLabel: isActive ? (isTimedTurnLive ? "Timed turn live" : "Mic live") : isQueued ? "Queued" : member ? "Joined" : "Available",
+        stateLabel: isActive ? "Speaking" : member ? "Open mic" : "Available",
       };
     });
-  }, [activeTurnMemberId, currentMember?.id, isMyMicMuted, queuedMemberIds, snapshot]);
+  }, [currentMember?.id, isMyMicMuted, snapshot]);
 
   const wheelFlareToken = useMemo(() => {
-    if (snapshot?.active_turn) {
-      return `turn-live-${snapshot.active_turn.id}`;
-    }
     if (currentMember?.id && !isMyMicMuted) {
       return `mic-live-${currentMember.id}`;
     }
     const latestTurn = snapshot?.recent_turns?.[0];
     if (!latestTurn) return null;
     return `recent-${latestTurn.id}-${latestTurn.status}`;
-  }, [currentMember?.id, isMyMicMuted, snapshot?.active_turn, snapshot?.recent_turns]);
+  }, [currentMember?.id, isMyMicMuted, snapshot?.recent_turns]);
 
-  const activeSpeakerSeatNo = useMemo(() => {
-    if (activeTurnMemberId) {
-      const activeTurnMember = snapshot?.members.find(
-        (member) => member.state === "joined" && member.id === activeTurnMemberId
-      );
-      return activeTurnMember?.seat_no ?? null;
-    }
-
-    return currentMember && !isMyMicMuted ? currentMember.seat_no : null;
-  }, [activeTurnMemberId, currentMember, isMyMicMuted, snapshot?.members]);
+  const activeSpeakerSeatNo = useMemo(
+    () => (currentMember && !isMyMicMuted ? currentMember.seat_no : null),
+    [currentMember, isMyMicMuted]
+  );
 
   const silentSeatTarget = useMemo(() => {
     if (!snapshot || !seats.length) {
@@ -1067,7 +1054,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         <h4>Live voice</h4>
         {currentMember ? (
           <>
-            <p className="roundtable-muted">Voice stays live for seated founders. Timed turn order, queue state, and scoring update below.</p>
+            <p className="roundtable-muted">Anyone seated can speak anytime.</p>
             <div className="roundtable-voice-controls">
               <button
                 type="button"
@@ -1106,23 +1093,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         )}
       </section>
 
-      {snapshot.active_turn ? (
-        <section className="roundtable-panel roundtable-turn-live" aria-label="Active timed turn">
-          <div className="roundtable-turn-live-head">
-            <div className="roundtable-turn-live-copy">
-              <p className="roundtable-kicker">Timed turn live</p>
-              <h4>{snapshot.active_turn.member_display_name} is on the clock</h4>
-              <p>
-                {snapshot.queue.length
-                  ? `${snapshot.queue.length} founder${snapshot.queue.length === 1 ? "" : "s"} queued next.`
-                  : "No one is queued after this turn yet."}
-              </p>
-            </div>
-            <RoundtableTurnTimer endsAt={snapshot.active_turn.ends_at} />
-          </div>
-        </section>
-      ) : null}
-
       <RoundtableSeatCircle
         seats={seats}
         flareToken={wheelFlareToken}
@@ -1139,11 +1109,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           muteMic();
         }}
       />
-      <div className="roundtable-room-grid">
-        <RoundtableQueue queue={snapshot.queue} />
-        <RoundtableScoreboard scores={snapshot.scores} />
-        <RoundtableRecentTurns recentTurns={snapshot.recent_turns} />
-      </div>
       <div
         style={{
           position: "fixed",

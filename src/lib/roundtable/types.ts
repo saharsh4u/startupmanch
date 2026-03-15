@@ -83,10 +83,6 @@ export type RoundtableSessionSummary = {
   turn_duration_sec: number;
   max_seats: number;
   seats_taken: number;
-  last_activity_at: string | null;
-  queue_count: number;
-  active_speaker_name: string | null;
-  joined_display_names: string[];
   created_at: string;
 };
 

@@ -57,8 +57,6 @@ const RESOLVE_TIMEOUT_MS = 9000;
 type RoundtableHomepageVideoRailProps = {
   sessionId: string;
   participantId: string | null;
-  title?: string;
-  description?: string;
 };
 
 type SharedMiniPlayerPayload = {
@@ -140,8 +138,6 @@ const mapPitch = (item: ApiPitch, index: number): PitchShow => {
 export default function RoundtableHomepageVideoRail({
   sessionId,
   participantId,
-  title = "Homepage video loop",
-  description = "Watch uploaded homepage videos here and open any card to discuss instantly.",
 }: RoundtableHomepageVideoRailProps) {
   const [pitches, setPitches] = useState<PitchShow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -829,8 +825,8 @@ export default function RoundtableHomepageVideoRail({
     <section className="roundtable-panel roundtable-video-strip" aria-label="Homepage videos">
       <div className="roundtable-video-strip-head">
         <div className="roundtable-video-strip-copy">
-          <h4>{title}</h4>
-          <p>{description}</p>
+          <h4>Homepage video loop</h4>
+          <p>Watch uploaded homepage videos here and open any card to discuss instantly.</p>
         </div>
         <div className="roundtable-video-strip-actions">
           <button

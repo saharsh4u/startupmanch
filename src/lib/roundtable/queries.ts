@@ -13,12 +13,6 @@ import type {
 
 const withFallbackTags = (tags: string[] | null | undefined) => (Array.isArray(tags) ? tags : []);
 
-const pickLatestIso = (current: string | null | undefined, candidate: string | null | undefined) => {
-  if (!candidate) return current ?? null;
-  if (!current) return candidate;
-  return Date.parse(candidate) > Date.parse(current) ? candidate : current;
-};
-
 export const getWeeklyLeaderboard = async (): Promise<RoundtableLeaderboardEntry[]> => {
   const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -102,81 +96,20 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
   const sessionIds = sessions.map((session) => session.id);
 
   const seatsTaken = new Map<string, number>();
-  const lastActivityAt = new Map<string, string | null>();
-  const queueCountBySession = new Map<string, number>();
-  const activeSpeakerBySession = new Map<string, string | null>();
-  const joinedDisplayNamesBySession = new Map<string, string[]>();
   if (sessionIds.length) {
     const { data: members, error: membersError } = await supabaseAdmin
       .from("roundtable_members")
-      .select("id, session_id, display_name, state, joined_at, left_at")
+      .select("session_id")
       .in("session_id", sessionIds)
-      .order("joined_at", { ascending: true });
+      .eq("state", "joined");
 
     if (membersError) {
       throw new Error(membersError.message);
     }
 
-    const nameByMemberId = new Map<string, string>();
-
-    for (const row of members ?? []) {
-      const member = row as Pick<RoundtableMemberRow, "id" | "session_id" | "display_name" | "state" | "joined_at" | "left_at">;
-      const sessionId = member.session_id;
-
-      nameByMemberId.set(member.id, member.display_name);
-      lastActivityAt.set(sessionId, pickLatestIso(lastActivityAt.get(sessionId), member.joined_at));
-      lastActivityAt.set(sessionId, pickLatestIso(lastActivityAt.get(sessionId), member.left_at));
-
-      if (member.state === "joined") {
-        seatsTaken.set(sessionId, (seatsTaken.get(sessionId) ?? 0) + 1);
-        joinedDisplayNamesBySession.set(sessionId, [
-          ...(joinedDisplayNamesBySession.get(sessionId) ?? []),
-          member.display_name,
-        ]);
-      }
-    }
-
-    const { data: turns, error: turnsError } = await supabaseAdmin
-      .from("roundtable_turns")
-      .select("session_id, member_id, status, created_at, updated_at, submitted_at")
-      .in("session_id", sessionIds)
-      .order("updated_at", { ascending: false });
-
-    if (turnsError) {
-      throw new Error(turnsError.message);
-    }
-
-    for (const row of turns ?? []) {
-      const turn = row as Pick<
-        RoundtableTurnRow,
-        "session_id" | "member_id" | "status" | "created_at" | "updated_at" | "submitted_at"
-      >;
-
-      lastActivityAt.set(turn.session_id, pickLatestIso(lastActivityAt.get(turn.session_id), turn.updated_at));
-      lastActivityAt.set(turn.session_id, pickLatestIso(lastActivityAt.get(turn.session_id), turn.submitted_at));
-      lastActivityAt.set(turn.session_id, pickLatestIso(lastActivityAt.get(turn.session_id), turn.created_at));
-
-      if (turn.status === "queued") {
-        queueCountBySession.set(turn.session_id, (queueCountBySession.get(turn.session_id) ?? 0) + 1);
-      }
-
-      if (turn.status === "active" && !activeSpeakerBySession.has(turn.session_id)) {
-        activeSpeakerBySession.set(turn.session_id, nameByMemberId.get(turn.member_id) ?? "Guest");
-      }
-    }
-
-    const { data: scores, error: scoresError } = await supabaseAdmin
-      .from("roundtable_scores")
-      .select("session_id, updated_at")
-      .in("session_id", sessionIds);
-
-    if (scoresError) {
-      throw new Error(scoresError.message);
-    }
-
-    for (const row of scores ?? []) {
-      const score = row as Pick<RoundtableScoreRow, "session_id" | "updated_at">;
-      lastActivityAt.set(score.session_id, pickLatestIso(lastActivityAt.get(score.session_id), score.updated_at));
+    for (const member of members ?? []) {
+      const sessionId = String(member.session_id);
+      seatsTaken.set(sessionId, (seatsTaken.get(sessionId) ?? 0) + 1);
     }
   }
 
@@ -195,10 +128,6 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
       turn_duration_sec: session.turn_duration_sec,
       max_seats: session.max_seats,
       seats_taken: seatsTaken.get(session.id) ?? 0,
-      last_activity_at: pickLatestIso(lastActivityAt.get(session.id), session.updated_at),
-      queue_count: queueCountBySession.get(session.id) ?? 0,
-      active_speaker_name: activeSpeakerBySession.get(session.id) ?? null,
-      joined_display_names: joinedDisplayNamesBySession.get(session.id) ?? [],
       created_at: session.created_at,
     };
   });
@@ -294,25 +223,6 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
   }));
 
   const seatsTaken = members.filter((member) => member.state === "joined").length;
-  const joinedDisplayNames = members
-    .filter((member) => member.state === "joined")
-    .map((member) => member.display_name);
-  let lastActivity = session.updated_at;
-
-  for (const member of members) {
-    lastActivity = pickLatestIso(lastActivity, member.joined_at) ?? lastActivity;
-    lastActivity = pickLatestIso(lastActivity, member.left_at) ?? lastActivity;
-  }
-
-  for (const turn of turns) {
-    lastActivity = pickLatestIso(lastActivity, turn.updated_at) ?? lastActivity;
-    lastActivity = pickLatestIso(lastActivity, turn.submitted_at) ?? lastActivity;
-    lastActivity = pickLatestIso(lastActivity, turn.created_at) ?? lastActivity;
-  }
-
-  for (const score of scores) {
-    lastActivity = pickLatestIso(lastActivity, score.updated_at) ?? lastActivity;
-  }
 
   return {
     viewer_member_id: null,
@@ -327,10 +237,6 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
       turn_duration_sec: session.turn_duration_sec,
       max_seats: session.max_seats,
       seats_taken: seatsTaken,
-      last_activity_at: lastActivity,
-      queue_count: queue.length,
-      active_speaker_name: activeTurn ? nameByMemberId.get(activeTurn.member_id) ?? "Guest" : null,
-      joined_display_names: joinedDisplayNames,
       created_at: session.created_at,
     },
     topic: {

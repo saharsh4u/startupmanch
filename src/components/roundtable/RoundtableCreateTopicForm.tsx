@@ -13,48 +13,12 @@ type CreateResponse = {
   session_id?: string;
 };
 
-const topicPresets = [
-  {
-    id: "pitch-teardown",
-    label: "Pitch teardown",
-    title: "Pitch teardown: rip apart my positioning",
-    description: "I want direct feedback on my pitch, hooks, ICP, and what feels weak or confusing.",
-    tags: ["pitch", "messaging", "feedback"],
-    turnDuration: 90,
-  },
-  {
-    id: "growth-blocker",
-    label: "Growth blocker",
-    title: "Growth blocker: why is traction stalling?",
-    description: "We have some user signal but growth is flattening. I want sharp ideas on acquisition, retention, and activation.",
-    tags: ["growth", "retention", "distribution"],
-    turnDuration: 60,
-  },
-  {
-    id: "fundraising",
-    label: "Fundraising",
-    title: "Fundraising room: what would investors push back on?",
-    description: "I need candid feedback on narrative, milestones, and what would make this raise more credible.",
-    tags: ["fundraising", "venture", "narrative"],
-    turnDuration: 120,
-  },
-  {
-    id: "product-roast",
-    label: "Product roast",
-    title: "Product roast: what would make this instantly better?",
-    description: "No politeness points. Roast the product, UX, and user journey so I can tighten it fast.",
-    tags: ["product", "ux", "roast"],
-    turnDuration: 60,
-  },
-] as const;
-
 export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreateTopicFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tagsText, setTagsText] = useState("");
   const [displayName, setDisplayNameState] = useState(() => getDisplayName());
   const [turnDuration, setTurnDuration] = useState(60);
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,38 +75,9 @@ export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreat
     }
   };
 
-  const applyPreset = (presetId: string) => {
-    const preset = topicPresets.find((entry) => entry.id === presetId);
-    if (!preset) return;
-
-    setActivePresetId(preset.id);
-    setTitle(preset.title);
-    setDescription(preset.description);
-    setTagsText(preset.tags.join(", "));
-    setTurnDuration(preset.turnDuration);
-  };
-
   return (
-    <section id="roundtable-create" className="roundtable-panel roundtable-create-panel" aria-label="Create roundtable topic">
-      <div className="roundtable-section-head">
-        <div>
-          <p className="roundtable-kicker">Start a room</p>
-          <h4>Seed the next conversation</h4>
-          <p className="roundtable-section-copy">Use a preset to get a sharper topic faster, then edit anything before you launch.</p>
-        </div>
-      </div>
-      <div className="roundtable-presets" role="group" aria-label="Roundtable topic presets">
-        {topicPresets.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            className={`roundtable-preset${activePresetId === preset.id ? " is-active" : ""}`}
-            onClick={() => applyPreset(preset.id)}
-          >
-            {preset.label}
-          </button>
-        ))}
-      </div>
+    <section className="roundtable-panel" aria-label="Create roundtable topic">
+      <h4>Create topic</h4>
       <div className="roundtable-form-grid">
         <label>
           Topic title
