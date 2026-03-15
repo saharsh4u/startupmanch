@@ -54,7 +54,7 @@ export default function TopNav({
       <div className="site-nav-row">
         <Link href="/" className="site-nav-logo">
           <span className="brand-star">✦</span>
-          <span>StartupManch</span>
+          <span className="brand-wordmark">StartupManch</span>
         </Link>
         <div className="site-nav-links">
           {homeAnchors.map((item) => (

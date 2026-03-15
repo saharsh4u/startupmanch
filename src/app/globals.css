@@ -11520,9 +11520,8 @@ body {
   }
 }
 
-/* Final monochrome override: solid black surfaces with Netflix red as the only accent */
+/* Final theme override: Netflix-black dark mode with cream light mode and red accent */
 :root,
-html[data-theme="light"],
 html[data-theme="dark"] {
   color-scheme: dark;
   --bg: #000000;
@@ -11569,6 +11568,52 @@ html[data-theme="dark"] {
   --slot-soft-bg-strong: rgba(255, 255, 255, 0.04);
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5e9d8;
+  --panel: #f5e9d8;
+  --panel-soft: #efe0cc;
+  --surface: #f5e9d8;
+  --surface-soft: #efe0cc;
+  --stroke: #d6c1a5;
+  --stroke-strong: #bea384;
+  --text: #17120e;
+  --text-light: #ffffff;
+  --muted: #6d5c4e;
+  --muted-light: #8f7c6c;
+  --accent: #e50914;
+  --accent-2: #b20710;
+  --primary: #e50914;
+  --primary-foreground: #ffffff;
+  --ad-accent: #e50914;
+  --placeholder-light: #8f7c6c;
+  --placeholder-dark: #8f7c6c;
+  --shadow: none;
+  --shadow-soft: none;
+  --focus-ring: rgba(229, 9, 20, 0.22);
+  --pitch-hot-fallback: #f5e9d8;
+  --pitch-regular-fallback: #f5e9d8;
+  --overlay-media-fallback: #f5e9d8;
+  --row-fade: rgba(245, 233, 216, 0.96);
+  --scrollbar-thumb: #b89e7f;
+  --scrollbar-track: #f5e9d8;
+  --field-bg: #efe0cc;
+  --interactive-bg: #efe0cc;
+  --interactive-bg-strong: #e5d2bb;
+  --verify-badge-bg: rgba(229, 9, 20, 0.12);
+  --verify-badge-border: rgba(229, 9, 20, 0.24);
+  --verify-badge-text: #e50914;
+  --overlay-strong: rgba(245, 233, 216, 0.92);
+  --overlay-soft: rgba(245, 233, 216, 0.88);
+  --ad-rail-top-gradient: none;
+  --ad-rail-bottom-gradient: none;
+  --fallback-label-bg: rgba(245, 233, 216, 0.9);
+  --fallback-label-border: rgba(23, 18, 14, 0.18);
+  --fallback-label-text: #17120e;
+  --slot-soft-bg: rgba(23, 18, 14, 0.03);
+  --slot-soft-bg-strong: rgba(23, 18, 14, 0.06);
+}
+
 html,
 body,
 .page,
@@ -11576,7 +11621,7 @@ body,
 .inner-rails-page,
 .layout-grid,
 .center-panel {
-  background: #000000 !important;
+  background: var(--bg) !important;
   background-image: none !important;
 }
 
@@ -11620,7 +11665,7 @@ body,
 .roundtable-pip-video-wrap,
 .roundtable-pip-fallback,
 .roundtable-pip-shell {
-  background: #000000 !important;
+  background: var(--surface) !important;
   background-image: none !important;
   box-shadow: none !important;
 }
@@ -11628,8 +11673,6 @@ body,
 .hero-search,
 .hero-search input,
 .theme-toggle,
-.theme-toggle-track,
-.theme-toggle-thumb,
 input,
 textarea,
 select,
@@ -11645,10 +11688,25 @@ select,
 .roundtable-status,
 .roundtable-tags span,
 .roundtable-pip-btn {
-  background: #000000 !important;
+  background: var(--panel-soft) !important;
   background-image: none !important;
   color: var(--text) !important;
   border-color: var(--stroke) !important;
+  box-shadow: none !important;
+}
+
+.theme-toggle {
+  background: var(--panel-soft) !important;
+}
+
+.theme-toggle-track {
+  background: var(--surface) !important;
+  border-color: var(--stroke) !important;
+  box-shadow: none !important;
+}
+
+.theme-toggle-thumb {
+  background: var(--text) !important;
   box-shadow: none !important;
 }
 
@@ -11697,7 +11755,7 @@ select,
 .roundtable-roulette-slice.is-active,
 .roundtable-roulette-hub,
 .roundtable-roulette-wheel {
-  background: #000000 !important;
+  background: var(--surface) !important;
   background-image: none !important;
   box-shadow: none !important;
 }
@@ -11705,8 +11763,24 @@ select,
 .roundtable-session-mini-seat.is-empty,
 .roundtable-seat-token,
 .roundtable-seat-token.is-empty {
-  background: #000000 !important;
+  background: var(--surface) !important;
   border-color: var(--stroke) !important;
+}
+
+.site-nav-logo .brand-wordmark,
+.hero-brand .brand-wordmark {
+  display: inline-block;
+  color: var(--primary) !important;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  line-height: 0.9;
+  text-transform: uppercase;
+  transform: skewX(-9deg);
+  transform-origin: center;
+}
+
+.site-nav-logo .brand-wordmark {
+  font-size: 1.02rem;
 }
 
 .brand-star,
@@ -11770,7 +11844,7 @@ select,
 }
 
 .roundtable-roulette-slices {
-  background: #000000 !important;
+  background: var(--surface) !important;
 }
 
 .roundtable-roulette-slice.is-queued {

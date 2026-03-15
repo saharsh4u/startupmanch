@@ -800,7 +800,7 @@ export default function AdminPage() {
         <header className="admin-hero">
           <div className="hero-brand">
             <span className="brand-star">✦</span>
-            <span>StartupManch</span>
+            <span className="brand-wordmark">StartupManch</span>
           </div>
           <h1>Admin Control Panel</h1>
           <p>Approve, remove, or block startup videos from one place.</p>
