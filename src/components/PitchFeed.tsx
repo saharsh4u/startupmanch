@@ -2227,7 +2227,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
           >
             <div className="community-cinema-header">
               <div className="community-cinema-copy">
-                <h3>See What People Are Building — And Build Yours Too</h3>
+                <h3>Discover Startups Being Built in Public</h3>
                 <p className="pitch-subtext">
                   Watch ideas turn into products.
                   <br />
