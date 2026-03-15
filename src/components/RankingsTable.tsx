@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import RankingsModal from "@/components/RankingsModal";
 import RankingsTableRows, { type RankingsRowItem } from "@/components/RankingsTableRows";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const WINDOW = "7d";
 const HOME_LIMIT = 10;
@@ -100,6 +101,9 @@ export default function RankingsTable() {
         <button type="button" className="view-all ghost" onClick={() => setModalOpen(true)}>
           View All →
         </button>
+      </div>
+      <div className="rankings-theme-switch">
+        <ThemeToggle />
       </div>
 
       <RankingsModal open={modalOpen} onClose={() => setModalOpen(false)} />

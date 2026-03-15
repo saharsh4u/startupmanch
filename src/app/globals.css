@@ -4506,6 +4506,17 @@ html[data-theme="dark"] body {
   margin-top: 10px;
 }
 
+.rankings-theme-switch {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.rankings-theme-switch .theme-toggle {
+  min-width: 116px;
+  justify-content: center;
+}
+
 .site-footer {
   border: 1px solid var(--stroke);
   background: var(--surface);
