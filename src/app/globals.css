@@ -11759,14 +11759,22 @@ select,
 }
 
 .roundtable-session-mini-wheel,
-.roundtable-session-mini-core,
-.roundtable-roulette-slices,
-.roundtable-roulette-slice,
-.roundtable-roulette-slice.is-queued,
-.roundtable-roulette-slice.is-active,
-.roundtable-roulette-hub,
-.roundtable-roulette-wheel {
+.roundtable-session-mini-core {
   background: var(--surface) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.roundtable-roulette-wheel,
+.roundtable-roulette-hub,
+.roundtable-roulette-slices {
+  background: var(--accent) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.roundtable-roulette-slice {
+  background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
 }
