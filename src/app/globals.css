@@ -11863,7 +11863,7 @@ select,
 }
 
 .roundtable-roulette-slices {
-  background: var(--surface) !important;
+  background: var(--accent) !important;
 }
 
 .roundtable-roulette-slice.is-queued {
