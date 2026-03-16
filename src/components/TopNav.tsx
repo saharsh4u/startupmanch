@@ -12,9 +12,8 @@ type TopNavProps = {
   onPostPitch?: () => void;
 };
 
-const homeAnchors = [{ id: "leaderboard-block", label: "Leaderboard" }] as const;
-const ROUNDTABLE_HOME_HREF = "/";
 const MARKETPLACE_HREF = "/roundtable";
+const ABOUT_HREF = "/about";
 
 export default function TopNav({
   context = "home",
@@ -37,18 +36,18 @@ export default function TopNav({
     window.location.assign(`${MARKETPLACE_HREF}#leaderboard-block`);
   };
 
+  const handleAllVideosClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (shouldUseBrowserDefault(event)) return;
+    event.preventDefault();
+    if (pathname === MARKETPLACE_HREF) return;
+    window.location.assign(MARKETPLACE_HREF);
+  };
+
   const handleAboutClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (shouldUseBrowserDefault(event)) return;
     event.preventDefault();
-    if (pathname === "/about") return;
-    window.location.assign("/about");
-  };
-
-  const handleRoundtableClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (shouldUseBrowserDefault(event)) return;
-    event.preventDefault();
-    if (pathname === ROUNDTABLE_HOME_HREF) return;
-    window.location.assign(ROUNDTABLE_HOME_HREF);
+    if (pathname === ABOUT_HREF) return;
+    window.location.assign(ABOUT_HREF);
   };
 
   return (
@@ -59,25 +58,18 @@ export default function TopNav({
           <span className="brand-wordmark">StartupManch</span>
         </Link>
         <div className="site-nav-links">
-          {homeAnchors.map((item) => (
-            <Link
-              key={item.id}
-              href={context === "home" ? "#leaderboard-block" : `${MARKETPLACE_HREF}#leaderboard-block`}
-              onClick={handleLeaderboardClick}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/about" onClick={handleAboutClick}>
+          <Link href={MARKETPLACE_HREF} onClick={handleAllVideosClick}>
+            All videos
+          </Link>
+          <Link
+            href={context === "home" ? "#leaderboard-block" : `${MARKETPLACE_HREF}#leaderboard-block`}
+            onClick={handleLeaderboardClick}
+          >
+            Leaderboard
+          </Link>
+          <Link href={ABOUT_HREF} onClick={handleAboutClick}>
             About
           </Link>
-          <Link href={ROUNDTABLE_HOME_HREF} onClick={handleRoundtableClick}>
-            Roundtable
-          </Link>
-        </div>
-        <div className="site-nav-search">
-          <span>⌕</span>
-          <input type="text" placeholder="Search startups..." aria-label="Search startups" />
         </div>
         {showPostPitch ? (
           <Link

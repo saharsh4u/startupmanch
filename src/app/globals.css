@@ -4240,7 +4240,7 @@ html[data-theme="dark"] body {
 
 .site-nav-row {
   display: grid;
-  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
@@ -4598,8 +4598,7 @@ html[data-theme="light"] .theme-toggle-thumb {
     gap: 10px;
   }
 
-  .site-nav-links,
-  .site-nav-search {
+  .site-nav-links {
     grid-column: 1 / -1;
   }
 
@@ -4645,10 +4644,6 @@ html[data-theme="light"] .theme-toggle-thumb {
   }
 
   .site-nav-links::-webkit-scrollbar {
-    display: none;
-  }
-
-  .site-nav-search {
     display: none;
   }
 
