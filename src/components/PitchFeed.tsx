@@ -97,7 +97,6 @@ type FeedCacheSnapshot = {
   nextShuffleAtMs: number | null;
 };
 
-type SlotFilter = "all" | "approved" | "open";
 type RowSlot = { type: "approved"; pitch: FeedPitch } | { type: "open"; id: string };
 type MobileStackItem =
   | { type: "approved"; id: string; pitch: FeedPitch }
@@ -111,7 +110,6 @@ const FEED_PAGE_SIZE = 24;
 const ROW_SIZE = 5;
 const MORE_PITCH_COLUMN_COUNT = 3;
 const MOBILE_MORE_PITCH_ROW_COUNT = 3;
-const MOBILE_STACK_MIN_ITEMS = 50;
 const INITIAL_SKELETON_ROWS = 2;
 const TEASER_MAX = 10;
 const PENDING_SLOT_MAX = 12;
@@ -405,7 +403,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
-  const [slotFilter, setSlotFilter] = useState<SlotFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [slotShuffleSeed, setSlotShuffleSeed] = useState(
     () => Math.floor(Math.random() * 1_000_000_000)
@@ -1063,71 +1060,23 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
         .includes(normalizedSearch);
     });
 
-    if (!SLOT_UPGRADE_ENABLED) return base;
-    if (slotFilter === "approved" || slotFilter === "all") return base;
-    return [];
-  }, [approvedMorePitches, normalizedSearch, slotFilter]);
+    return base;
+  }, [approvedMorePitches, normalizedSearch]);
 
   const rowSlots = useMemo(() => {
-    const approvedSlots = slotFilter === "open" ? [] : approvedVisible;
-    const slots: RowSlot[] = approvedSlots.map((pitch) => ({ type: "approved" as const, pitch }));
-
-    if (SLOT_UPGRADE_ENABLED && slotFilter !== "approved") {
-      const minRows = slotFilter === "open" ? 2 : approvedSlots.length ? 1 : 2;
-      const openCount = ROW_SIZE * minRows;
-      for (let index = 0; index < openCount; index += 1) {
-        slots.push({
-          type: "open" as const,
-          id: `placeholder-${slotFilter}-${index + 1}`,
-        });
-      }
-    }
-
-    if (!slots.length) {
-      for (let index = 0; index < ROW_SIZE; index += 1) {
-        slots.push({
-          type: "open" as const,
-          id: `placeholder-empty-${index + 1}`,
-        });
-      }
-    }
-
+    const slots: RowSlot[] = approvedVisible.map((pitch) => ({ type: "approved" as const, pitch }));
     return shuffleItems(slots, slotShuffleSeed);
-  }, [approvedVisible, slotFilter, slotShuffleSeed]);
-
-  const communityRailSource = useMemo<CommunityRailItem[]>(() => {
-    if (rowSlots.length) return rowSlots;
-    return Array.from({ length: ROW_SIZE }, (_, index) => ({
-      type: "open" as const,
-      id: `community-open-slot-${index + 1}`,
-    }));
-  }, [rowSlots]);
+  }, [approvedVisible, slotShuffleSeed]);
 
   const communityRails = useMemo<CommunityRail[]>(() => {
-    if (!communityRailSource.length) return [];
-
-    const expanded: CommunityRailItem[] = [];
-    const totalNeeded = COMMUNITY_RAIL_COUNT * COMMUNITY_RAIL_SIZE;
-    for (let index = 0; index < totalNeeded; index += 1) {
-      if (index < communityRailSource.length) {
-        expanded.push(communityRailSource[index]);
-      } else {
-        expanded.push({
-          type: "open" as const,
-          id: `community-open-slot-fill-${index + 1}`,
-        });
-      }
-    }
-
-    return Array.from({ length: COMMUNITY_RAIL_COUNT }, (_, railIndex) => {
-      const start = railIndex * COMMUNITY_RAIL_SIZE;
-      return {
+    return chunkBySize(rowSlots, COMMUNITY_RAIL_SIZE)
+      .slice(0, COMMUNITY_RAIL_COUNT)
+      .map((items, railIndex) => ({
         id: `community-rail-${railIndex + 1}`,
         title: communityRailTitles[railIndex] ?? `Rail ${railIndex + 1}`,
-        items: expanded.slice(start, start + COMMUNITY_RAIL_SIZE),
-      };
-    });
-  }, [communityRailSource]);
+        items,
+      }));
+  }, [rowSlots]);
 
   useEffect(() => {
     if (prefersReducedMotion || isDocumentHidden || !communityRails.length) return;
@@ -1212,11 +1161,7 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
 
 
   const columnGroups = useMemo(() => {
-    const distributed = distributeByColumn(rowSlots, MORE_PITCH_COLUMN_COUNT);
-    return distributed.map((column, columnIndex) => {
-      if (column.length) return column;
-      return [{ type: "open" as const, id: `placeholder-column-${columnIndex + 1}` }];
-    });
+    return distributeByColumn(rowSlots, MORE_PITCH_COLUMN_COUNT).filter((column) => column.length);
   }, [rowSlots]);
 
   const mobileVideoSlots = useMemo(
@@ -1225,47 +1170,13 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   );
 
   const mobileRowGroups = useMemo(() => {
-    const totalNeeded = MOBILE_MORE_PITCH_ROW_COUNT * ROW_SIZE;
-    const source = mobileVideoSlots.length
-      ? mobileVideoSlots
-      : rowSlots.length
-        ? rowSlots
-        : [{ type: "open" as const, id: "placeholder-mobile-1" }];
-    const expanded: RowSlot[] = [];
-
-    for (let index = 0; index < totalNeeded; index += 1) {
-      expanded.push(source[index % source.length] as RowSlot);
-    }
-
-    return chunkBySize(expanded, ROW_SIZE).slice(0, MOBILE_MORE_PITCH_ROW_COUNT);
-  }, [mobileVideoSlots, rowSlots]);
+    return chunkBySize(mobileVideoSlots, ROW_SIZE).slice(0, MOBILE_MORE_PITCH_ROW_COUNT);
+  }, [mobileVideoSlots]);
   const mobileStackItems = useMemo<MobileStackItem[]>(() => {
-    const approved = approvedVisible.map((pitch) => ({
+    return approvedVisible.map((pitch) => ({
       type: "approved" as const,
       id: pitch.id,
       pitch,
-    }));
-
-    if (approved.length >= MOBILE_STACK_MIN_ITEMS) {
-      return approved;
-    }
-
-    if (approved.length > 0) {
-      const repeated: MobileStackItem[] = [];
-      for (let index = 0; index < MOBILE_STACK_MIN_ITEMS; index += 1) {
-        const base = approved[index % approved.length];
-        repeated.push({
-          type: "approved",
-          id: `${base.id}-stack-${index + 1}`,
-          pitch: base.pitch,
-        });
-      }
-      return repeated;
-    }
-
-    return Array.from({ length: MOBILE_STACK_MIN_ITEMS }, (_, index) => ({
-      type: "open" as const,
-      id: `mobile-stack-open-slot-${index + 1}`,
     }));
   }, [approvedVisible]);
   const mobileStackVisibleOffsets = useMemo(() => {
@@ -2252,75 +2163,66 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                   placeholder="Search startups, tags, or category"
                 />
               </label>
-              <div className="community-filter-chip-row" role="tablist" aria-label="Slot filters">
-                {([
-                  { id: "all", label: "All" },
-                  { id: "approved", label: "Approved" },
-                  { id: "open", label: "Open slots" },
-                ] as Array<{ id: SlotFilter; label: string }>).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`slot-filter-chip community-filter-chip${slotFilter === item.id ? " is-active" : ""}`}
-                    onClick={() => setSlotFilter(item.id)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
               {SLOT_UPGRADE_ENABLED ? (
-                <p className="community-filter-note">
-                  Positions reshuffle every 3 min, plus a full network shuffle every 3 min.
-                </p>
+                <p className="community-filter-note">Feed order refreshes every 3 min.</p>
               ) : null}
             </div>
 
-            <div className="community-rails">
-              {communityRails.map((rail, railIndex) => (
-                <section key={rail.id} className="community-rail-block" aria-label={rail.title}>
-                  <div
-                    className={`community-rail${prefersReducedMotion ? " is-static" : ""}${
-                      isCommunityRailInteracting ? " is-interacting" : ""
-                    }`}
-                    aria-label={rail.title}
-                    ref={(node) => {
-                      communityRailRefs.current[railIndex] = node;
-                    }}
-                    onPointerDown={() => pauseCommunityRailAutoScroll(2600)}
-                    onPointerUp={() => pauseCommunityRailAutoScroll(950)}
-                    onPointerCancel={() => pauseCommunityRailAutoScroll(950)}
-                    onWheel={() => pauseCommunityRailAutoScroll(1300)}
-                    onTouchStart={() => pauseCommunityRailAutoScroll(2600)}
-                    onTouchEnd={() => pauseCommunityRailAutoScroll(1000)}
-                    onFocusCapture={() => pauseCommunityRailAutoScroll(1800)}
-                    onBlurCapture={() => pauseCommunityRailAutoScroll(900)}
-                  >
-                    <div className={`community-rail-track${railIndex % 2 === 1 ? " is-reverse" : ""}`}>
-                      <div className="community-rail-segment" data-segment="primary">
-                        {rail.items.map((slot, slotIndex) => (
-                          <div
-                            key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}-primary`}
-                            className="community-rail-item"
-                          >
-                            {renderRowSlot(slot, railIndex, slotIndex, "primary")}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="community-rail-segment is-clone" data-segment="clone" aria-hidden="true">
-                        {rail.items.map((slot, slotIndex) => (
-                          <div
-                            key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}-clone`}
-                            className="community-rail-item"
-                          >
-                            {renderRowSlot(slot, railIndex, slotIndex, "clone")}
-                          </div>
-                        ))}
+            {communityRails.length ? (
+              <div className="community-rails">
+                {communityRails.map((rail, railIndex) => (
+                  <section key={rail.id} className="community-rail-block" aria-label={rail.title}>
+                    <div className="community-rail-header">
+                      <h4>{rail.title}</h4>
+                    </div>
+                    <div
+                      className={`community-rail${prefersReducedMotion ? " is-static" : ""}${
+                        isCommunityRailInteracting ? " is-interacting" : ""
+                      }`}
+                      aria-label={rail.title}
+                      ref={(node) => {
+                        communityRailRefs.current[railIndex] = node;
+                      }}
+                      onPointerDown={() => pauseCommunityRailAutoScroll(2600)}
+                      onPointerUp={() => pauseCommunityRailAutoScroll(950)}
+                      onPointerCancel={() => pauseCommunityRailAutoScroll(950)}
+                      onWheel={() => pauseCommunityRailAutoScroll(1300)}
+                      onTouchStart={() => pauseCommunityRailAutoScroll(2600)}
+                      onTouchEnd={() => pauseCommunityRailAutoScroll(1000)}
+                      onFocusCapture={() => pauseCommunityRailAutoScroll(1800)}
+                      onBlurCapture={() => pauseCommunityRailAutoScroll(900)}
+                    >
+                      <div className={`community-rail-track${railIndex % 2 === 1 ? " is-reverse" : ""}`}>
+                        <div className="community-rail-segment" data-segment="primary">
+                          {rail.items.map((slot, slotIndex) => (
+                            <div
+                              key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}-primary`}
+                              className="community-rail-item"
+                            >
+                              {renderRowSlot(slot, railIndex, slotIndex, "primary")}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="community-rail-segment is-clone" data-segment="clone" aria-hidden="true">
+                          {rail.items.map((slot, slotIndex) => (
+                            <div
+                              key={`${rail.id}-${slot.type}-${slot.type === "approved" ? slot.pitch.id : slot.id}-${slotIndex}-clone`}
+                              className="community-rail-item"
+                            >
+                              {renderRowSlot(slot, railIndex, slotIndex, "clone")}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </section>
-              ))}
-            </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="pitch-feed-status" role="status" aria-live="polite">
+                No startups match this search yet.
+              </div>
+            )}
 
             {statusMessage ? (
               <div className="pitch-feed-status" role="status" aria-live="polite">
