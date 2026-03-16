@@ -10,6 +10,8 @@ export type RoundtableSeatViewModel = {
   isMe: boolean;
   isEmpty: boolean;
   stateLabel: string;
+  canShareInvite?: boolean;
+  shareStatus?: string | null;
 };
 
 type RoundtableSeatCircleProps = {
@@ -20,6 +22,7 @@ type RoundtableSeatCircleProps = {
   canToggleMyMic: boolean;
   isMyMicMuted: boolean;
   onToggleMyMic: () => void;
+  onShareSeat?: (seatNo: number) => void;
 };
 
 const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => {
@@ -40,6 +43,7 @@ export default function RoundtableSeatCircle({
   canToggleMyMic,
   isMyMicMuted,
   onToggleMyMic,
+  onShareSeat,
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
   const [pointerEyeVector, setPointerEyeVector] = useState<{ x: number; y: number } | null>(null);
@@ -202,6 +206,22 @@ export default function RoundtableSeatCircle({
                   } as CSSProperties
                 }
               >
+                {seat.canShareInvite ? (
+                  <div className="roundtable-seat-actions">
+                    <button
+                      type="button"
+                      className="roundtable-seat-share"
+                      onClick={() => onShareSeat?.(seat.seatNo)}
+                      aria-label={`Share invite link for seat ${seat.seatNo}`}
+                      title={`Share invite link for seat ${seat.seatNo}`}
+                    >
+                      +
+                    </button>
+                    {seat.shareStatus ? (
+                      <span className="roundtable-seat-share-status">{seat.shareStatus}</span>
+                    ) : null}
+                  </div>
+                ) : null}
                 <span className="roundtable-seat-avatar" aria-hidden>{seat.initials || "?"}</span>
                 <button
                   type="button"

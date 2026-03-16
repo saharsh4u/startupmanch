@@ -98,6 +98,7 @@ export type RoundtableLeaderboardEntry = {
 export type RoundtableSessionSnapshot = {
   viewer_member_id: string | null;
   viewer_can_manage_members: boolean;
+  viewer_joined_session_id: string | null;
   session: RoundtableSessionSummary;
   topic: {
     id: string;
@@ -121,4 +122,19 @@ export type RoundtableActor = {
 export type RoundtableLobbyResponse = {
   sessions: RoundtableSessionSummary[];
   leaderboard: RoundtableLeaderboardEntry[];
+};
+
+export type RoundtableInviteContext = {
+  source: "invite" | "join-any" | null;
+  preferred_seat_no: number | null;
+  inviter_member_id: string | null;
+};
+
+export type JoinAnyResponse = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+  session_id?: string | null;
+  member_id?: string;
+  seat_no?: number;
 };

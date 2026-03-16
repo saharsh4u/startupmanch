@@ -3,7 +3,7 @@ import { applyNoStoreCache } from "@/lib/http/cache";
 import { resolveActor } from "@/lib/roundtable/api";
 import { getSessionSnapshot } from "@/lib/roundtable/queries";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
-import { getMemberForActor } from "@/lib/roundtable/server";
+import { getLatestJoinedMemberForActor, getMemberForActor } from "@/lib/roundtable/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 
@@ -23,10 +23,17 @@ export async function GET(
     }
     let viewerMemberId: string | null = null;
     let viewerCanManageMembers = false;
+    let viewerJoinedSessionId: string | null = null;
     try {
       const actor = await resolveActor(request);
       const viewerMember = await getMemberForActor(params.sessionId, actor);
       viewerMemberId = viewerMember?.id ?? null;
+      viewerJoinedSessionId = viewerMember?.session_id ?? null;
+
+      if (!viewerJoinedSessionId) {
+        const joinedMember = await getLatestJoinedMemberForActor(actor);
+        viewerJoinedSessionId = joinedMember?.session_id ?? null;
+      }
 
       const { data: sessionOwner, error: sessionOwnerError } = await supabaseAdmin
         .from("roundtable_sessions")
@@ -56,6 +63,7 @@ export async function GET(
         ...snapshot,
         viewer_member_id: viewerMemberId,
         viewer_can_manage_members: viewerCanManageMembers,
+        viewer_joined_session_id: viewerJoinedSessionId,
       },
       { status: 200 }
     );

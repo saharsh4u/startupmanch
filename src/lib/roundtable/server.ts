@@ -115,6 +115,28 @@ export const getMemberForActor = async (sessionId: string, actor: RoundtableActo
   return primary;
 };
 
+export const getLatestJoinedMemberForActor = async (actor: RoundtableActor) => {
+  let query = supabaseAdmin
+    .from("roundtable_members")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
+    .eq("state", "joined");
+
+  if (actor.profileId) {
+    query = query.eq("profile_id", actor.profileId);
+  } else if (actor.guestId) {
+    query = query.eq("guest_id", actor.guestId);
+  } else {
+    return null;
+  }
+
+  const { data, error } = await query.order("joined_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as RoundtableMemberRow | null) ?? null;
+};
+
 export const logRoundtableEvent = async (
   eventType: string,
   metadata: Record<string, unknown>,

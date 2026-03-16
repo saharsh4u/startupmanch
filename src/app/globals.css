@@ -9232,6 +9232,53 @@ body {
     0 12px 20px rgba(0, 0, 0, 0.44);
 }
 
+.roundtable-seat-actions {
+  position: absolute;
+  left: 8px;
+  top: -12px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.roundtable-seat-share {
+  border: 1px solid rgba(243, 195, 93, 0.72);
+  background: rgba(18, 18, 18, 0.98);
+  color: #f8deb0;
+  border-radius: 999px;
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.34);
+}
+
+.roundtable-seat-share:hover,
+.roundtable-seat-share:focus-visible {
+  border-color: #f3c35d;
+  background: #f2b13d;
+  color: #1a1204;
+  outline: none;
+}
+
+.roundtable-seat-share-status {
+  border-radius: 999px;
+  background: rgba(8, 8, 8, 0.94);
+  border: 1px solid rgba(114, 123, 150, 0.5);
+  color: rgba(241, 231, 199, 0.92);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
 .roundtable-seat-mic {
   position: absolute;
   right: 8px;
@@ -9410,6 +9457,64 @@ body {
 
 .roundtable-live-compose {
   border-color: #7a5a24;
+}
+
+.roundtable-invite-note {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.roundtable-match-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(184, 131, 36, 0.45);
+  background:
+    radial-gradient(circle at top right, rgba(242, 177, 61, 0.16), transparent 38%),
+    linear-gradient(135deg, rgba(11, 11, 11, 0.98), rgba(20, 16, 12, 0.98));
+}
+
+.roundtable-match-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: min(100%, 320px);
+}
+
+.roundtable-match-kicker {
+  color: rgba(243, 225, 185, 0.68);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.roundtable-match-copy strong {
+  color: #fbf3de;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.roundtable-match-copy p {
+  margin: 0;
+  color: rgba(242, 230, 198, 0.8);
+  max-width: 540px;
+}
+
+.roundtable-match-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.roundtable-match-error,
+.roundtable-match-hint {
+  margin: 0;
+  text-align: right;
+  max-width: 320px;
 }
 
 .roundtable-live-compose h4 {
@@ -9848,6 +9953,11 @@ body {
     padding-top: 40px;
   }
 
+  .roundtable-seat-share {
+    min-width: 30px;
+    height: 30px;
+  }
+
   .roundtable-seat-avatar {
     top: -34px;
     width: 66px;
@@ -9921,6 +10031,10 @@ body {
     padding-top: 34px;
   }
 
+  .roundtable-match-panel {
+    align-items: stretch;
+  }
+
   .roundtable-roulette-hub {
     inset: 8%;
   }
@@ -9991,6 +10105,27 @@ body {
     font-size: 0.78rem;
   }
 
+  .roundtable-seat-actions {
+    left: 6px;
+    top: -10px;
+    gap: 3px;
+  }
+
+  .roundtable-seat-share {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    font-size: 0.88rem;
+  }
+
+  .roundtable-seat-share-status {
+    font-size: 0.56rem;
+    padding: 2px 6px;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .roundtable-seat-copy {
     min-width: 86px;
     max-width: 94px;
@@ -10018,6 +10153,21 @@ body {
     right: 12px;
     bottom: 12px;
     padding: 9px;
+  }
+
+  .roundtable-match-panel,
+  .roundtable-match-actions {
+    align-items: stretch;
+  }
+
+  .roundtable-match-actions .roundtable-cta {
+    width: 100%;
+  }
+
+  .roundtable-match-error,
+  .roundtable-match-hint {
+    max-width: none;
+    text-align: left;
   }
 }
 

@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useSearchParams } from "next/navigation";
 import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
-import type { RoundtableSessionSnapshot } from "@/lib/roundtable/types";
+import type { JoinAnyResponse, RoundtableInviteContext, RoundtableSessionSnapshot } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type RoundtableRoomProps = {
@@ -18,8 +19,16 @@ type ActionResponse = {
   code?: string;
   member_id?: string;
   seat_no?: number;
+  session_id?: string | null;
   turn_id?: string;
   seats_cleared?: number;
+};
+
+type ApiCallResult<T extends { error?: string; code?: string }> = {
+  ok: boolean;
+  payload: T | null;
+  status: number;
+  message: string;
 };
 
 type VoiceSignalPayload = {
@@ -93,8 +102,39 @@ const mapActionError = (payload: ActionResponse, fallback: string) => {
       return "Too many attempts. Please wait a bit and try again.";
     case "session_closed":
       return "This session is closed and cannot accept new joins.";
+    case "already_joined":
+      return "Leave your current roundtable seat before joining another room.";
+    case "no_open_rooms":
+      return "No open roundtables are available right now.";
     default:
       return payload.error ?? fallback;
+  }
+};
+
+const copyText = async (value: string) => {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  if (typeof document === "undefined") {
+    throw new Error("Clipboard is unavailable.");
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+
+  if (!copied) {
+    throw new Error("Clipboard is unavailable.");
   }
 };
 
@@ -109,10 +149,14 @@ const toInitials = (displayName: string) => {
 };
 
 export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
+  const searchParams = useSearchParams();
   const [snapshot, setSnapshot] = useState<RoundtableSessionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
+  const [joinAnyError, setJoinAnyError] = useState<string | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<{ seatNo: number; message: string } | null>(null);
   const [displayName, setDisplayNameState] = useState(() => getDisplayName());
   const [seatChoice, setSeatChoice] = useState<number | "auto">("auto");
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -132,6 +176,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const joinedMemberIdSetRef = useRef<Set<string>>(new Set());
   const autoMicPermissionPromptedMemberRef = useRef<string | null>(null);
   const lastVoiceRecoveryAtRef = useRef(0);
+  const invitePrefillKeyRef = useRef<string | null>(null);
+  const inviteAutoJoinKeyRef = useRef<string | null>(null);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -211,6 +257,19 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
   const guestId = useMemo(() => ensureGuestId(), []);
   const memberStorageKey = useMemo(() => `rt_member_${sessionId}`, [sessionId]);
+  const inviteContext = useMemo<RoundtableInviteContext>(() => {
+    const sourceValue = searchParams.get("source");
+    const source = sourceValue === "invite" || sourceValue === "join-any" ? sourceValue : null;
+    const seatValue = Number(searchParams.get("seat"));
+    const preferred_seat_no = Number.isInteger(seatValue) && seatValue >= 1 ? seatValue : null;
+    const inviterValue = searchParams.get("inviter")?.trim() ?? "";
+
+    return {
+      source,
+      preferred_seat_no,
+      inviter_member_id: inviterValue.length ? inviterValue : null,
+    };
+  }, [searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -270,6 +329,47 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     );
   }, [guestId, selfMemberId, snapshot]);
 
+  const viewerJoinedSessionId = snapshot?.viewer_joined_session_id ?? null;
+  const isViewerSeatedElsewhere = Boolean(viewerJoinedSessionId && viewerJoinedSessionId !== sessionId);
+  const preferredInviteSeatNo = useMemo(() => {
+    if (!snapshot) return inviteContext.preferred_seat_no;
+    const preferredSeatNo = inviteContext.preferred_seat_no;
+    if (!preferredSeatNo) return null;
+    return preferredSeatNo >= 1 && preferredSeatNo <= snapshot.session.max_seats ? preferredSeatNo : null;
+  }, [inviteContext.preferred_seat_no, snapshot]);
+
+  const persistMemberId = useCallback((memberId: string, targetSessionId = sessionId) => {
+    if (targetSessionId === sessionId) {
+      setSelfMemberId(memberId);
+    }
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(`rt_member_${targetSessionId}`, memberId);
+    }
+  }, [sessionId]);
+
+  const clearPersistedMemberId = useCallback((targetSessionId = sessionId) => {
+    if (targetSessionId === sessionId) {
+      setSelfMemberId(null);
+    }
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(`rt_member_${targetSessionId}`);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!shareFeedback) return;
+    const timer = window.setTimeout(() => {
+      setShareFeedback(null);
+    }, 2400);
+    return () => window.clearTimeout(timer);
+  }, [shareFeedback]);
+
+  useEffect(() => {
+    if (currentMember) {
+      setJoinAnyError(null);
+    }
+  }, [currentMember]);
+
   const canManageMembers = Boolean(snapshot?.viewer_can_manage_members);
   const joinedMembers = useMemo(
     () =>
@@ -309,9 +409,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         isMe,
         isEmpty,
         stateLabel: isActive ? "Speaking" : member ? "Open mic" : "Available",
+        canShareInvite: Boolean(currentMember && isEmpty),
+        shareStatus: shareFeedback?.seatNo === seatNo ? shareFeedback.message : null,
       };
     });
-  }, [currentMember?.id, isMyMicMuted, snapshot]);
+  }, [currentMember, isMyMicMuted, shareFeedback, snapshot]);
 
   const wheelFlareToken = useMemo(() => {
     if (currentMember?.id && !isMyMicMuted) {
@@ -844,14 +946,19 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     };
   }, [stopMicStream]);
 
-  const callApi = async (
+  const callApi = useCallback(async function callApi<T extends { error?: string; code?: string } = ActionResponse>(
     path: string,
     body: Record<string, unknown>,
-    busyKey: string
-  ) => {
+    busyKey: string,
+    options?: { refreshOnSuccess?: boolean }
+  ): Promise<ApiCallResult<T>> {
     if (!guestId) {
-      setActionError("Unable to initialize guest identity.");
-      return null;
+      return {
+        ok: false,
+        payload: null,
+        status: 0,
+        message: "Unable to initialize guest identity.",
+      };
     }
 
     try {
@@ -871,69 +978,295 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         }),
       });
 
-      const payload = (await response.json()) as ActionResponse;
+      const payload = (await response.json()) as T;
       if (!response.ok) {
-        throw new Error(mapActionError(payload, "Action failed."));
+        return {
+          ok: false,
+          payload,
+          status: response.status,
+          message: mapActionError(payload as ActionResponse, "Action failed."),
+        };
       }
 
-      await loadSnapshot();
-      return payload;
+      if (options?.refreshOnSuccess !== false) {
+        await loadSnapshot();
+      }
+
+      return {
+        ok: true,
+        payload,
+        status: response.status,
+        message: "",
+      };
     } catch (actionErrorValue) {
-      setActionError(actionErrorValue instanceof Error ? actionErrorValue.message : "Action failed.");
-      return null;
+      return {
+        ok: false,
+        payload: null,
+        status: 0,
+        message: actionErrorValue instanceof Error ? actionErrorValue.message : "Action failed.",
+      };
     } finally {
       setBusyAction(null);
     }
-  };
+  }, [displayName, guestId, loadSnapshot]);
 
-  const handleJoin = async () => {
+  const handleShareSeat = useCallback(async (seatNo: number) => {
+    if (!currentMember || typeof window === "undefined") return;
+
+    const inviteUrl = new URL(`/roundtable/${sessionId}`, window.location.origin);
+    inviteUrl.searchParams.set("seat", String(seatNo));
+    inviteUrl.searchParams.set("inviter", currentMember.id);
+    inviteUrl.searchParams.set("source", "invite");
+
+    let feedbackMessage = "Link copied";
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({
+          title: `${snapshot?.topic.title ?? "StartupManch"} roundtable invite`,
+          text: `Join me in ${snapshot?.topic.title ?? "this"} roundtable.`,
+          url: inviteUrl.toString(),
+        });
+        feedbackMessage = "Invite shared";
+      } else {
+        await copyText(inviteUrl.toString());
+      }
+    } catch (shareErrorValue) {
+      if (shareErrorValue instanceof DOMException && shareErrorValue.name === "AbortError") {
+        return;
+      }
+
+      try {
+        await copyText(inviteUrl.toString());
+      } catch {
+        setShareFeedback({ seatNo, message: "Copy failed" });
+        return;
+      }
+    }
+
+    setShareFeedback({ seatNo, message: feedbackMessage });
+
+    void fetch(`/api/roundtable/sessions/${sessionId}/share-seat`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(guestId ? { "x-roundtable-guest-id": guestId } : {}),
+      },
+      body: JSON.stringify({
+        seat_no: seatNo,
+        inviter_member_id: currentMember.id,
+        source: "invite",
+      }),
+    }).catch(() => {
+      // Share logging is best-effort only.
+    });
+  }, [currentMember, guestId, sessionId, snapshot?.topic.title]);
+
+  const handleJoinWithSeatPreference = useCallback(async (
+    preferredSeatNo: number | null,
+    fallbackToAuto: boolean
+  ) => {
+    let usedFallback = false;
+    let result = await callApi<ActionResponse>(
+      `/api/roundtable/sessions/${sessionId}/join`,
+      { seat_no: preferredSeatNo ?? undefined },
+      "join"
+    );
+
+    if (!result.ok && fallbackToAuto && result.payload?.code === "seat_taken_retry_exhausted") {
+      usedFallback = true;
+      result = await callApi<ActionResponse>(
+        `/api/roundtable/sessions/${sessionId}/join`,
+        { seat_no: undefined },
+        "join"
+      );
+    }
+
+    if (!result.ok) {
+      setActionError(result.message);
+      if (usedFallback && preferredSeatNo) {
+        if (result.payload?.code === "room_full" || result.payload?.code === "session_closed") {
+          setInviteFeedback("That shared seat filled up before you joined, and no other seat is available right now.");
+        } else {
+          setInviteFeedback("That shared seat could not be claimed. Try joining the next open seat.");
+        }
+      }
+      return result;
+    }
+
+    const memberId = result.payload?.member_id;
+    if (!memberId) {
+      setActionError("Unable to join this seat.");
+      return {
+        ok: false,
+        payload: result.payload,
+        status: result.status,
+        message: "Unable to join this seat.",
+      } satisfies ApiCallResult<ActionResponse>;
+    }
+
+    persistMemberId(memberId);
+    setActionError(null);
+    if (usedFallback && preferredSeatNo) {
+      const matchedSeatNo = result.payload?.seat_no;
+      setInviteFeedback(
+        matchedSeatNo
+          ? `Seat ${preferredSeatNo} was taken, so you were placed in seat ${matchedSeatNo}.`
+          : `Seat ${preferredSeatNo} was taken, so you were matched to the next open seat.`
+      );
+    } else {
+      setInviteFeedback(null);
+    }
+    autoMicPermissionPromptedMemberRef.current = memberId;
+    void attemptPlayRemoteAudioElements();
+    await enableMic();
+    return result;
+  }, [attemptPlayRemoteAudioElements, callApi, enableMic, persistMemberId, sessionId]);
+
+  const handleJoin = useCallback(async () => {
     if (!displayName.trim().length) {
       setActionError("Display name is required.");
       return;
     }
 
-    const payload = await callApi(`/api/roundtable/sessions/${sessionId}/join`, {
-      seat_no: seatChoice === "auto" ? undefined : seatChoice,
-    }, "join");
+    setJoinAnyError(null);
+    const selectedSeatNo = seatChoice === "auto" ? null : seatChoice;
+    const shouldFallbackFromInvite =
+      inviteContext.source === "invite" &&
+      preferredInviteSeatNo !== null &&
+      selectedSeatNo === preferredInviteSeatNo;
 
-    const memberId = payload?.member_id;
-    if (memberId) {
-      setSelfMemberId(memberId);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(memberStorageKey, memberId);
-      }
-      setActionError(null);
-      autoMicPermissionPromptedMemberRef.current = memberId;
-      void attemptPlayRemoteAudioElements();
-      await enableMic();
+    await handleJoinWithSeatPreference(selectedSeatNo, shouldFallbackFromInvite);
+  }, [displayName, handleJoinWithSeatPreference, inviteContext.source, preferredInviteSeatNo, seatChoice]);
+
+  const handleJoinAny = useCallback(async () => {
+    if (!displayName.trim().length) {
+      setJoinAnyError("Display name is required before using Join Any.");
+      return;
     }
-  };
 
-  const handleLeave = async () => {
-    const payload = await callApi(`/api/roundtable/sessions/${sessionId}/leave`, {}, "leave");
-    if (payload?.ok) {
+    if (isViewerSeatedElsewhere) {
+      setJoinAnyError("Leave your current roundtable seat before joining another room.");
+      return;
+    }
+
+    setJoinAnyError(null);
+    const result = await callApi<JoinAnyResponse>("/api/roundtable/join-any", {}, "join-any", {
+      refreshOnSuccess: false,
+    });
+
+    if (!result.ok) {
+      setJoinAnyError(result.message);
+      return;
+    }
+
+    const targetSessionId = result.payload?.session_id ?? null;
+    const memberId = result.payload?.member_id ?? null;
+    if (!targetSessionId || !memberId) {
+      setJoinAnyError("Unable to join a roundtable right now.");
+      return;
+    }
+
+    persistMemberId(memberId, targetSessionId);
+    if (typeof window !== "undefined") {
+      window.location.assign(`/roundtable/${targetSessionId}?source=join-any`);
+    }
+  }, [callApi, displayName, isViewerSeatedElsewhere, persistMemberId]);
+
+  const handleLeave = useCallback(async () => {
+    const result = await callApi<ActionResponse>(`/api/roundtable/sessions/${sessionId}/leave`, {}, "leave");
+    if (!result.ok) {
+      setActionError(result.message);
+      return;
+    }
+
+    if (result.payload?.ok) {
       stopMicStream();
-      setSelfMemberId(null);
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(memberStorageKey);
-      }
+      clearPersistedMemberId();
     }
-  };
+  }, [callApi, clearPersistedMemberId, sessionId, stopMicStream]);
 
-  const handleResetSeats = async () => {
+  const handleResetSeats = useCallback(async () => {
     if (typeof window !== "undefined") {
       const confirmed = window.confirm("Clear all currently occupied seats in this room?");
       if (!confirmed) return;
     }
-    const payload = await callApi(`/api/roundtable/sessions/${sessionId}/reset-seats`, {}, "reset-seats");
-    if (payload?.ok) {
-      stopMicStream();
-      setSelfMemberId(null);
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(memberStorageKey);
-      }
+
+    const result = await callApi<ActionResponse>(`/api/roundtable/sessions/${sessionId}/reset-seats`, {}, "reset-seats");
+    if (!result.ok) {
+      setActionError(result.message);
+      return;
     }
-  };
+
+    if (result.payload?.ok) {
+      stopMicStream();
+      clearPersistedMemberId();
+    }
+  }, [callApi, clearPersistedMemberId, sessionId, stopMicStream]);
+
+  useEffect(() => {
+    if (inviteContext.source !== "invite") {
+      invitePrefillKeyRef.current = null;
+      inviteAutoJoinKeyRef.current = null;
+      setInviteFeedback(null);
+      return;
+    }
+
+    if (!preferredInviteSeatNo || currentMember) return;
+
+    const prefillKey = `${sessionId}:${preferredInviteSeatNo}`;
+    if (invitePrefillKeyRef.current === prefillKey) return;
+    invitePrefillKeyRef.current = prefillKey;
+    setSeatChoice(preferredInviteSeatNo);
+  }, [currentMember, inviteContext.source, preferredInviteSeatNo, sessionId]);
+
+  useEffect(() => {
+    if (inviteContext.source !== "invite") return;
+    if (!snapshot || currentMember || !preferredInviteSeatNo) return;
+    if (!displayName.trim().length) return;
+    if (isViewerSeatedElsewhere) return;
+
+    const attemptKey = `${sessionId}:${preferredInviteSeatNo}:${displayName.trim()}:${viewerJoinedSessionId ?? "none"}`;
+    if (inviteAutoJoinKeyRef.current === attemptKey) return;
+    inviteAutoJoinKeyRef.current = attemptKey;
+
+    void handleJoinWithSeatPreference(preferredInviteSeatNo, true);
+  }, [
+    currentMember,
+    displayName,
+    handleJoinWithSeatPreference,
+    inviteContext.source,
+    isViewerSeatedElsewhere,
+    preferredInviteSeatNo,
+    sessionId,
+    snapshot,
+    viewerJoinedSessionId,
+  ]);
+
+  const inviteNotice = useMemo(() => {
+    if (inviteContext.source !== "invite" || currentMember) {
+      return null;
+    }
+    if (inviteFeedback) {
+      return inviteFeedback;
+    }
+    if (isViewerSeatedElsewhere) {
+      return "Leave your current roundtable seat before using this invite.";
+    }
+    if (!preferredInviteSeatNo) {
+      return "This invite opened the same room. Pick any open seat to join.";
+    }
+    if (!displayName.trim().length) {
+      return `Seat ${preferredInviteSeatNo} is selected from the invite. Add your name and tap Join seat.`;
+    }
+    return null;
+  }, [
+    currentMember,
+    displayName,
+    inviteContext.source,
+    inviteFeedback,
+    isViewerSeatedElsewhere,
+    preferredInviteSeatNo,
+  ]);
 
   if (loading) {
     return (
@@ -1040,6 +1373,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           Joined as <strong>{currentMember.display_name}</strong> on seat {currentMember.seat_no}. Leave seat to rejoin with a different name.
         </p>
       ) : null}
+      {inviteNotice ? <p className="roundtable-muted roundtable-invite-note">{inviteNotice}</p> : null}
 
       {!currentMember && isRoomFull ? (
         <p className="roundtable-error">
@@ -1093,6 +1427,32 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         )}
       </section>
 
+      {!currentMember ? (
+        <section className="roundtable-panel roundtable-match-panel" aria-label="Join any roundtable">
+          <div className="roundtable-match-copy">
+            <span className="roundtable-match-kicker">Fast match</span>
+            <strong>Join Any</strong>
+            <p>We will place you in the best open public roundtable and take the next free seat.</p>
+          </div>
+          <div className="roundtable-match-actions">
+            <button
+              type="button"
+              className="roundtable-cta"
+              onClick={() => void handleJoinAny()}
+              disabled={busyAction === "join-any" || isViewerSeatedElsewhere}
+            >
+              {busyAction === "join-any" ? "Matching..." : "Join Any"}
+            </button>
+            {joinAnyError ? <p className="roundtable-error roundtable-match-error">{joinAnyError}</p> : null}
+            {!joinAnyError && isViewerSeatedElsewhere ? (
+              <p className="roundtable-muted roundtable-match-hint">
+                Leave your current roundtable seat before using Join Any.
+              </p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       <RoundtableSeatCircle
         seats={seats}
         flareToken={wheelFlareToken}
@@ -1100,6 +1460,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         activeSpeakerSeatNo={activeSpeakerSeatNo}
         canToggleMyMic={Boolean(currentMember)}
         isMyMicMuted={isMyMicMuted}
+        onShareSeat={(seatNo) => {
+          void handleShareSeat(seatNo);
+        }}
         onToggleMyMic={() => {
           if (isMyMicMuted) {
             void attemptPlayRemoteAudioElements();
