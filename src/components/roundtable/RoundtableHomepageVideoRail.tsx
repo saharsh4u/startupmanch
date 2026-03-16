@@ -10,30 +10,14 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent,
 } from "react";
-import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
+import PitchShowCard from "@/components/PitchShowCard";
+import {
+  buildHomepageFeedUrl,
+  type FeedResponsePayload,
+  type HomepagePitch,
+  toPlayableHomepagePitches,
+} from "@/lib/homepage/pitches";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
-
-type ApiPitch = {
-  pitch_id: string;
-  startup_id: string | null;
-  startup_name: string | null;
-  one_liner: string | null;
-  category: string | null;
-  poster_url: string | null;
-  founder_photo_url?: string | null;
-  in_count?: number;
-  out_count?: number;
-  comment_count?: number;
-  score?: number;
-  video_url?: string | null;
-  video_hls_url?: string | null;
-  video_mp4_url?: string | null;
-  instagram_url?: string | null;
-};
-
-type FeedResponsePayload = {
-  data?: ApiPitch[];
-};
 
 type InstagramResolvePayload = {
   video_url?: string | null;
@@ -68,11 +52,6 @@ type SharedMiniPlayerPayload = {
   sentAt?: number;
 };
 
-const asNumber = (value: unknown) => {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
 const getPrimarySegmentWidth = (rail: HTMLDivElement) => {
   const segment = rail.querySelector<HTMLElement>('[data-segment="primary"]');
   const width = segment?.scrollWidth ?? rail.scrollWidth / 2;
@@ -84,22 +63,6 @@ const normalizeScrollLeft = (value: number, segmentWidth: number) => {
   const wrapped = value % segmentWidth;
   return wrapped >= 0 ? wrapped : wrapped + segmentWidth;
 };
-
-const dedupeById = (items: PitchShow[]) => {
-  const seen = new Set<string>();
-  const deduped: PitchShow[] = [];
-
-  for (const item of items) {
-    if (seen.has(item.id)) continue;
-    seen.add(item.id);
-    deduped.push(item);
-  }
-
-  return deduped;
-};
-
-const hasPlayableUpload = (item: PitchShow) =>
-  Boolean(item.video || item.videoHlsUrl || item.videoMp4Url || item.instagramUrl);
 
 const buildInstagramEmbedUrl = (instagramUrl: string | null) => {
   if (!instagramUrl) return null;
@@ -114,32 +77,11 @@ const buildInstagramEmbedUrl = (instagramUrl: string | null) => {
   return `${root}/embed/?autoplay=1&muted=1`;
 };
 
-const mapPitch = (item: ApiPitch, index: number): PitchShow => {
-  const fallbackPoster = `/pitches/pitch-0${(index % 4) + 1}.svg?v=2`;
-  return {
-    id: item.pitch_id ?? `pitch-${index + 1}`,
-    startupId: item.startup_id ?? null,
-    name: item.startup_name ?? "Startup",
-    tagline: item.one_liner ?? item.category ?? "New video",
-    poster: item.poster_url ?? item.founder_photo_url ?? fallbackPoster,
-    video: item.video_mp4_url ?? item.video_url ?? item.video_hls_url ?? null,
-    videoHlsUrl: item.video_hls_url ?? null,
-    videoMp4Url: item.video_mp4_url ?? item.video_url ?? null,
-    instagramUrl: item.instagram_url ?? null,
-    category: item.category ?? null,
-    upvotes: asNumber(item.in_count),
-    downvotes: asNumber(item.out_count),
-    comments: asNumber(item.comment_count),
-    score: asNumber(item.score),
-    isFallback: false,
-  };
-};
-
 export default function RoundtableHomepageVideoRail({
   sessionId,
   participantId,
 }: RoundtableHomepageVideoRailProps) {
-  const [pitches, setPitches] = useState<PitchShow[]>([]);
+  const [pitches, setPitches] = useState<HomepagePitch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pipIndex, setPipIndex] = useState<number | null>(null);
@@ -153,7 +95,7 @@ export default function RoundtableHomepageVideoRail({
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
   const instagramResolveByUrlRef = useRef<Record<string, InstagramResolveState>>({});
   const syncChannelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
-  const pitchesRef = useRef<PitchShow[]>([]);
+  const pitchesRef = useRef<HomepagePitch[]>([]);
   const applyingRemoteStateRef = useRef(false);
   const pendingRemoteStateRef = useRef<{ pitchId: string; timeSec: number; paused: boolean } | null>(null);
   const lastStateBroadcastAtRef = useRef(0);
@@ -213,7 +155,7 @@ export default function RoundtableHomepageVideoRail({
     const load = async () => {
       try {
         const response = await fetch(
-          `/api/pitches?mode=feed&tab=trending&limit=${VIDEO_FETCH_LIMIT}&offset=0&shuffle=false`,
+          buildHomepageFeedUrl(VIDEO_FETCH_LIMIT),
           {
             cache: "no-store",
             signal: controller.signal,
@@ -225,8 +167,7 @@ export default function RoundtableHomepageVideoRail({
         }
 
         const payload = (await response.json()) as FeedResponsePayload;
-        const mapped = (payload.data ?? []).map(mapPitch);
-        const uploaded = dedupeById(mapped.filter(hasPlayableUpload));
+        const uploaded = toPlayableHomepagePitches(payload.data ?? []);
 
         setPitches(uploaded);
         if (!uploaded.length) {
