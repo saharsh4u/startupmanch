@@ -237,7 +237,7 @@ export default function AdColumn({
     <aside className={columnClass}>
       <div className="ad-track">
         {slots.map((slot, index) => renderSlot(slot, index))}
-        {variant === "default" ? slots.map((slot, index) => renderSlot(slot, index, true)) : null}
+        {slots.map((slot, index) => renderSlot(slot, index, true))}
       </div>
     </aside>
   );
