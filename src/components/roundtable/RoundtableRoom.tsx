@@ -1297,98 +1297,116 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
   return (
     <div className="roundtable-shell">
-      <section className="roundtable-hero">
-        <p className="roundtable-kicker">Roundtable room</p>
-        <h1>{snapshot.topic.title}</h1>
-        <p>{snapshot.topic.description ?? "No topic description."}</p>
-      </section>
-
-      <form
-        className="roundtable-controls"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (currentMember) return;
-          void handleJoin();
+      <RoundtableSeatCircle
+        seats={seats}
+        flareToken={wheelFlareToken}
+        eyeTargetSeatNo={silentSeatTarget.seatNo}
+        activeSpeakerSeatNo={activeSpeakerSeatNo}
+        canToggleMyMic={Boolean(currentMember)}
+        isMyMicMuted={isMyMicMuted}
+        onShareSeat={(seatNo) => {
+          void handleShareSeat(seatNo);
         }}
-      >
-        <label>
-          Display name
-          <input
-            value={currentMember?.display_name ?? displayName}
-            onChange={(event) => {
-              if (currentMember) return;
-              setDisplayNameState(event.target.value);
-            }}
-            placeholder="Your name"
-            disabled={Boolean(currentMember)}
-          />
-        </label>
-        <label>
-          Seat
-          <select
-            value={seatChoice}
-            onChange={(event) => {
-              if (currentMember) return;
-              const value = event.target.value;
-              setSeatChoice(value === "auto" ? "auto" : Number(value));
-            }}
-            disabled={Boolean(currentMember)}
-          >
-            <option value="auto">Auto seat</option>
-            {seatOptions.map((seatNo) => (
-              <option key={seatNo} value={seatNo}>
-                Seat {seatNo}
-              </option>
-            ))}
-          </select>
-        </label>
+        onToggleMyMic={() => {
+          if (isMyMicMuted) {
+            void attemptPlayRemoteAudioElements();
+            void enableMic();
+            return;
+          }
+          muteMic();
+        }}
+      />
+      <section className="roundtable-panel roundtable-room-dock" aria-label="Roundtable controls">
         {!currentMember ? (
-          <button
-            type="submit"
-            className="roundtable-cta"
-            disabled={busyAction === "join" || !displayName.trim().length || !canJoinSeat}
-          >
-            {busyAction === "join" ? "Joining..." : "Join seat"}
-          </button>
-        ) : (
           <>
-            <button type="button" className="roundtable-ghost-btn" disabled={busyAction === "leave"} onClick={() => void handleLeave()}>
-              Leave seat
-            </button>
+            <section className="roundtable-match-panel" aria-label="Join any roundtable">
+              <div className="roundtable-match-copy">
+                <span className="roundtable-match-kicker">Fast match</span>
+                <strong>Join Any</strong>
+                <p>We will place you in the best open public roundtable and take the next free seat.</p>
+              </div>
+              <div className="roundtable-match-actions">
+                <button
+                  type="button"
+                  className="roundtable-cta"
+                  onClick={() => void handleJoinAny()}
+                  disabled={busyAction === "join-any" || isViewerSeatedElsewhere}
+                >
+                  {busyAction === "join-any" ? "Matching..." : "Join Any"}
+                </button>
+                {joinAnyError ? <p className="roundtable-error roundtable-match-error">{joinAnyError}</p> : null}
+                {!joinAnyError && isViewerSeatedElsewhere ? (
+                  <p className="roundtable-muted roundtable-match-hint">
+                    Leave your current roundtable seat before using Join Any.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <form
+              className="roundtable-controls"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleJoin();
+              }}
+            >
+              <label>
+                Display name
+                <input
+                  value={displayName}
+                  onChange={(event) => {
+                    setDisplayNameState(event.target.value);
+                  }}
+                  placeholder="Your name"
+                />
+              </label>
+              <label>
+                Seat
+                <select
+                  value={seatChoice}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSeatChoice(value === "auto" ? "auto" : Number(value));
+                  }}
+                >
+                  <option value="auto">Auto seat</option>
+                  {seatOptions.map((seatNo) => (
+                    <option key={seatNo} value={seatNo}>
+                      Seat {seatNo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="submit"
+                className="roundtable-cta"
+                disabled={busyAction === "join" || !displayName.trim().length || !canJoinSeat}
+              >
+                {busyAction === "join" ? "Joining..." : "Join seat"}
+              </button>
+              {canManageMembers ? (
+                <button
+                  type="button"
+                  className="roundtable-ghost-btn"
+                  disabled={busyAction === "reset-seats"}
+                  onClick={() => void handleResetSeats()}
+                >
+                  {busyAction === "reset-seats" ? "Clearing..." : "Clear all seats"}
+                </button>
+              ) : null}
+            </form>
+            {inviteNotice ? <p className="roundtable-muted roundtable-invite-note">{inviteNotice}</p> : null}
+            {!currentMember && isRoomFull ? (
+              <p className="roundtable-error">
+                Room is full. Only {maxSeats} people can join this roundtable.
+              </p>
+            ) : null}
           </>
-        )}
-        {canManageMembers ? (
-          <button
-            type="button"
-            className="roundtable-ghost-btn"
-            disabled={busyAction === "reset-seats"}
-            onClick={() => void handleResetSeats()}
-          >
-            {busyAction === "reset-seats" ? "Clearing..." : "Clear all seats"}
-          </button>
-        ) : null}
-      </form>
-      {currentMember ? (
-        <p className="roundtable-muted">
-          Joined as <strong>{currentMember.display_name}</strong> on seat {currentMember.seat_no}. Leave seat to rejoin with a different name.
-        </p>
-      ) : null}
-      {inviteNotice ? <p className="roundtable-muted roundtable-invite-note">{inviteNotice}</p> : null}
-
-      {!currentMember && isRoomFull ? (
-        <p className="roundtable-error">
-          Room is full. Only {maxSeats} people can join this roundtable.
-        </p>
-      ) : null}
-
-      {actionError ? <p className="roundtable-error">{actionError}</p> : null}
-      {micError ? <p className="roundtable-error">{micError}</p> : null}
-
-      <section className="roundtable-panel roundtable-live-compose" aria-label="Live voice controls">
-        <h4>Live voice</h4>
-        {currentMember ? (
-          <>
-            <p className="roundtable-muted">Anyone seated can speak anytime.</p>
+        ) : (
+          <div className="roundtable-room-dock-stack">
+            <p className="roundtable-muted roundtable-room-status">
+              Joined as <strong>{currentMember.display_name}</strong> on seat {currentMember.seat_no}.
+            </p>
             <div className="roundtable-voice-controls">
               <button
                 type="button"
@@ -1415,63 +1433,36 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
                   Enable speaker audio
                 </button>
               ) : null}
+              <button
+                type="button"
+                className="roundtable-ghost-btn"
+                disabled={busyAction === "leave"}
+                onClick={() => void handleLeave()}
+              >
+                Leave seat
+              </button>
+              {canManageMembers ? (
+                <button
+                  type="button"
+                  className="roundtable-ghost-btn"
+                  disabled={busyAction === "reset-seats"}
+                  onClick={() => void handleResetSeats()}
+                >
+                  {busyAction === "reset-seats" ? "Clearing..." : "Clear all seats"}
+                </button>
+              ) : null}
             </div>
             {needsRemoteAudioUnlock && Object.keys(remoteAudioStreams).length ? (
               <p className="roundtable-muted">
                 Browser blocked speaker playback. Tap Enable speaker audio once to hear others.
               </p>
             ) : null}
-          </>
-        ) : (
-          <p className="roundtable-muted">Join a seat to unlock mic controls.</p>
+          </div>
         )}
+
+        {actionError ? <p className="roundtable-error">{actionError}</p> : null}
+        {micError ? <p className="roundtable-error">{micError}</p> : null}
       </section>
-
-      {!currentMember ? (
-        <section className="roundtable-panel roundtable-match-panel" aria-label="Join any roundtable">
-          <div className="roundtable-match-copy">
-            <span className="roundtable-match-kicker">Fast match</span>
-            <strong>Join Any</strong>
-            <p>We will place you in the best open public roundtable and take the next free seat.</p>
-          </div>
-          <div className="roundtable-match-actions">
-            <button
-              type="button"
-              className="roundtable-cta"
-              onClick={() => void handleJoinAny()}
-              disabled={busyAction === "join-any" || isViewerSeatedElsewhere}
-            >
-              {busyAction === "join-any" ? "Matching..." : "Join Any"}
-            </button>
-            {joinAnyError ? <p className="roundtable-error roundtable-match-error">{joinAnyError}</p> : null}
-            {!joinAnyError && isViewerSeatedElsewhere ? (
-              <p className="roundtable-muted roundtable-match-hint">
-                Leave your current roundtable seat before using Join Any.
-              </p>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      <RoundtableSeatCircle
-        seats={seats}
-        flareToken={wheelFlareToken}
-        eyeTargetSeatNo={silentSeatTarget.seatNo}
-        activeSpeakerSeatNo={activeSpeakerSeatNo}
-        canToggleMyMic={Boolean(currentMember)}
-        isMyMicMuted={isMyMicMuted}
-        onShareSeat={(seatNo) => {
-          void handleShareSeat(seatNo);
-        }}
-        onToggleMyMic={() => {
-          if (isMyMicMuted) {
-            void attemptPlayRemoteAudioElements();
-            void enableMic();
-            return;
-          }
-          muteMic();
-        }}
-      />
       <div
         style={{
           position: "fixed",

@@ -9454,6 +9454,23 @@ body {
   border-color: #7a5a24;
 }
 
+.roundtable-room-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.roundtable-room-dock-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roundtable-room-status {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
 .roundtable-invite-note {
   max-width: 760px;
   margin-inline: auto;
@@ -10030,6 +10047,10 @@ body {
     align-items: stretch;
   }
 
+  .roundtable-room-dock {
+    gap: 10px;
+  }
+
   .roundtable-roulette-hub {
     inset: 8%;
   }
@@ -10153,6 +10174,10 @@ body {
   .roundtable-match-panel,
   .roundtable-match-actions {
     align-items: stretch;
+  }
+
+  .roundtable-room-dock {
+    padding: 12px;
   }
 
   .roundtable-match-actions .roundtable-cta {
