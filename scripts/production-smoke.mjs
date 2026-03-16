@@ -35,10 +35,19 @@ const runScenario = async ({ name, viewport, isMobile = false }) => {
   const page = await context.newPage();
 
   const feedResponses = [];
-  const detailResponses = [];
+  const lobbyResponses = [];
 
   page.on("response", async (response) => {
     const url = response.url();
+    if (url.includes("/api/roundtable/lobby")) {
+      lobbyResponses.push({
+        status: response.status(),
+        ok: response.ok(),
+        url,
+      });
+      return;
+    }
+
     if (!url.includes("/api/pitches")) return;
 
     const bodyLength = async () => {
@@ -49,15 +58,6 @@ const runScenario = async ({ name, viewport, isMobile = false }) => {
         return null;
       }
     };
-
-    if (url.includes("/detail")) {
-      detailResponses.push({
-        status: response.status(),
-        url,
-      });
-      return;
-    }
-
     if (!url.includes("/api/pitches?")) {
       return;
     }
@@ -82,9 +82,9 @@ const runScenario = async ({ name, viewport, isMobile = false }) => {
 
   try {
     await page.goto(MARKETPLACE_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
-    await page.getByText("Today's top 4").waitFor({ timeout: 20_000 });
-    await page.locator(".pitch-top-grid .pitch-show-card").first().waitFor({ timeout: 20_000 });
-    pushCheck("homepage-load", true, "Homepage and hot section rendered.");
+    await page.locator(".stream-home-hero").waitFor({ timeout: 20_000 });
+    await page.getByText("StartupManch TV").first().waitFor({ timeout: 20_000 });
+    pushCheck("homepage-load", true, "Streaming homepage hero rendered.");
 
     const initialFeedReady = await waitFor(
       () => Promise.resolve(feedResponses.some((res) => res.mode === "feed" && res.offset === 0)),
@@ -101,88 +101,29 @@ const runScenario = async ({ name, viewport, isMobile = false }) => {
       );
     }
 
-    const cardsBefore = await page.locator(".pitch-show-card").count();
-    await page.evaluate(() => {
-      const sentinel = document.querySelector(".pitch-feed-sentinel");
-      if (sentinel) {
-        sentinel.scrollIntoView({ block: "center" });
-      } else {
-        window.scrollTo(0, document.body.scrollHeight);
-      }
-    });
-
-    await waitFor(
-      async () => {
-        const nextPageSeen = feedResponses.some((res) => res.mode === "feed" && res.offset >= 20);
-        const status = (await page.locator(".pitch-feed-status").textContent()) || "";
-        return nextPageSeen || status.includes("No more pitches");
-      },
-      15_000
-    );
-
-    const cardsAfter = await page.locator(".pitch-show-card").count();
-    const nextFeed = feedResponses.find((res) => res.mode === "feed" && res.offset >= 20);
-    const statusText = ((await page.locator(".pitch-feed-status").textContent()) || "").trim();
-
-    const dataExhausted = Boolean(
-      initialFeed &&
-        initialFeed.ok &&
-        typeof initialFeed.dataLength === "number" &&
-        initialFeed.dataLength < 20 &&
-        statusText.includes("No more pitches")
-    );
-    const paged = Boolean(
-      nextFeed &&
-        nextFeed.ok &&
-        typeof nextFeed.dataLength === "number" &&
-        nextFeed.dataLength > 0 &&
-        cardsAfter > cardsBefore
-    );
+    await page.locator(".stream-home-roundtable .roundtable-seat-circle").waitFor({ timeout: 20_000 });
     pushCheck(
-      "infinite-scroll",
-      paged || dataExhausted,
-      paged
-        ? `Next page loaded at offset=${nextFeed.offset}, cards ${cardsBefore}->${cardsAfter}.`
-        : dataExhausted
-          ? `Initial dataset exhausted at ${initialFeed.dataLength}; end-of-list visible.`
-          : `No confirmed growth. cards ${cardsBefore}->${cardsAfter}, status="${statusText}".`
+      "roundtable-preview",
+      true,
+      "Roundtable preview rendered."
     );
 
-    await page.locator(".pitch-top-grid .pitch-show-card").first().click({ timeout: 15_000 });
-    await page.locator(".expand-shell").waitFor({ state: "visible", timeout: 15_000 });
-    pushCheck("overlay-open", true, "Expanded overlay opened from first hot pitch.");
-
-    const videoVisible = await page
-      .locator(".expand-video video.expand-media")
-      .first()
-      .isVisible()
-      .catch(() => false);
-    const fallbackVisible = await page
-      .locator(".expand-media-fallback-label")
-      .first()
-      .isVisible()
-      .catch(() => false);
+    const railReady = await waitFor(
+      async () => (await page.locator(".stream-home-marquee .stream-home-rail-card").count()) > 0,
+      20_000
+    );
+    const railCardCount = await page.locator(".stream-home-marquee .stream-home-rail-card").count();
     pushCheck(
-      "overlay-media",
-      videoVisible || fallbackVisible,
-      videoVisible ? "Video visible." : fallbackVisible ? "Fallback media visible." : "No media node visible."
+      "video-rails",
+      railReady,
+      railReady ? `Looping rail rendered with ${railCardCount} cards.` : "Looping rail did not render."
     );
 
-    await page.waitForTimeout(1_500);
-    const detailsUnavailableVisible = await page
-      .locator(".trust-note.error")
-      .first()
-      .isVisible()
-      .catch(() => false);
-    const detail404 = detailResponses.some((res) => res.status === 404);
+    const lobbyResponse = lobbyResponses.at(-1);
     pushCheck(
-      "overlay-detail-state",
-      !detailsUnavailableVisible && !detail404,
-      detail404
-        ? `Detail endpoint returned 404 (${detailResponses.map((res) => res.url).join(", ")}).`
-        : detailsUnavailableVisible
-          ? 'Overlay displayed "Details unavailable."'
-          : "No detail error state visible."
+      "lobby-preview-fetch",
+      !lobbyResponse || lobbyResponse.ok,
+      lobbyResponse ? `Lobby status=${lobbyResponse.status}.` : "No lobby response observed; fallback preview may be in use."
     );
   } catch (error) {
     pushCheck("scenario-runtime", false, error instanceof Error ? error.message : String(error));
@@ -196,7 +137,7 @@ const runScenario = async ({ name, viewport, isMobile = false }) => {
     checks,
     diagnostics: {
       feedResponses,
-      detailResponses,
+      lobbyResponses,
     },
   };
 };

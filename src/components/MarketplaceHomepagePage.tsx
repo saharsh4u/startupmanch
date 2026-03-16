@@ -1,31 +1,26 @@
 import type { Metadata } from "next";
-import AdRailsScaffold from "@/components/AdRailsScaffold";
-import HomeCenterPanel from "@/components/HomeCenterPanel";
+import HomeStreamingPage from "@/components/home/HomeStreamingPage";
 
 export const marketplaceHomepageMetadata: Metadata = {
-  title: "StartupManch – India’s Startup Marketplace for Founders & Investors",
-  description: "India-first startup marketplace for founders and investors.",
+  title: "StartupManch TV | Founder Videos & Live Roundtables",
+  description: "Looping founder videos, featured stories, and a live roundtable preview in one streaming homepage.",
   alternates: {
     canonical: "/roundtable",
   },
   openGraph: {
-    title: "StartupManch – India’s Startup Marketplace for Founders & Investors",
-    description: "India-first startup marketplace for founders and investors.",
+    title: "StartupManch TV | Founder Videos & Live Roundtables",
+    description: "Looping founder videos, featured stories, and a live roundtable preview in one streaming homepage.",
     url: "/roundtable",
     siteName: "StartupManch",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "StartupManch – India’s Startup Marketplace for Founders & Investors",
-    description: "India-first startup marketplace for founders and investors.",
+    title: "StartupManch TV | Founder Videos & Live Roundtables",
+    description: "Looping founder videos, featured stories, and a live roundtable preview in one streaming homepage.",
   },
 };
 
 export default function MarketplaceHomepagePage() {
-  return (
-    <AdRailsScaffold mainClassName="page page-home">
-      <HomeCenterPanel />
-    </AdRailsScaffold>
-  );
+  return <HomeStreamingPage />;
 }
