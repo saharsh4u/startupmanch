@@ -1,6 +1,7 @@
 import { chromium } from "playwright";
 
 const BASE_URL = process.env.SMOKE_BASE_URL || process.argv[2] || "https://startupmanch.com";
+const MARKETPLACE_URL = new URL("/roundtable", BASE_URL).toString();
 
 const parseFeedMeta = (rawUrl) => {
   try {
@@ -80,7 +81,7 @@ const runScenario = async ({ name, viewport, isMobile = false }) => {
   };
 
   try {
-    await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await page.goto(MARKETPLACE_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
     await page.getByText("Today's top 4").waitFor({ timeout: 20_000 });
     await page.locator(".pitch-top-grid .pitch-show-card").first().waitFor({ timeout: 20_000 });
     pushCheck("homepage-load", true, "Homepage and hot section rendered.");

@@ -139,6 +139,29 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
   };
 };
 
+export const getHomepageSessionId = async (): Promise<string | null> => {
+  const { data, error } = await supabaseAdmin
+    .from("roundtable_sessions")
+    .select("id, status, created_at")
+    .in("status", ["lobby", "live"])
+    .order("created_at", { ascending: false })
+    .limit(24);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const sessions = (data ?? []) as Array<Pick<RoundtableSessionRow, "id" | "status" | "created_at">>;
+  const featuredSession = [...sessions].sort((left, right) => {
+    const leftRank = left.status === "live" ? 0 : 1;
+    const rightRank = right.status === "live" ? 0 : 1;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+  })[0];
+
+  return featuredSession?.id ?? null;
+};
+
 export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableSessionSnapshot | null> => {
   const { data: sessionData, error: sessionError } = await supabaseAdmin
     .from("roundtable_sessions")

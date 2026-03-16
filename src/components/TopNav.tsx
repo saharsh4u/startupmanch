@@ -13,6 +13,8 @@ type TopNavProps = {
 };
 
 const homeAnchors = [{ id: "leaderboard-block", label: "Leaderboard" }] as const;
+const ROUNDTABLE_HOME_HREF = "/";
+const MARKETPLACE_HREF = "/roundtable";
 
 export default function TopNav({
   context = "home",
@@ -32,7 +34,7 @@ export default function TopNav({
       const didScroll = scrollToAnchorId("leaderboard-block", { behavior, updateHash: true });
       if (didScroll) return;
     }
-    window.location.assign("/#leaderboard-block");
+    window.location.assign(`${MARKETPLACE_HREF}#leaderboard-block`);
   };
 
   const handleAboutClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -45,8 +47,8 @@ export default function TopNav({
   const handleRoundtableClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (shouldUseBrowserDefault(event)) return;
     event.preventDefault();
-    if (pathname === "/roundtable") return;
-    window.location.assign("/roundtable");
+    if (pathname === ROUNDTABLE_HOME_HREF) return;
+    window.location.assign(ROUNDTABLE_HOME_HREF);
   };
 
   return (
@@ -60,7 +62,7 @@ export default function TopNav({
           {homeAnchors.map((item) => (
             <Link
               key={item.id}
-              href={context === "home" ? "#leaderboard-block" : "/#leaderboard-block"}
+              href={context === "home" ? "#leaderboard-block" : `${MARKETPLACE_HREF}#leaderboard-block`}
               onClick={handleLeaderboardClick}
             >
               {item.label}
@@ -69,7 +71,7 @@ export default function TopNav({
           <Link href="/about" onClick={handleAboutClick}>
             About
           </Link>
-          <Link href="/roundtable" onClick={handleRoundtableClick}>
+          <Link href={ROUNDTABLE_HOME_HREF} onClick={handleRoundtableClick}>
             Roundtable
           </Link>
         </div>

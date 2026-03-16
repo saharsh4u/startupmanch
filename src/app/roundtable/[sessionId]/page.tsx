@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import AdRailsScaffold from "@/components/AdRailsScaffold";
-import RoundtableRoom from "@/components/roundtable/RoundtableRoom";
-import TopNav from "@/components/TopNav";
+import RoundtableRoomPageShell from "@/components/roundtable/RoundtableRoomPageShell";
 
 type RoundtableSessionPageProps = {
   params: {
@@ -15,14 +13,5 @@ export const metadata: Metadata = {
 };
 
 export default function RoundtableSessionPage({ params }: RoundtableSessionPageProps) {
-  return (
-    <AdRailsScaffold mainClassName="page roundtable-page inner-rails-page">
-      <div className="roundtable-page-shell">
-        <TopNav context="inner" showPostPitch />
-        <div className="anchor-block">
-          <RoundtableRoom sessionId={params.sessionId} />
-        </div>
-      </div>
-    </AdRailsScaffold>
-  );
+  return <RoundtableRoomPageShell sessionId={params.sessionId} />;
 }
