@@ -392,7 +392,7 @@ export default function PitchShowCard({
             </div>
           </div>
         ) : null}
-        {variant === "hot" ? <div className="pitch-show-playghost">▶</div> : <div className="pitch-show-footer">Video Preview</div>}
+        {variant === "hot" ? <div className="pitch-show-playghost">▶</div> : null}
       </div>
       <ContactModal ref={dialogRef} pitch={pitch} />
     </article>

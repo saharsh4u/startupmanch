@@ -121,11 +121,6 @@ export default function PitchArenaCard({
           <h4>{pitch.name}</h4>
           <p>{pitch.tagline}</p>
         </div>
-        {variant === "mini" ? (
-          <div className="arena-mini-meta">Preview</div>
-        ) : (
-          <div className="arena-meta">Video Preview</div>
-        )}
       </div>
     </div>
   );

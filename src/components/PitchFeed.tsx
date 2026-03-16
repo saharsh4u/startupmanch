@@ -417,7 +417,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
   const [isDocumentHidden, setIsDocumentHidden] = useState(false);
   const [moreSectionInView, setMoreSectionInView] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [isCommunityFilterOpen, setIsCommunityFilterOpen] = useState(false);
   const [isCommunityRailInteracting, setIsCommunityRailInteracting] = useState(false);
   const communityRailRefs = useRef<Array<HTMLDivElement | null>>([]);
   const communityRailResumeTimerRef = useRef<number | null>(null);
@@ -2140,21 +2139,6 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
               <div className="community-cinema-copy">
                 <h3>Discover Startups Being Built in Public</h3>
               </div>
-              <button
-                type="button"
-                className={`community-filter-toggle${isCommunityFilterOpen ? " is-open" : ""}`}
-                aria-expanded={isCommunityFilterOpen}
-                aria-controls="community-filter-drawer"
-                onClick={() => setIsCommunityFilterOpen((current) => !current)}
-              >
-                Filters
-              </button>
-            </div>
-
-            <div
-              id="community-filter-drawer"
-              className={`community-filter-drawer${isCommunityFilterOpen ? " is-open" : ""}`}
-            >
               <label className="community-search" aria-label="Search videos">
                 <span>⌕</span>
                 <input
@@ -2163,10 +2147,11 @@ export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void })
                   placeholder="Search startups, tags, or category"
                 />
               </label>
-              {SLOT_UPGRADE_ENABLED ? (
-                <p className="community-filter-note">Feed order refreshes every 3 min.</p>
-              ) : null}
             </div>
+
+            {SLOT_UPGRADE_ENABLED ? (
+              <p className="community-filter-note">Feed order refreshes every 3 min.</p>
+            ) : null}
 
             {communityRails.length ? (
               <div className="community-rails">

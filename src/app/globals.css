@@ -10069,19 +10069,19 @@ body {
 
 .page-home .community-cinema-header {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  align-items: center;
   gap: 12px;
 }
 
 .page-home .community-cinema-copy {
   display: grid;
   gap: 5px;
-  grid-column: 2;
-  justify-items: center;
-  text-align: center;
-  margin: 0 auto;
-  max-width: min(100%, 64ch);
+  grid-column: 1;
+  justify-items: start;
+  text-align: left;
+  margin: 0;
+  max-width: min(100%, 52ch);
 }
 
 .page-home .community-cinema-kicker {
@@ -10147,6 +10147,8 @@ body {
   align-items: center;
   gap: 9px;
   width: 100%;
+  grid-column: 2;
+  justify-self: end;
   border: 1px solid #393c45;
   border-radius: 999px;
   background: #15161c;
@@ -10497,17 +10499,13 @@ body {
 
   .page-home .community-cinema-copy {
     grid-column: 1;
-    justify-items: center;
-    text-align: center;
+    justify-items: start;
+    text-align: left;
   }
 
-  .page-home .community-filter-toggle {
+  .page-home .community-search {
     grid-column: 1;
-    justify-self: center;
-  }
-
-  .page-home .community-filter-drawer {
-    grid-template-columns: 1fr;
+    justify-self: stretch;
   }
 
   .page-home .community-filter-chip-row {
