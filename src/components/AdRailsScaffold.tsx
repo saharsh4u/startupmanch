@@ -19,7 +19,6 @@ type AdRailsScaffoldProps = {
   children: ReactNode;
   mainClassName?: string;
   centerClassName?: string;
-  adVariant?: "default" | "compact";
 };
 
 const FLIP_ACTIVE_MS = 1050;
@@ -74,7 +73,6 @@ export default function AdRailsScaffold({
   children,
   mainClassName = "page page-home inner-rails-page",
   centerClassName = "center-panel",
-  adVariant = "default",
 }: AdRailsScaffoldProps) {
   const [leftSlots, setLeftSlots] = useState<AdSlot[]>(leftAdSlots);
   const [rightSlots, setRightSlots] = useState<AdSlot[]>(rightAdSlots);
@@ -112,10 +110,6 @@ export default function AdRailsScaffold({
   }, []);
 
   useEffect(() => {
-    if (adVariant === "compact") {
-      setActiveFlipPair(null);
-      return;
-    }
     if (typeof window === "undefined") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setActiveFlipPair(null);
@@ -167,7 +161,7 @@ export default function AdRailsScaffold({
       if (resetTimer) clearTimeout(resetTimer);
       setActiveFlipPair(null);
     };
-  }, [adVariant, leftFlippableIndexes, rightFlippableIndexes]);
+  }, [leftFlippableIndexes, rightFlippableIndexes]);
 
   return (
     <main className={mainClassName}>
@@ -175,14 +169,12 @@ export default function AdRailsScaffold({
         <AdColumn
           slots={leftSlots}
           side="left"
-          variant={adVariant}
           activeFlipIndexes={activeFlipPair ? [activeFlipPair.left] : []}
         />
         <div className={centerClassName}>{children}</div>
         <AdColumn
           slots={rightSlots}
           side="right"
-          variant={adVariant}
           activeFlipIndexes={activeFlipPair ? [activeFlipPair.right] : []}
         />
       </div>

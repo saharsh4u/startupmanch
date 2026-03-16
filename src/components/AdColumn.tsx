@@ -13,14 +13,6 @@ const placeholderTonePalette = [
   "#1d3b53",
 ] as const;
 
-const compactPlaceholderTonePalette = [
-  "#111111",
-  "#18181a",
-  "#232323",
-  "#21255c",
-  "#371866",
-] as const;
-
 const faceClickHref = (item: AdItem, side: "left" | "right" | undefined, face: "front" | "back") => {
   if (isCampaignItem(item) && item.campaignId) {
     const params = new URLSearchParams({
@@ -38,14 +30,7 @@ const faceClickHref = (item: AdItem, side: "left" | "right" | undefined, face: "
   return null;
 };
 
-const placeholderCopy = (isBack: boolean, variant: "default" | "compact") => {
-  if (variant === "compact") {
-    return {
-      badge: "SM",
-      name: "Sponsor slot",
-      tagline: "Advertise here",
-    };
-  }
+const placeholderCopy = (isBack: boolean) => {
   if (isBack) {
     return {
       badge: "AD",
@@ -69,12 +54,10 @@ type AdFaceCopyOverride = {
 const AdFaceContent = ({
   item,
   isBack = false,
-  variant = "default",
   copyOverride,
 }: {
   item: AdItem;
   isBack?: boolean;
-  variant?: "default" | "compact";
   copyOverride?: AdFaceCopyOverride;
 }) => {
   const campaign = isCampaignItem(item);
@@ -82,7 +65,7 @@ const AdFaceContent = ({
     copyOverride ??
     (campaign
       ? { badge: item.badge ?? "AD", name: item.name, tagline: item.tagline }
-      : placeholderCopy(isBack, variant ?? "default"));
+      : placeholderCopy(isBack));
 
   return (
     <>
@@ -104,7 +87,6 @@ const AdFace = ({
   placeholderTone,
   copyOverride,
   extraClassName,
-  variant = "default",
 }: {
   item: AdItem;
   isBack?: boolean;
@@ -114,7 +96,6 @@ const AdFace = ({
   placeholderTone?: string;
   copyOverride?: AdFaceCopyOverride;
   extraClassName?: string;
-  variant?: "default" | "compact";
 }) => {
   const campaign = isCampaignItem(item);
   const className = `ad-face${isBack ? " back" : ""}${campaign ? "" : " advertise"}${
@@ -141,7 +122,7 @@ const AdFace = ({
         aria-label="Advertise on StartupManch"
         tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
-        <AdFaceContent item={item} isBack={isBack} variant={variant} copyOverride={copyOverride} />
+        <AdFaceContent item={item} isBack={isBack} copyOverride={copyOverride} />
       </button>
     );
   }
@@ -160,14 +141,14 @@ const AdFace = ({
         aria-label={`Visit ${item.name}`}
         tabIndex={suppressKeyboardFocus ? -1 : undefined}
       >
-        <AdFaceContent item={item} isBack={isBack} variant={variant} copyOverride={copyOverride} />
+        <AdFaceContent item={item} isBack={isBack} copyOverride={copyOverride} />
       </a>
     );
   }
 
   return (
     <div className={`${className} ad-face-static`} style={style}>
-      <AdFaceContent item={item} isBack={isBack} variant={variant} copyOverride={copyOverride} />
+      <AdFaceContent item={item} isBack={isBack} copyOverride={copyOverride} />
     </div>
   );
 };
@@ -176,15 +157,13 @@ export default function AdColumn({
   slots,
   side,
   activeFlipIndexes = [],
-  variant = "default",
 }: {
   slots: AdSlot[];
   side?: "left" | "right";
   activeFlipIndexes?: number[];
-  variant?: "default" | "compact";
 }) {
   const activeFlipSet = useMemo(() => new Set(activeFlipIndexes), [activeFlipIndexes]);
-  const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}${variant === "compact" ? " is-compact" : ""}`;
+  const columnClass = `ad-column ad-rail${side ? ` ad-${side}` : ""}`;
 
   const handleAdvertiseClick = () => {
     if (typeof window === "undefined") return;
@@ -194,10 +173,10 @@ export default function AdColumn({
   };
 
   const renderSlot = (slot: AdSlot, index: number, isClone = false) => {
-    const isFlipped = variant === "default" && activeFlipSet.has(index);
+    const isFlipped = activeFlipSet.has(index);
     const toneOffset = side === "right" ? 2 : 0;
-    const tonePalette = variant === "compact" ? compactPlaceholderTonePalette : placeholderTonePalette;
-    const placeholderTone = tonePalette[(index + toneOffset) % tonePalette.length];
+    const placeholderTone =
+      placeholderTonePalette[(index + toneOffset) % placeholderTonePalette.length];
     const isPlaceholderSlot = !isCampaignItem(slot.front) && !isCampaignItem(slot.back);
 
     return (
@@ -212,22 +191,18 @@ export default function AdColumn({
           <AdFace
             item={slot.front}
             side={side}
-            variant={variant}
             suppressKeyboardFocus={isClone}
             onAdvertiseClick={handleAdvertiseClick}
             placeholderTone={placeholderTone}
           />
-          {variant === "default" ? (
-            <AdFace
-              item={slot.back}
-              isBack
-              side={side}
-              variant={variant}
-              suppressKeyboardFocus={isClone}
-              onAdvertiseClick={handleAdvertiseClick}
-              placeholderTone={placeholderTone}
-            />
-          ) : null}
+          <AdFace
+            item={slot.back}
+            isBack
+            side={side}
+            suppressKeyboardFocus={isClone}
+            onAdvertiseClick={handleAdvertiseClick}
+            placeholderTone={placeholderTone}
+          />
         </div>
       </div>
     );
@@ -237,7 +212,7 @@ export default function AdColumn({
     <aside className={columnClass}>
       <div className="ad-track">
         {slots.map((slot, index) => renderSlot(slot, index))}
-        {variant === "default" ? slots.map((slot, index) => renderSlot(slot, index, true)) : null}
+        {slots.map((slot, index) => renderSlot(slot, index, true))}
       </div>
     </aside>
   );

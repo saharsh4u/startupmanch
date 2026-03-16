@@ -357,19 +357,7 @@ const relativeTime = (iso: string | null | undefined) => {
   return `${days}d ago`;
 };
 
-type PitchFeedProps = {
-  onPostPitch?: () => void;
-  variant?: "default" | "home-compact";
-  searchTerm?: string;
-  onSearchTermChange?: (value: string) => void;
-};
-
-export default function PitchFeed({
-  onPostPitch,
-  variant = "default",
-  searchTerm: controlledSearchTerm,
-  onSearchTermChange,
-}: PitchFeedProps) {
+export default function PitchFeed({ onPostPitch }: { onPostPitch?: () => void }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const moreSectionRef = useRef<HTMLDivElement | null>(null);
   const initialAbortRef = useRef<AbortController | null>(null);
@@ -415,7 +403,7 @@ export default function PitchFeed({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
-  const [internalSearchTerm, setInternalSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [slotShuffleSeed, setSlotShuffleSeed] = useState(
     () => Math.floor(Math.random() * 1_000_000_000)
   );
@@ -438,22 +426,9 @@ export default function PitchFeed({
   const communityRailCarryRef = useRef<number[]>([]);
   const liveApprovalCursorRef = useRef<string | null>(null);
   const liveApprovalPollBusyRef = useRef(false);
-  const isHomeCompact = variant === "home-compact";
-  const isSearchControlled = typeof controlledSearchTerm === "string";
-  const effectiveSearchTerm = isSearchControlled ? controlledSearchTerm ?? "" : internalSearchTerm;
   const cacheKey = useMemo(
     () => `${FEED_CACHE_KEY_PREFIX}:${normalizeCategory(selectedCategory) || "__all__"}`,
     [selectedCategory]
-  );
-  const updateSearchTerm = useCallback(
-    (value: string) => {
-      if (isSearchControlled) {
-        onSearchTermChange?.(value);
-        return;
-      }
-      setInternalSearchTerm(value);
-    },
-    [isSearchControlled, onSearchTermChange]
   );
 
   const fallback = useMemo<FeedPitch[]>(
@@ -463,11 +438,11 @@ export default function PitchFeed({
         startupId: null,
         name: pitch.name,
         tagline: pitch.tagline,
-        poster: pitch.poster,
-        video: null,
-        videoHlsUrl: null,
-        videoMp4Url: null,
-        isFallback: true,
+      poster: pitch.poster,
+      video: null,
+      videoHlsUrl: null,
+      videoMp4Url: null,
+      isFallback: true,
         category: pitch.category ?? null,
         upvotes: 0,
         downvotes: 0,
@@ -477,8 +452,8 @@ export default function PitchFeed({
         approvedAt: null,
         founderPhotoUrl: null,
         founderName: null,
-        founderStory: null,
-        instagramUrl: null,
+      founderStory: null,
+      instagramUrl: null,
       })),
     []
   );
@@ -1074,7 +1049,7 @@ export default function PitchFeed({
   const [hotGlowBackgroundA, setHotGlowBackgroundA] = useState(() => makeHotGlowBackground("200,20,20"));
   const [hotGlowBackgroundB, setHotGlowBackgroundB] = useState(() => makeHotGlowBackground("200,20,20"));
 
-  const normalizedSearch = effectiveSearchTerm.trim().toLowerCase();
+  const normalizedSearch = searchTerm.trim().toLowerCase();
 
   const approvedVisible = useMemo(() => {
     const base = approvedMorePitches.filter((pitch) => {
@@ -2010,12 +1985,7 @@ export default function PitchFeed({
   const overlayOpen = expandedIndex !== null && expandedIndex >= 0 && expandedIndex < overlayPitches.length;
 
   return (
-    <section
-      className={`pitch-section${showHotPitches ? "" : " is-more-only"}${
-        isHomeCompact ? " is-home-compact" : ""
-      }`}
-      ref={sectionRef}
-    >
+    <section className={`pitch-section${showHotPitches ? "" : " is-more-only"}`} ref={sectionRef}>
       {!hasVisiblePitches && !loadingInitial ? (
         <div className="pitch-empty">
           <p className="pitch-subtext">
@@ -2168,48 +2138,35 @@ export default function PitchFeed({
           >
             <div className="community-cinema-header">
               <div className="community-cinema-copy">
-                {isHomeCompact ? <p className="community-cinema-kicker">Recently posted</p> : null}
-                <h3>{isHomeCompact ? "Founder videos moving now" : "Discover Startups Being Built in Public"}</h3>
+                <h3>Discover Startups Being Built in Public</h3>
               </div>
-              {isHomeCompact ? (
-                <button
-                  type="button"
-                  className="community-view-all"
-                  onClick={() => updateSearchTerm("")}
-                >
-                  View all
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className={`community-filter-toggle${isCommunityFilterOpen ? " is-open" : ""}`}
-                  aria-expanded={isCommunityFilterOpen}
-                  aria-controls="community-filter-drawer"
-                  onClick={() => setIsCommunityFilterOpen((current) => !current)}
-                >
-                  Filters
-                </button>
-              )}
+              <button
+                type="button"
+                className={`community-filter-toggle${isCommunityFilterOpen ? " is-open" : ""}`}
+                aria-expanded={isCommunityFilterOpen}
+                aria-controls="community-filter-drawer"
+                onClick={() => setIsCommunityFilterOpen((current) => !current)}
+              >
+                Filters
+              </button>
             </div>
 
-            {!isHomeCompact ? (
-              <div
-                id="community-filter-drawer"
-                className={`community-filter-drawer${isCommunityFilterOpen ? " is-open" : ""}`}
-              >
-                <label className="community-search" aria-label="Search videos">
-                  <span>⌕</span>
-                  <input
-                    value={effectiveSearchTerm}
-                    onChange={(event) => updateSearchTerm(event.target.value)}
-                    placeholder="Search startups, tags, or category"
-                  />
-                </label>
-                {SLOT_UPGRADE_ENABLED ? (
-                  <p className="community-filter-note">Feed order refreshes every 3 min.</p>
-                ) : null}
-              </div>
-            ) : null}
+            <div
+              id="community-filter-drawer"
+              className={`community-filter-drawer${isCommunityFilterOpen ? " is-open" : ""}`}
+            >
+              <label className="community-search" aria-label="Search videos">
+                <span>⌕</span>
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search startups, tags, or category"
+                />
+              </label>
+              {SLOT_UPGRADE_ENABLED ? (
+                <p className="community-filter-note">Feed order refreshes every 3 min.</p>
+              ) : null}
+            </div>
 
             {communityRails.length ? (
               <div className="community-rails">

@@ -32,7 +32,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
-      <AdRailsScaffold mainClassName="page page-home" adVariant="compact">
+      <AdRailsScaffold mainClassName="page page-home">
         <HomeCenterPanel />
       </AdRailsScaffold>
     </>
