@@ -95,7 +95,7 @@ export const toPlayableHomepagePitches = (items: ApiPitch[]) =>
   dedupeHomepagePitches(items.map(mapHomepagePitch).filter(hasPlayableUpload));
 
 export const selectFeaturedHomepagePitch = (items: HomepagePitch[]) =>
-  items.find(hasDirectPlayableUpload) ?? items[0] ?? null;
+  items[0] ?? null;
 
 export const getHomepageRailPitches = (items: HomepagePitch[], featuredPitchId: string | null) => {
   if (items.length <= 1) return [];

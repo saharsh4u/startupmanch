@@ -19,9 +19,10 @@ import type {
   RoundtableSessionSummary,
 } from "@/lib/roundtable/types";
 
-const HERO_FALLBACK_TITLE = "StartupManch TV";
+const HERO_FALLBACK_TITLE = "Featured Video";
 const HERO_FALLBACK_TAGLINE = "A mobile-first home for founder videos, live roundtables, and rolling community stories.";
 const ROUNDTABLE_POLL_MS = 20000;
+const INSTAGRAM_RESOLVE_TIMEOUT_MS = 9000;
 
 type RoundtablePreviewState = {
   summary: RoundtableSessionSummary | null;
@@ -155,6 +156,9 @@ export default function HomeStreamingPage() {
   const [pitches, setPitches] = useState<HomepagePitch[]>([]);
   const [pitchLoading, setPitchLoading] = useState(true);
   const [pitchError, setPitchError] = useState<string | null>(null);
+  const [heroResolvedVideoUrl, setHeroResolvedVideoUrl] = useState<string | null>(null);
+  const [heroVideoFailed, setHeroVideoFailed] = useState(false);
+  const [heroPosterFailed, setHeroPosterFailed] = useState(false);
   const [roundtableState, setRoundtableState] = useState<RoundtablePreviewState>({
     summary: null,
     snapshot: null,
@@ -163,6 +167,7 @@ export default function HomeStreamingPage() {
   });
   const [isRailPaused, setIsRailPaused] = useState(false);
   const railPauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -289,6 +294,67 @@ export default function HomeStreamingPage() {
   const heroVideoMp4 = featuredPitch?.videoMp4Url ?? featuredPitch?.video ?? null;
   const heroVideoHls = featuredPitch?.videoHlsUrl ?? null;
   const heroHasDirectVideo = featuredPitch ? hasDirectPlayableUpload(featuredPitch) : false;
+  const heroVideoSrc = heroVideoMp4 ?? heroResolvedVideoUrl;
+  const heroHasPlayableVideo = Boolean(featuredPitch && (heroVideoHls || heroVideoSrc));
+
+  useEffect(() => {
+    setHeroResolvedVideoUrl(null);
+    setHeroVideoFailed(false);
+    setHeroPosterFailed(false);
+  }, [featuredPitch?.id]);
+
+  useEffect(() => {
+    if (!featuredPitch?.instagramUrl || heroHasDirectVideo) return;
+
+    let active = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), INSTAGRAM_RESOLVE_TIMEOUT_MS);
+
+    void fetch(`/api/video/instagram/resolve?url=${encodeURIComponent(featuredPitch.instagramUrl)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          return { video_url: null } as { video_url?: string | null };
+        }
+        return (await response.json()) as { video_url?: string | null };
+      })
+      .then((payload) => {
+        if (!active) return;
+        setHeroResolvedVideoUrl(payload.video_url ?? null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setHeroResolvedVideoUrl(null);
+      });
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [featuredPitch?.instagramUrl, heroHasDirectVideo]);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+    if (!video || !heroHasPlayableVideo || heroVideoFailed) return;
+
+    video.muted = true;
+    const tryPlay = () => {
+      void video.play().catch(() => undefined);
+    };
+
+    if (video.readyState >= 2) {
+      tryPlay();
+      return;
+    }
+
+    video.addEventListener("canplay", tryPlay, { once: true });
+    return () => {
+      video.removeEventListener("canplay", tryPlay);
+    };
+  }, [heroHasPlayableVideo, heroVideoFailed, heroVideoHls, heroVideoSrc, featuredPitch?.id]);
 
   const roundtablePreview = useMemo(() => {
     const snapshot = roundtableState.snapshot;
@@ -376,94 +442,71 @@ export default function HomeStreamingPage() {
     }, pauseMs);
   };
 
-  const heroCtaHref = roundtablePreview.href;
-  const heroCtaLabel =
-    roundtableState.summary?.status === "live" ? "Join Live Roundtable" : "Open Roundtable";
-
   return (
     <main className="stream-home">
       <section className="stream-home-hero" aria-label="Featured founder video">
         <div className="stream-home-hero-media">
-          {featuredPitch?.poster ? (
+          {featuredPitch?.poster && !heroPosterFailed ? (
             <img
               className="stream-home-hero-poster"
               src={featuredPitch.poster}
-              alt={featuredPitch.name ? `${featuredPitch.name} poster` : "Featured founder poster"}
+              alt=""
+              aria-hidden="true"
               loading="eager"
               decoding="async"
+              onError={() => setHeroPosterFailed(true)}
             />
           ) : (
             <div className="stream-home-hero-poster stream-home-hero-poster-fallback" />
           )}
-          {featuredPitch && heroHasDirectVideo ? (
+          {featuredPitch && heroHasPlayableVideo && !heroVideoFailed ? (
             <video
+              key={`${featuredPitch.id}:${heroVideoHls ?? "none"}:${heroVideoSrc ?? "none"}`}
+              ref={heroVideoRef}
               className="stream-home-hero-video"
               muted
               playsInline
               autoPlay
               loop
               preload="metadata"
-              poster={featuredPitch.poster}
+              poster={!heroPosterFailed ? featuredPitch.poster : undefined}
+              onLoadedData={() => {
+                const video = heroVideoRef.current;
+                if (!video) return;
+                void video.play().catch(() => undefined);
+              }}
+              onCanPlay={() => {
+                const video = heroVideoRef.current;
+                if (!video) return;
+                void video.play().catch(() => undefined);
+              }}
+              onError={() => setHeroVideoFailed(true)}
             >
               {heroVideoHls ? <source src={heroVideoHls} type="application/vnd.apple.mpegurl" /> : null}
-              {heroVideoMp4 ? <source src={heroVideoMp4} type="video/mp4" /> : null}
+              {heroVideoSrc ? <source src={heroVideoSrc} type="video/mp4" /> : null}
             </video>
           ) : null}
           <div className="stream-home-hero-gradient" />
-          <header className="stream-home-header">
-            <Link href="/" className="stream-home-brand">
-              <span className="stream-home-brand-mark">SM</span>
-              <span className="stream-home-brand-word">StartupManch TV</span>
-            </Link>
-            <nav className="stream-home-nav" aria-label="Homepage">
-              <Link href="/about">About</Link>
-              <Link href="/roundtable">Roundtable</Link>
-              <Link href={heroCtaHref} className="stream-home-nav-cta">
-                {heroCtaLabel}
-              </Link>
-            </nav>
-          </header>
         </div>
 
         <div className="stream-home-hero-copy">
           <p className="stream-home-kicker">Featured stream</p>
           <h1>{featuredPitch?.name ?? HERO_FALLBACK_TITLE}</h1>
-          <p className="stream-home-hero-tagline">
-            {featuredPitch?.tagline ?? HERO_FALLBACK_TAGLINE}
-          </p>
-          <div className="stream-home-hero-meta" aria-label="Featured video metadata">
-            <span>StartupManch TV</span>
-            <span>{featuredPitch?.category ?? "Founder Story"}</span>
-            <span>
-              {featuredPitch
-                ? heroHasDirectVideo
-                  ? "Autoplay video"
-                  : "Poster preview"
-                : pitchLoading
-                  ? "Loading"
-                  : "Coming soon"}
-            </span>
-          </div>
+          {featuredPitch?.tagline ? (
+            <p className="stream-home-hero-tagline">{featuredPitch.tagline}</p>
+          ) : (
+            <p className="stream-home-hero-tagline">{HERO_FALLBACK_TAGLINE}</p>
+          )}
           <div className="stream-home-hero-actions">
-            <Link href={heroCtaHref} className="stream-home-primary-cta">
-              {heroCtaLabel}
-            </Link>
             <a href="#home-roundtable" className="stream-home-circle-cta" aria-label="Jump to roundtable preview">
               ↓
             </a>
           </div>
-          <p className="stream-home-hero-note">
-            {pitchLoading
-              ? "Loading homepage videos..."
-              : pitchError
-                ? pitchError
-                : roundtablePreview.helper}
-          </p>
-          <div className="stream-home-hero-dots" aria-hidden="true">
-            {Array.from({ length: Math.max(1, Math.min(6, railPitches.length + 1)) }, (_, index) => (
-              <span key={`hero-dot-${index}`} className={index === 0 ? "is-active" : ""} />
-            ))}
-          </div>
+          {!featuredPitch && (pitchLoading || pitchError) ? (
+            <p className="stream-home-hero-status">
+              {pitchLoading ? "Loading featured video..." : pitchError}
+            </p>
+          ) : null}
         </div>
       </section>
 
