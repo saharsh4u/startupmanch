@@ -825,8 +825,8 @@ export default function RoundtableHomepageVideoRail({
     <section className="roundtable-panel roundtable-video-strip" aria-label="Homepage videos">
       <div className="roundtable-video-strip-head">
         <div className="roundtable-video-strip-copy">
-          <h4>Homepage video loop</h4>
-          <p>Watch uploaded homepage videos here and open any card to discuss instantly.</p>
+          <h4>Open any video</h4>
+          <p>Start discussing instantly with your friends, founders and more.</p>
         </div>
         <div className="roundtable-video-strip-actions">
           <button
