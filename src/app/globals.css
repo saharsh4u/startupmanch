@@ -193,8 +193,8 @@
   flex-direction: column;
   justify-content: flex-end;
   align-items: flex-start;
-  gap: 10px;
-  padding: calc(52px + env(safe-area-inset-top)) 18px calc(22px + env(safe-area-inset-bottom));
+  gap: 14px;
+  padding: calc(110px + env(safe-area-inset-top)) 18px calc(22px + env(safe-area-inset-bottom));
 }
 
 .stream-home-kicker {
@@ -207,17 +207,17 @@
 
 .stream-home-hero-copy h1 {
   margin: 0;
-  max-width: 11ch;
-  font-size: clamp(2.5rem, 11.5vw, 4.8rem);
-  line-height: 0.96;
+  max-width: 9ch;
+  font-size: clamp(3.6rem, 16vw, 7rem);
+  line-height: 0.92;
   color: #fffaf1;
 }
 
 .stream-home-hero-tagline {
-  max-width: 28rem;
-  font-size: clamp(0.94rem, 3.6vw, 1.08rem);
-  line-height: 1.45;
-  color: rgba(247, 242, 233, 0.76) !important;
+  max-width: 32rem;
+  font-size: clamp(1rem, 3.9vw, 1.25rem);
+  line-height: 1.5;
+  color: rgba(247, 242, 233, 0.82) !important;
 }
 
 .stream-home-hero-meta {
@@ -287,15 +287,15 @@
 }
 
 .stream-home-circle-cta {
-  width: 58px;
-  height: 58px;
+  width: 62px;
+  height: 62px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.1);
   color: #fff8ee;
-  font-size: 1.75rem;
+  font-size: 1.9rem;
   backdrop-filter: blur(16px);
 }
 
@@ -310,8 +310,7 @@
   transform: translateY(-1px);
 }
 
-.stream-home-hero-note,
-.stream-home-hero-status {
+.stream-home-hero-note {
   margin: 0;
   font-size: 0.9rem;
   color: rgba(241, 236, 226, 0.64) !important;
@@ -557,11 +556,11 @@
 
   .stream-home-hero-copy {
     max-width: min(820px, 72vw);
-    padding: calc(72px + env(safe-area-inset-top)) 34px 38px;
+    padding: calc(136px + env(safe-area-inset-top)) 34px 38px;
   }
 
   .stream-home-hero-copy h1 {
-    max-width: 12ch;
+    max-width: 10ch;
   }
 
   .stream-home-roundtable {
@@ -636,12 +635,17 @@
   }
 
   .stream-home-hero-copy {
-    padding-top: calc(48px + env(safe-area-inset-top));
+    padding-top: calc(150px + env(safe-area-inset-top));
+  }
+
+  .stream-home-primary-cta {
+    min-height: 58px;
+    padding-inline: 24px;
   }
 
   .stream-home-circle-cta {
-    width: 54px;
-    height: 54px;
+    width: 58px;
+    height: 58px;
   }
 
   .stream-home-roundtable {
