@@ -9043,7 +9043,7 @@ body {
 }
 
 .roundtable-seat-circle {
-  padding: 20px;
+  padding: 20px 20px 36px;
   background: #000000;
 }
 
@@ -9167,20 +9167,20 @@ body {
 
 .roundtable-seat-token {
   position: absolute;
-  transform: translate(-50%, 0);
-  width: clamp(128px, 17vw, 154px);
-  min-height: 92px;
+  transform: translate(-50%, -50%);
+  width: clamp(110px, 14vw, 134px);
+  min-height: 82px;
   border: 1px solid #b88324;
-  border-radius: 18px;
+  border-radius: 16px;
   background: #070707;
   backdrop-filter: blur(5px);
-  padding: 36px 10px 9px;
+  padding: 28px 9px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.44);
+  gap: 2px;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.42);
   animation: roundtableTokenBob 3s ease-in-out infinite;
 }
 
@@ -9191,11 +9191,11 @@ body {
 .roundtable-seat-token::after {
   content: "";
   position: absolute;
-  left: 10px;
-  right: 10px;
-  top: 10px;
-  height: 20px;
-  border-radius: 12px;
+  left: 9px;
+  right: 9px;
+  top: 9px;
+  height: 16px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   pointer-events: none;
 }
@@ -9207,17 +9207,17 @@ body {
 .roundtable-seat-avatar {
   position: absolute;
   left: 50%;
-  top: -30px;
+  top: -26px;
   transform: translate(-50%, 0) scale(1);
-  width: 60px;
-  height: 60px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   border: 3px solid rgba(244, 248, 255, 0.92);
   background: #f2b13d;
   color: #1a1204;
   display: grid;
   place-items: center;
-  font-size: 0.98rem;
+  font-size: 0.88rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -9229,8 +9229,8 @@ body {
 
 .roundtable-seat-actions {
   position: absolute;
-  left: 8px;
-  top: -12px;
+  left: 6px;
+  top: -10px;
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -9243,12 +9243,12 @@ body {
   background: rgba(18, 18, 18, 0.98);
   color: #f8deb0;
   border-radius: 999px;
-  min-width: 28px;
-  height: 28px;
+  min-width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
-  padding: 0 8px;
-  font-size: 1rem;
+  padding: 0 6px;
+  font-size: 0.86rem;
   font-weight: 800;
   line-height: 1;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.34);
@@ -9267,24 +9267,24 @@ body {
   background: rgba(8, 8, 8, 0.94);
   border: 1px solid rgba(114, 123, 150, 0.5);
   color: rgba(241, 231, 199, 0.92);
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-  padding: 3px 8px;
+  padding: 2px 6px;
   white-space: nowrap;
 }
 
 .roundtable-seat-mic {
   position: absolute;
-  right: 8px;
-  top: -12px;
+  right: 6px;
+  top: -10px;
   z-index: 3;
   border-radius: 999px;
   border: 1px solid #7d7d7d;
   background: #121212;
   color: #e9e9e9;
-  padding: 2px 7px;
-  font-size: 0.58rem;
+  padding: 2px 6px;
+  font-size: 0.54rem;
   letter-spacing: 0.05em;
   font-weight: 700;
 }
@@ -9304,15 +9304,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 104px;
-  max-width: 134px;
+  min-width: 88px;
+  max-width: 116px;
   text-align: center;
   align-items: center;
 }
 
 .roundtable-seat-name {
   color: #f7f2e2;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0.01em;
@@ -9323,7 +9323,7 @@ body {
 
 .roundtable-seat-state {
   color: rgba(242, 225, 188, 0.88);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   letter-spacing: 0.02em;
 }
 
@@ -9846,10 +9846,10 @@ body {
 @keyframes roundtableTokenBob {
   0%,
   100% {
-    transform: translate(-50%, 0) translateY(0px);
+    transform: translate(-50%, -50%) translateY(0px);
   }
   50% {
-    transform: translate(-50%, 0) translateY(-4px);
+    transform: translate(-50%, -50%) translateY(-4px);
   }
 }
 
@@ -9878,11 +9878,11 @@ body {
 @keyframes roundtableSeatActivePulse {
   0%,
   100% {
-    transform: translate(-50%, 0) scale(1);
+    transform: translate(-50%, -50%) scale(1);
     filter: saturate(1);
   }
   50% {
-    transform: translate(-50%, 0) scale(1.03);
+    transform: translate(-50%, -50%) scale(1.03);
     filter: saturate(1.2);
   }
 }
@@ -9927,7 +9927,7 @@ body {
 
 @media (min-width: 1200px) {
   .roundtable-seat-circle {
-    padding: 28px 34px;
+    padding: 28px 34px 44px;
   }
 
   .roundtable-roulette {
@@ -9960,36 +9960,36 @@ body {
   }
 
   .roundtable-seat-token {
-    width: 162px;
-    min-height: 104px;
-    padding-top: 40px;
+    width: 146px;
+    min-height: 92px;
+    padding-top: 32px;
   }
 
   .roundtable-seat-share {
-    min-width: 30px;
-    height: 30px;
+    min-width: 26px;
+    height: 26px;
   }
 
   .roundtable-seat-avatar {
-    top: -34px;
-    width: 66px;
-    height: 66px;
-    font-size: 1.04rem;
+    top: -30px;
+    width: 58px;
+    height: 58px;
+    font-size: 0.94rem;
   }
 
   .roundtable-seat-copy {
-    min-width: 112px;
-    max-width: 142px;
+    min-width: 96px;
+    max-width: 124px;
   }
 
   .roundtable-seat-name {
-    max-width: 120px;
-    font-size: 0.96rem;
+    max-width: 108px;
+    font-size: 0.88rem;
   }
 
   .roundtable-seat-state {
-    max-width: 126px;
-    font-size: 0.82rem;
+    max-width: 112px;
+    font-size: 0.76rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -10030,7 +10030,7 @@ body {
   }
 
   .roundtable-seat-circle {
-    padding: 14px 12px;
+    padding: 14px 12px 34px;
   }
 
   .roundtable-roulette {
@@ -10038,9 +10038,9 @@ body {
   }
 
   .roundtable-seat-token {
-    width: clamp(118px, 22vw, 138px);
-    min-height: 88px;
-    padding-top: 34px;
+    width: clamp(100px, 18vw, 118px);
+    min-height: 78px;
+    padding-top: 28px;
   }
 
   .roundtable-match-panel {
@@ -10093,9 +10093,9 @@ body {
   }
 
   .roundtable-seat-token {
-    width: 100px;
-    min-height: 78px;
-    padding-top: 30px;
+    width: 90px;
+    min-height: 68px;
+    padding-top: 24px;
     gap: 2px;
   }
 
@@ -10105,46 +10105,46 @@ body {
   }
 
   .roundtable-seat-name {
-    max-width: 80px;
-    font-size: 0.76rem;
+    max-width: 70px;
+    font-size: 0.68rem;
   }
 
   .roundtable-seat-state {
-    max-width: 86px;
-    font-size: 0.66rem;
+    max-width: 74px;
+    font-size: 0.58rem;
   }
 
   .roundtable-seat-avatar {
-    top: -24px;
-    width: 48px;
-    height: 48px;
-    font-size: 0.78rem;
+    top: -20px;
+    width: 40px;
+    height: 40px;
+    font-size: 0.68rem;
   }
 
   .roundtable-seat-actions {
-    left: 6px;
-    top: -10px;
+    left: 5px;
+    top: -8px;
     gap: 3px;
   }
 
   .roundtable-seat-share {
-    min-width: 24px;
-    height: 24px;
-    padding: 0 6px;
-    font-size: 0.88rem;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    font-size: 0.74rem;
   }
 
   .roundtable-seat-share-status {
-    font-size: 0.56rem;
-    padding: 2px 6px;
-    max-width: 70px;
+    font-size: 0.5rem;
+    padding: 2px 5px;
+    max-width: 58px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .roundtable-seat-copy {
-    min-width: 86px;
-    max-width: 94px;
+    min-width: 74px;
+    max-width: 82px;
   }
 
   .roundtable-roulette-hub {
