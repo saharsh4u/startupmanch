@@ -1,6 +1,7 @@
-import AdRailsScaffold from "@/components/AdRailsScaffold";
-import HomeCenterPanel from "@/components/HomeCenterPanel";
+import RoundtableLandingPage, { roundtableLandingMetadata } from "@/components/roundtable/RoundtableLandingPage";
 import { toAbsoluteSiteUrl } from "@/lib/site";
+
+export const metadata = roundtableLandingMetadata;
 
 export default function Home() {
   const organizationSchema = {
@@ -32,9 +33,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
-      <AdRailsScaffold mainClassName="page page-home">
-        <HomeCenterPanel />
-      </AdRailsScaffold>
+      <RoundtableLandingPage />
     </>
   );
 }

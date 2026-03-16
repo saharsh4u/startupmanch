@@ -9059,7 +9059,7 @@ body {
 
 .roundtable-roulette {
   position: relative;
-  width: min(100%, 560px);
+  width: min(100%, 540px);
   aspect-ratio: 1;
   margin: 0 auto;
 }
@@ -9814,7 +9814,7 @@ body {
   }
 
   .roundtable-roulette {
-    width: min(100%, 680px);
+    width: min(100%, 650px);
   }
 
   .roundtable-roulette-glow {
@@ -9912,7 +9912,7 @@ body {
   }
 
   .roundtable-roulette {
-    width: min(100%, 460px);
+    width: min(100%, 440px);
   }
 
   .roundtable-seat-token {
@@ -9959,7 +9959,7 @@ body {
 
 @media (max-width: 760px) {
   .roundtable-roulette {
-    width: min(100%, 380px);
+    width: min(100%, 360px);
   }
 
   .roundtable-seat-token {
