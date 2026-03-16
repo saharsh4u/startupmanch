@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import HomeHero from "@/components/HomeHero";
+import HomeTrustIntro from "@/components/HomeTrustIntro";
 import PostPitchModal from "@/components/PostPitchModal";
 import PitchFeed from "@/components/PitchFeed";
 import RankingsTable from "@/components/RankingsTable";
@@ -12,6 +12,7 @@ import { POST_PITCH_OPEN_EVENT } from "@/lib/post-pitch";
 export default function HomeCenterPanel() {
   const [postPitchOpen, setPostPitchOpen] = useState(false);
   const [postPitchToast, setPostPitchToast] = useState<string | null>(null);
+  const [homeSearchTerm, setHomeSearchTerm] = useState("");
 
   const scrollToCurrentHash = useCallback(() => {
     if (!isMobileViewport()) return;
@@ -67,13 +68,22 @@ export default function HomeCenterPanel() {
 
   return (
     <>
-      <TopNav context="home" showPostPitch onPostPitch={() => setPostPitchOpen(true)} />
-      <HomeHero onPostPitch={() => setPostPitchOpen(true)} />
+      <TopNav context="home" showPostPitch={false} />
+      <HomeTrustIntro
+        searchTerm={homeSearchTerm}
+        onSearchTermChange={setHomeSearchTerm}
+        onPostPitch={() => setPostPitchOpen(true)}
+      />
       <div id="top-rated-block" className="anchor-block">
-        <PitchFeed onPostPitch={() => setPostPitchOpen(true)} />
+        <PitchFeed
+          variant="home-compact"
+          searchTerm={homeSearchTerm}
+          onSearchTermChange={setHomeSearchTerm}
+          onPostPitch={() => setPostPitchOpen(true)}
+        />
       </div>
       <div id="leaderboard-block" className="anchor-block">
-        <RankingsTable />
+        <RankingsTable variant="home-compact" />
       </div>
       <PostPitchModal
         open={postPitchOpen}

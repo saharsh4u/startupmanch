@@ -20,6 +20,7 @@ export default function TopNav({
   onPostPitch,
 }: TopNavProps) {
   const pathname = usePathname();
+  const isCompactHome = context === "home";
 
   const shouldUseBrowserDefault = (event: MouseEvent<HTMLAnchorElement>) =>
     event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -50,49 +51,55 @@ export default function TopNav({
   };
 
   return (
-    <nav className="site-nav" aria-label="Primary">
+    <nav className={`site-nav${isCompactHome ? " is-home-compact" : ""}`} aria-label="Primary">
       <div className="site-nav-row">
         <Link href="/" className="site-nav-logo">
           <span className="brand-star">✦</span>
           <span className="brand-wordmark">StartupManch</span>
         </Link>
-        <div className="site-nav-links">
-          {homeAnchors.map((item) => (
-            <Link
-              key={item.id}
-              href={context === "home" ? "#leaderboard-block" : "/#leaderboard-block"}
-              onClick={handleLeaderboardClick}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/about" onClick={handleAboutClick}>
-            About
-          </Link>
-          <Link href="/roundtable" onClick={handleRoundtableClick}>
-            Roundtable
-          </Link>
-        </div>
-        <div className="site-nav-search">
-          <span>⌕</span>
-          <input type="text" placeholder="Search startups..." aria-label="Search startups" />
-        </div>
-        {showPostPitch ? (
-          <Link
-            href={POST_PITCH_FALLBACK_HREF}
-            className="site-nav-cta"
-            onClick={(event) => {
-              event.preventDefault();
-              if (onPostPitch) {
-                onPostPitch();
-                return;
-              }
-              openPostPitchFlow();
-            }}
-          >
-            Post It Free.
-          </Link>
-        ) : null}
+        {isCompactHome ? (
+          <div className="site-nav-home-meta">Founder feed</div>
+        ) : (
+          <>
+            <div className="site-nav-links">
+              {homeAnchors.map((item) => (
+                <Link
+                  key={item.id}
+                  href="/#leaderboard-block"
+                  onClick={handleLeaderboardClick}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <Link href="/about" onClick={handleAboutClick}>
+                About
+              </Link>
+              <Link href="/roundtable" onClick={handleRoundtableClick}>
+                Roundtable
+              </Link>
+            </div>
+            <div className="site-nav-search">
+              <span>⌕</span>
+              <input type="text" placeholder="Search startups..." aria-label="Search startups" />
+            </div>
+            {showPostPitch ? (
+              <Link
+                href={POST_PITCH_FALLBACK_HREF}
+                className="site-nav-cta"
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (onPostPitch) {
+                    onPostPitch();
+                    return;
+                  }
+                  openPostPitchFlow();
+                }}
+              >
+                Post It Free.
+              </Link>
+            ) : null}
+          </>
+        )}
       </div>
     </nav>
   );

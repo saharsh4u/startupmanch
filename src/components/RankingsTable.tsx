@@ -16,12 +16,17 @@ type RankingsResponse = {
 
 const formatListings = (count: number) => `${new Intl.NumberFormat("en-US").format(count)} listings`;
 
-export default function RankingsTable() {
+type RankingsTableProps = {
+  variant?: "default" | "home-compact";
+};
+
+export default function RankingsTable({ variant = "default" }: RankingsTableProps) {
   const [rows, setRows] = useState<RankingsRowItem[]>([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorText, setErrorText] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const isHomeCompact = variant === "home-compact";
 
   const loadRows = useCallback(async () => {
     try {
@@ -71,17 +76,20 @@ export default function RankingsTable() {
   }, [rows.length, total]);
 
   return (
-    <section className="rankings-card">
+    <section className={`rankings-card${isHomeCompact ? " rankings-card--home-compact" : ""}`}>
       <div className="rankings-header">
         <div>
-          <h3>Rank</h3>
+          {isHomeCompact ? <p className="rankings-kicker">Leaderboard</p> : null}
+          <h3>{isHomeCompact ? "Top founders this week" : "Rank"}</h3>
           <span>{listingsText}</span>
         </div>
         <button type="button" className="view-all" onClick={() => setModalOpen(true)}>
           View All →
         </button>
       </div>
-      <p className="rankings-microcopy">Compete for the top spot.</p>
+      <p className="rankings-microcopy">
+        {isHomeCompact ? "Approved startups ranked by recent momentum." : "Compete for the top spot."}
+      </p>
 
       {status === "loading" && !rows.length ? <p className="rankings-state">Loading rankings...</p> : null}
 
@@ -102,9 +110,11 @@ export default function RankingsTable() {
           View All →
         </button>
       </div>
-      <div className="rankings-theme-switch">
-        <ThemeToggle />
-      </div>
+      {!isHomeCompact ? (
+        <div className="rankings-theme-switch">
+          <ThemeToggle />
+        </div>
+      ) : null}
 
       <RankingsModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </section>
