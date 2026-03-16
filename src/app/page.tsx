@@ -1,4 +1,5 @@
-import HomeStreamingPage from "@/components/home/HomeStreamingPage";
+import AdRailsScaffold from "@/components/AdRailsScaffold";
+import HomeCenterPanel from "@/components/HomeCenterPanel";
 import { toAbsoluteSiteUrl } from "@/lib/site";
 
 export default function Home() {
@@ -31,7 +32,9 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
-      <HomeStreamingPage />
+      <AdRailsScaffold mainClassName="page page-home">
+        <HomeCenterPanel />
+      </AdRailsScaffold>
     </>
   );
 }

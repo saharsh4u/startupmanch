@@ -3,10 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ContactModal from "./ContactModal";
 import { trackEvent } from "@/lib/analytics/events";
-import type { HomepagePitch } from "@/lib/homepage/pitches";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export type PitchShow = HomepagePitch;
+export type PitchShow = {
+  id: string;
+  startupId?: string | null;
+  name: string;
+  tagline: string;
+  poster: string;
+  video?: string | null;
+  videoHlsUrl?: string | null;
+  videoMp4Url?: string | null;
+  instagramUrl?: string | null;
+  isFallback?: boolean;
+  category?: string | null;
+  upvotes?: number;
+  downvotes?: number;
+  comments?: number;
+  score?: number;
+  monthlyRevenue?: string | null;
+};
 
 type PitchShowCardProps = {
   pitch: PitchShow;
