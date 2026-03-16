@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { MouseEvent } from "react";
 import { usePathname } from "next/navigation";
-import ThemeToggle from "@/components/ThemeToggle";
 import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
 import { POST_PITCH_FALLBACK_HREF, openPostPitchFlow } from "@/lib/post-pitch";
 
@@ -59,10 +58,7 @@ export default function TopNav({
           <span className="brand-wordmark">StartupManch</span>
         </Link>
         {isCompactHome ? (
-          <div className="site-nav-home-actions">
-            <span className="site-nav-home-tag">Founder feed</span>
-            <ThemeToggle />
-          </div>
+          <div className="site-nav-home-meta">Founder feed</div>
         ) : (
           <>
             <div className="site-nav-links">
