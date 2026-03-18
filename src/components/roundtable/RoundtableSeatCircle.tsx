@@ -18,10 +18,6 @@ type RoundtableSeatCircleProps = {
   seats: RoundtableSeatViewModel[];
   flareToken: string | null;
   eyeTargetSeatNo: number | null;
-  activeSpeakerSeatNo: number | null;
-  canToggleMyMic: boolean;
-  isMyMicMuted: boolean;
-  onToggleMyMic: () => void;
   onShareSeat?: (seatNo: number) => void;
 };
 
@@ -39,10 +35,6 @@ export default function RoundtableSeatCircle({
   seats,
   flareToken,
   eyeTargetSeatNo,
-  activeSpeakerSeatNo,
-  canToggleMyMic,
-  isMyMicMuted,
-  onToggleMyMic,
   onShareSeat,
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
@@ -198,6 +190,9 @@ export default function RoundtableSeatCircle({
               <article
                 key={`token-${seat.seatNo}`}
                 className={tokenClassName}
+                role="group"
+                aria-label={`${seat.displayName}. Seat ${seat.seatNo}. ${seat.stateLabel}.`}
+                title={`${seat.displayName} · Seat ${seat.seatNo} · ${seat.stateLabel}`}
                 style={
                   {
                     left: `${position.x}%`,
@@ -207,54 +202,25 @@ export default function RoundtableSeatCircle({
                 }
               >
                 {seat.canShareInvite ? (
-                  <div className="roundtable-seat-actions">
-                    <button
-                      type="button"
-                      className="roundtable-seat-share"
-                      onClick={() => onShareSeat?.(seat.seatNo)}
-                      aria-label={`Share invite link for seat ${seat.seatNo}`}
-                      title={`Share invite link for seat ${seat.seatNo}`}
-                    >
-                      +
-                    </button>
-                    {seat.shareStatus ? (
-                      <span className="roundtable-seat-share-status">{seat.shareStatus}</span>
-                    ) : null}
-                  </div>
+                  <button
+                    type="button"
+                    className="roundtable-seat-avatar roundtable-seat-avatar-button"
+                    onClick={() => onShareSeat?.(seat.seatNo)}
+                    aria-label={`Share invite link for seat ${seat.seatNo}`}
+                    title={`Share invite link for seat ${seat.seatNo}`}
+                  >
+                    {seat.initials || "?"}
+                  </button>
+                ) : (
+                  <span className="roundtable-seat-avatar" aria-hidden>
+                    {seat.initials || "?"}
+                  </span>
+                )}
+                {seat.shareStatus ? (
+                  <span className="roundtable-seat-feedback" aria-live="polite">
+                    {seat.shareStatus}
+                  </span>
                 ) : null}
-                <span className="roundtable-seat-avatar" aria-hidden>{seat.initials || "?"}</span>
-                <button
-                  type="button"
-                  className={`roundtable-seat-mic ${seat.seatNo === activeSpeakerSeatNo && !(seat.isMe ? isMyMicMuted : false) ? "is-live" : "is-muted"}`}
-                  onClick={() => {
-                    if (seat.isMe && canToggleMyMic) {
-                      onToggleMyMic();
-                    }
-                  }}
-                  disabled={!(seat.isMe && canToggleMyMic)}
-                  aria-label={
-                    seat.isMe && canToggleMyMic
-                      ? isMyMicMuted
-                        ? "Unmute microphone"
-                        : "Mute microphone"
-                      : "Microphone status"
-                  }
-                  title={
-                    seat.isMe && canToggleMyMic
-                      ? isMyMicMuted
-                        ? "Unmute mic"
-                        : "Mute mic"
-                      : seat.seatNo === activeSpeakerSeatNo
-                        ? "Speaking"
-                        : "Muted"
-                  }
-                >
-                  {seat.seatNo === activeSpeakerSeatNo && !(seat.isMe ? isMyMicMuted : false) ? "MIC" : "MUTE"}
-                </button>
-                <div className="roundtable-seat-copy">
-                  <span className="roundtable-seat-name">{seat.displayName}</span>
-                  <span className="roundtable-seat-state">Seat {seat.seatNo} · {seat.stateLabel}</span>
-                </div>
               </article>
             );
           })}

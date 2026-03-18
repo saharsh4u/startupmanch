@@ -9168,19 +9168,15 @@ body {
 .roundtable-seat-token {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: clamp(110px, 14vw, 134px);
-  min-height: 82px;
-  border: 1px solid #b88324;
-  border-radius: 16px;
-  background: #070707;
-  backdrop-filter: blur(5px);
-  padding: 28px 9px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.42);
+  width: clamp(54px, 7vw, 70px);
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  box-shadow: none;
   animation: roundtableTokenBob 3s ease-in-out infinite;
 }
 
@@ -9189,15 +9185,7 @@ body {
 }
 
 .roundtable-seat-token::after {
-  content: "";
-  position: absolute;
-  left: 9px;
-  right: 9px;
-  top: 9px;
-  height: 16px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  pointer-events: none;
+  display: none;
 }
 
 .roundtable-seat-token.is-active::before {
@@ -9205,18 +9193,17 @@ body {
 }
 
 .roundtable-seat-avatar {
-  position: absolute;
-  left: 50%;
-  top: -26px;
-  transform: translate(-50%, 0) scale(1);
-  width: 54px;
-  height: 54px;
+  position: relative;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   border: 3px solid rgba(244, 248, 255, 0.92);
   background: #f2b13d;
   color: #1a1204;
   display: grid;
   place-items: center;
+  margin: 0;
+  padding: 0;
   font-size: 0.88rem;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -9225,6 +9212,38 @@ body {
   box-shadow:
     0 0 0 2px rgba(13, 19, 32, 0.3),
     0 12px 20px rgba(0, 0, 0, 0.44);
+}
+
+.roundtable-seat-avatar-button {
+  appearance: none;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.roundtable-seat-avatar-button:hover,
+.roundtable-seat-avatar-button:focus-visible {
+  transform: scale(1.05);
+  border-color: #f3c35d;
+  box-shadow:
+    0 0 0 2px rgba(243, 195, 93, 0.28),
+    0 12px 20px rgba(0, 0, 0, 0.44);
+  outline: none;
+}
+
+.roundtable-seat-feedback {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .roundtable-seat-actions {
@@ -9328,11 +9347,8 @@ body {
 }
 
 .roundtable-seat-token.is-active {
-  border-color: #f3c35d;
-  box-shadow:
-    inset 0 0 0 1px rgba(243, 195, 93, 0.42),
-    0 0 28px rgba(243, 195, 93, 0.34),
-    0 14px 24px rgba(0, 0, 0, 0.44);
+  border-color: transparent;
+  box-shadow: none;
   animation: roundtableSeatActivePulse 1.15s ease-in-out infinite;
 }
 
@@ -9344,29 +9360,32 @@ body {
 }
 
 .roundtable-seat-token.is-queued {
-  border-color: #63c8ff;
-  box-shadow:
-    inset 0 0 0 1px rgba(99, 200, 255, 0.32),
-    0 0 20px rgba(99, 200, 255, 0.28),
-    0 14px 24px rgba(0, 0, 0, 0.44);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .roundtable-seat-token.is-queued .roundtable-seat-avatar {
   border-color: #bde8ff;
+  box-shadow:
+    0 0 0 2px rgba(99, 200, 255, 0.24),
+    0 0 18px rgba(99, 200, 255, 0.24);
 }
 
 .roundtable-seat-token.is-me {
-  border-color: #6e86ff;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.roundtable-seat-token.is-me .roundtable-seat-avatar {
   box-shadow:
-    inset 0 0 0 1px rgba(110, 134, 255, 0.32),
-    0 0 18px rgba(110, 134, 255, 0.24),
-    0 14px 24px rgba(0, 0, 0, 0.44);
+    0 0 0 2px rgba(110, 134, 255, 0.28),
+    0 0 18px rgba(110, 134, 255, 0.24);
 }
 
 .roundtable-seat-token.is-empty {
-  opacity: 0.86;
-  border-color: #7a5a24;
-  background: #090909;
+  opacity: 1;
+  border-color: transparent;
+  background: transparent;
 }
 
 .roundtable-seat-token.is-empty .roundtable-seat-avatar {
@@ -9960,20 +9979,10 @@ body {
   }
 
   .roundtable-seat-token {
-    width: 146px;
-    min-height: 92px;
-    padding-top: 32px;
-  }
-
-  .roundtable-seat-share {
-    min-width: 26px;
-    height: 26px;
+    width: 76px;
   }
 
   .roundtable-seat-avatar {
-    top: -30px;
-    width: 58px;
-    height: 58px;
     font-size: 0.94rem;
   }
 
@@ -10038,9 +10047,7 @@ body {
   }
 
   .roundtable-seat-token {
-    width: clamp(100px, 18vw, 118px);
-    min-height: 78px;
-    padding-top: 28px;
+    width: clamp(54px, 10vw, 68px);
   }
 
   .roundtable-match-panel {
@@ -10093,10 +10100,7 @@ body {
   }
 
   .roundtable-seat-token {
-    width: 90px;
-    min-height: 68px;
-    padding-top: 24px;
-    gap: 2px;
+    width: 50px;
   }
 
   .roundtable-eye-mascot {
@@ -10104,34 +10108,9 @@ body {
     width: min(88%, 290px);
   }
 
-  .roundtable-seat-name {
-    max-width: 70px;
-    font-size: 0.68rem;
-  }
-
-  .roundtable-seat-state {
-    max-width: 74px;
-    font-size: 0.58rem;
-  }
-
   .roundtable-seat-avatar {
-    top: -20px;
-    width: 40px;
-    height: 40px;
     font-size: 0.68rem;
-  }
-
-  .roundtable-seat-actions {
-    left: 5px;
-    top: -8px;
-    gap: 3px;
-  }
-
-  .roundtable-seat-share {
-    min-width: 20px;
-    height: 20px;
-    padding: 0 5px;
-    font-size: 0.74rem;
+    border-width: 2px;
   }
 
   .roundtable-seat-share-status {
@@ -10140,11 +10119,6 @@ body {
     max-width: 58px;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .roundtable-seat-copy {
-    min-width: 74px;
-    max-width: 82px;
   }
 
   .roundtable-roulette-hub {
@@ -11947,11 +11921,18 @@ select,
   box-shadow: none !important;
 }
 
-.roundtable-session-mini-seat.is-empty,
-.roundtable-seat-token,
-.roundtable-seat-token.is-empty {
+.roundtable-session-mini-seat.is-empty {
   background: var(--surface) !important;
   border-color: var(--stroke) !important;
+}
+
+.roundtable-seat-token,
+.roundtable-seat-token.is-empty,
+.roundtable-seat-token.is-active,
+.roundtable-seat-token.is-joined {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .site-nav-logo .brand-wordmark,
@@ -11988,9 +11969,14 @@ select,
 .roundtable-cta,
 .roundtable-seat-mic.is-live,
 .roundtable-session-mini-seat.is-occupied,
-.roundtable-seat-token.is-active,
-.roundtable-seat-token.is-joined,
 .roundtable-status.is-live {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+.roundtable-seat-token.is-active .roundtable-seat-avatar,
+.roundtable-seat-token.is-joined .roundtable-seat-avatar {
   background: var(--accent) !important;
   border-color: var(--accent) !important;
   color: #ffffff !important;

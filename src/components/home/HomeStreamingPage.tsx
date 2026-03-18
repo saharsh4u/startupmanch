@@ -492,10 +492,6 @@ export default function HomeStreamingPage() {
               seats={roundtablePreview.seats}
               flareToken={roundtablePreview.flareToken}
               eyeTargetSeatNo={roundtablePreview.eyeTargetSeatNo}
-              activeSpeakerSeatNo={roundtablePreview.activeSpeakerSeatNo}
-              canToggleMyMic={false}
-              isMyMicMuted={false}
-              onToggleMyMic={() => {}}
             />
           </div>
           <div className="stream-home-roundtable-copy">

@@ -424,11 +424,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return `recent-${latestTurn.id}-${latestTurn.status}`;
   }, [currentMember?.id, isMyMicMuted, snapshot?.recent_turns]);
 
-  const activeSpeakerSeatNo = useMemo(
-    () => (currentMember && !isMyMicMuted ? currentMember.seat_no : null),
-    [currentMember, isMyMicMuted]
-  );
-
   const silentSeatTarget = useMemo(() => {
     if (!snapshot || !seats.length) {
       return { seatNo: null as number | null };
@@ -1301,19 +1296,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         seats={seats}
         flareToken={wheelFlareToken}
         eyeTargetSeatNo={silentSeatTarget.seatNo}
-        activeSpeakerSeatNo={activeSpeakerSeatNo}
-        canToggleMyMic={Boolean(currentMember)}
-        isMyMicMuted={isMyMicMuted}
         onShareSeat={(seatNo) => {
           void handleShareSeat(seatNo);
-        }}
-        onToggleMyMic={() => {
-          if (isMyMicMuted) {
-            void attemptPlayRemoteAudioElements();
-            void enableMic();
-            return;
-          }
-          muteMic();
         }}
       />
       <section className="roundtable-panel roundtable-room-dock" aria-label="Roundtable controls">
