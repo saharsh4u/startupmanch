@@ -1304,11 +1304,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         {!currentMember ? (
           <>
             <section className="roundtable-match-panel" aria-label="Join any roundtable">
-              <div className="roundtable-match-copy">
-                <span className="roundtable-match-kicker">Fast match</span>
-                <strong>Join Any</strong>
-                <p>We will place you in the best open public roundtable and take the next free seat.</p>
-              </div>
               <div className="roundtable-match-actions">
                 <button
                   type="button"
@@ -1318,9 +1313,13 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
                 >
                   {busyAction === "join-any" ? "Matching..." : "Join Any"}
                 </button>
-                {joinAnyError ? <p className="roundtable-error roundtable-match-error">{joinAnyError}</p> : null}
+                {joinAnyError ? (
+                  <p className="roundtable-error roundtable-visually-hidden" aria-live="polite">
+                    {joinAnyError}
+                  </p>
+                ) : null}
                 {!joinAnyError && isViewerSeatedElsewhere ? (
-                  <p className="roundtable-muted roundtable-match-hint">
+                  <p className="roundtable-muted roundtable-visually-hidden" aria-live="polite">
                     Leave your current roundtable seat before using Join Any.
                   </p>
                 ) : null}

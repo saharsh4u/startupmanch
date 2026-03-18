@@ -9499,39 +9499,12 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 14px;
   border: 1px solid rgba(184, 131, 36, 0.45);
   background:
     radial-gradient(circle at top right, rgba(242, 177, 61, 0.16), transparent 38%),
     linear-gradient(135deg, rgba(11, 11, 11, 0.98), rgba(20, 16, 12, 0.98));
-}
-
-.roundtable-match-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: min(100%, 320px);
-}
-
-.roundtable-match-kicker {
-  color: rgba(243, 225, 185, 0.68);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.roundtable-match-copy strong {
-  color: #fbf3de;
-  font-size: 1rem;
-  line-height: 1.2;
-}
-
-.roundtable-match-copy p {
-  margin: 0;
-  color: rgba(242, 230, 198, 0.8);
-  max-width: 540px;
 }
 
 .roundtable-match-actions {
@@ -9541,11 +9514,17 @@ body {
   gap: 8px;
 }
 
-.roundtable-match-error,
-.roundtable-match-hint {
-  margin: 0;
-  text-align: right;
-  max-width: 320px;
+.roundtable-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .roundtable-live-compose h4 {
@@ -10156,12 +10135,6 @@ body {
 
   .roundtable-match-actions .roundtable-cta {
     width: 100%;
-  }
-
-  .roundtable-match-error,
-  .roundtable-match-hint {
-    max-width: none;
-    text-align: left;
   }
 }
 
