@@ -175,7 +175,7 @@ export default function RoundtableSeatCircle({
 
         <div className="roundtable-seat-token-ring">
           {seats.map((seat) => {
-            const position = seatPolar(seat.seatNo, seatCount, 48);
+            const position = seatPolar(seat.seatNo, seatCount, 43);
             const tokenClassName = [
               "roundtable-seat-token",
               seat.isActive ? "is-active" : "",
