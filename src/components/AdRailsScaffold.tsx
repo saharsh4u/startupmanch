@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import AdMobileStrip from "@/components/AdMobileStrip";
 import AdColumn from "@/components/AdColumn";
 import { leftAdSlots, rightAdSlots, type AdSlot } from "@/data/ads";
 import { isAdvertiseItem } from "@/lib/ads";
@@ -165,6 +166,7 @@ export default function AdRailsScaffold({
 
   return (
     <main className={mainClassName}>
+      <AdMobileStrip slots={leftSlots} side="left" position="top" />
       <div className="layout-grid">
         <AdColumn
           slots={leftSlots}
@@ -178,6 +180,7 @@ export default function AdRailsScaffold({
           activeFlipIndexes={activeFlipPair ? [activeFlipPair.right] : []}
         />
       </div>
+      <AdMobileStrip slots={rightSlots} side="right" position="bottom" />
     </main>
   );
 }
