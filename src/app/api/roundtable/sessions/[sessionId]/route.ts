@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { applyNoStoreCache } from "@/lib/http/cache";
 import { resolveActor } from "@/lib/roundtable/api";
+import { verifyRoundtableInviteToken } from "@/lib/roundtable/invite-token";
 import { getSessionSnapshot } from "@/lib/roundtable/queries";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
-import { getLatestJoinedMemberForActor, getMemberForActor } from "@/lib/roundtable/server";
+import { getMemberForActor } from "@/lib/roundtable/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 
@@ -21,18 +22,23 @@ export async function GET(
     if (!snapshot) {
       return NextResponse.json({ error: "Session not found." }, { status: 404 });
     }
+
+    const invite = verifyRoundtableInviteToken(new URL(request.url).searchParams.get("invite"));
     let viewerMemberId: string | null = null;
     let viewerCanManageMembers = false;
-    let viewerJoinedSessionId: string | null = null;
     try {
       const actor = await resolveActor(request);
       const viewerMember = await getMemberForActor(params.sessionId, actor);
       viewerMemberId = viewerMember?.id ?? null;
-      viewerJoinedSessionId = viewerMember?.session_id ?? null;
 
-      if (!viewerJoinedSessionId) {
-        const joinedMember = await getLatestJoinedMemberForActor(actor);
-        viewerJoinedSessionId = joinedMember?.session_id ?? null;
+      const hasValidInvite = Boolean(invite && invite.session_id === params.sessionId);
+      if (snapshot.session.visibility === "private" && !viewerMemberId && !hasValidInvite) {
+        const response = NextResponse.json(
+          { error: "Private room access requires a valid invite." },
+          { status: 403 }
+        );
+        applyNoStoreCache(response);
+        return response;
       }
 
       const { data: sessionOwner, error: sessionOwnerError } = await supabaseAdmin
@@ -63,7 +69,6 @@ export async function GET(
         ...snapshot,
         viewer_member_id: viewerMemberId,
         viewer_can_manage_members: viewerCanManageMembers,
-        viewer_joined_session_id: viewerJoinedSessionId,
       },
       { status: 200 }
     );

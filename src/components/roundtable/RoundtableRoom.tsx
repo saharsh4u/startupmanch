@@ -2,12 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import RoundtableVideoLeaderboard from "@/components/roundtable/RoundtableVideoLeaderboard";
+import { ROUND_TABLE_PRESENCE } from "@/lib/roundtable/constants";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
-import type { JoinAnyResponse, RoundtableInviteContext, RoundtableSessionSnapshot } from "@/lib/roundtable/types";
+import {
+  clearPendingJoinMicStream,
+  consumePendingJoinMicStream,
+  preparePendingJoinMicStream,
+} from "@/lib/roundtable/client-media";
+import type { RoundtableInviteContext, RoundtableSessionSnapshot } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type RoundtableRoomProps = {
@@ -78,7 +84,7 @@ const mapMicError = (errorValue: unknown) => {
   if (!(errorValue instanceof Error)) return fallback;
 
   if (errorValue.name === "NotAllowedError" || /permission denied/i.test(errorValue.message)) {
-    return "Microphone request was denied by browser or OS. If mic is already allowed, close other apps using mic, reload this page, and tap Unmute again.";
+    return "Microphone request was denied by browser or OS. If mic is already allowed, close other apps using mic, reload this page, and tap Enable mic again.";
   }
   if (errorValue.name === "NotFoundError") {
     return "No microphone device was found.";
@@ -132,10 +138,10 @@ const mapActionError = (payload: ActionResponse, fallback: string) => {
       return "Too many attempts. Please wait a bit and try again.";
     case "session_closed":
       return "This session is closed and cannot accept new joins.";
+    case "invite_required":
+      return "This private room requires a valid invite link.";
     case "already_joined":
       return "Leave your current roundtable seat before joining another room.";
-    case "no_open_rooms":
-      return "No open roundtables are available right now.";
     default:
       return payload.error ?? fallback;
   }
@@ -173,13 +179,13 @@ const streamHasLiveVideo = (stream: MediaStream | null | undefined) =>
   Boolean(stream?.getVideoTracks().some((track) => track.readyState !== "ended"));
 
 export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [snapshot, setSnapshot] = useState<RoundtableSessionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
-  const [joinAnyError, setJoinAnyError] = useState<string | null>(null);
   const [shareFeedback, setShareFeedback] = useState<{ seatNo: number; message: string } | null>(null);
   const [displayName, setDisplayNameState] = useState(() => getDisplayName());
   const [seatChoice, setSeatChoice] = useState<number | "auto">("auto");
@@ -189,7 +195,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [micError, setMicError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraMenuSeatNo, setCameraMenuSeatNo] = useState<number | null>(null);
-  const [selfMemberId, setSelfMemberId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [localCameraStream, setLocalCameraStream] = useState<MediaStream | null>(null);
   const [remoteMediaStreams, setRemoteMediaStreams] = useState<Record<string, MediaStream>>({});
@@ -204,15 +209,41 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const peerReconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const joinedMemberIdSetRef = useRef<Set<string>>(new Set());
-  const autoMicPermissionPromptedMemberRef = useRef<string | null>(null);
   const autoCameraRecoveryMemberRef = useRef<string | null>(null);
   const lastVoiceRecoveryAtRef = useRef(0);
   const invitePrefillKeyRef = useRef<string | null>(null);
   const inviteAutoJoinKeyRef = useRef<string | null>(null);
 
+  const actorId = useMemo(() => ensureGuestId(), []);
+  const inviteContext = useMemo<RoundtableInviteContext>(() => {
+    const sourceValue = searchParams.get("source");
+    const source = sourceValue === "invite" ? sourceValue : null;
+    const seatValue = Number(searchParams.get("seat"));
+    const preferred_seat_no = Number.isInteger(seatValue) && seatValue >= 1 ? seatValue : null;
+    const inviterValue = searchParams.get("inviter")?.trim() ?? "";
+    const inviteToken = searchParams.get("invite")?.trim() ?? "";
+
+    return {
+      source,
+      preferred_seat_no,
+      inviter_member_id: inviterValue.length ? inviterValue : null,
+      invite_token: inviteToken.length ? inviteToken : null,
+    };
+  }, [searchParams]);
+
   const loadSnapshot = useCallback(async () => {
     try {
-      const response = await fetch(`/api/roundtable/sessions/${sessionId}`, { cache: "no-store" });
+      const url = new URL(`/api/roundtable/sessions/${sessionId}`, window.location.origin);
+      if (inviteContext.invite_token) {
+        url.searchParams.set("invite", inviteContext.invite_token);
+      }
+
+      const response = await fetch(url.toString(), {
+        cache: "no-store",
+        headers: {
+          "x-roundtable-actor-id": actorId,
+        },
+      });
       const payload = (await response.json()) as RoundtableSessionSnapshot | { error?: string };
       if (!response.ok) {
         throw new Error(parseError(payload, "Unable to load session."));
@@ -224,10 +255,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, [actorId, inviteContext.invite_token, sessionId]);
 
   useEffect(() => {
-    ensureGuestId();
     void loadSnapshot();
     const timer = window.setInterval(() => {
       void loadSnapshot();
@@ -286,106 +316,17 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     };
   }, [loadSnapshot, sessionId]);
 
-  const guestId = useMemo(() => ensureGuestId(), []);
-  const memberStorageKey = useMemo(() => `rt_member_${sessionId}`, [sessionId]);
-  const inviteContext = useMemo<RoundtableInviteContext>(() => {
-    const sourceValue = searchParams.get("source");
-    const source = sourceValue === "invite" || sourceValue === "join-any" ? sourceValue : null;
-    const seatValue = Number(searchParams.get("seat"));
-    const preferred_seat_no = Number.isInteger(seatValue) && seatValue >= 1 ? seatValue : null;
-    const inviterValue = searchParams.get("inviter")?.trim() ?? "";
-
-    return {
-      source,
-      preferred_seat_no,
-      inviter_member_id: inviterValue.length ? inviterValue : null,
-    };
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(memberStorageKey);
-    if (stored) {
-      setSelfMemberId(stored);
-    }
-  }, [memberStorageKey]);
-
-  useEffect(() => {
-    const viewerMemberId = snapshot?.viewer_member_id ?? null;
-    if (!viewerMemberId) return;
-    if (selfMemberId !== viewerMemberId) {
-      setSelfMemberId(viewerMemberId);
-    }
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem(memberStorageKey);
-      if (stored !== viewerMemberId) {
-        window.localStorage.setItem(memberStorageKey, viewerMemberId);
-      }
-    }
-  }, [memberStorageKey, selfMemberId, snapshot?.viewer_member_id]);
-
-  useEffect(() => {
-    if (!snapshot || !selfMemberId) return;
-    const viewerMemberId = snapshot.viewer_member_id;
-    if (viewerMemberId) return;
-
-    const stillJoinedByStoredMember = snapshot.members.some((member) => member.state === "joined" && member.id === selfMemberId);
-    if (stillJoinedByStoredMember) return;
-
-    const stillJoinedByGuestId = guestId
-      ? snapshot.members.some((member) => member.state === "joined" && member.guest_id === guestId)
-      : false;
-    if (stillJoinedByGuestId) return;
-
-    setSelfMemberId(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(memberStorageKey);
-    }
-  }, [guestId, memberStorageKey, selfMemberId, snapshot]);
-
   const currentMember = useMemo(() => {
     if (!snapshot) return null;
-    if (snapshot.viewer_member_id) {
-      const viewerMatch = snapshot.members.find(
-        (member) => member.state === "joined" && member.id === snapshot.viewer_member_id
-      );
-      if (viewerMatch) return viewerMatch;
-    }
-    return (
-      snapshot.members.find(
-        (member) =>
-          member.state === "joined" &&
-          ((selfMemberId && member.id === selfMemberId) || (guestId && member.guest_id === guestId))
-      ) ?? null
-    );
-  }, [guestId, selfMemberId, snapshot]);
+    return snapshot.members.find((member) => member.id === snapshot.viewer_member_id) ?? null;
+  }, [snapshot]);
 
-  const viewerJoinedSessionId = snapshot?.viewer_joined_session_id ?? null;
-  const isViewerSeatedElsewhere = Boolean(viewerJoinedSessionId && viewerJoinedSessionId !== sessionId);
   const preferredInviteSeatNo = useMemo(() => {
     if (!snapshot) return inviteContext.preferred_seat_no;
     const preferredSeatNo = inviteContext.preferred_seat_no;
     if (!preferredSeatNo) return null;
     return preferredSeatNo >= 1 && preferredSeatNo <= snapshot.session.max_seats ? preferredSeatNo : null;
   }, [inviteContext.preferred_seat_no, snapshot]);
-
-  const persistMemberId = useCallback((memberId: string, targetSessionId = sessionId) => {
-    if (targetSessionId === sessionId) {
-      setSelfMemberId(memberId);
-    }
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(`rt_member_${targetSessionId}`, memberId);
-    }
-  }, [sessionId]);
-
-  const clearPersistedMemberId = useCallback((targetSessionId = sessionId) => {
-    if (targetSessionId === sessionId) {
-      setSelfMemberId(null);
-    }
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(`rt_member_${targetSessionId}`);
-    }
-  }, [sessionId]);
 
   useEffect(() => {
     if (!shareFeedback) return;
@@ -394,12 +335,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }, 2400);
     return () => window.clearTimeout(timer);
   }, [shareFeedback]);
-
-  useEffect(() => {
-    if (currentMember) {
-      setJoinAnyError(null);
-    }
-  }, [currentMember]);
 
   useEffect(() => {
     if (!currentMember) {
@@ -411,6 +346,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   }, [currentMember]);
 
   const canManageMembers = Boolean(snapshot?.viewer_can_manage_members);
+  const roomVisibility = snapshot?.session.visibility ?? "public";
   const joinedMembers = useMemo(
     () =>
       (snapshot?.members ?? [])
@@ -526,6 +462,26 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   }, [currentMember, isMyMicMuted, nowMs, seats, snapshot]);
 
   const currentParticipantId = currentMember?.id ?? null;
+
+  useEffect(() => {
+    if (!currentMember) return;
+
+    const sendHeartbeat = () => {
+      void fetch(`/api/roundtable/sessions/${sessionId}/heartbeat`, {
+        method: "POST",
+        headers: {
+          "x-roundtable-actor-id": actorId,
+        },
+        keepalive: true,
+      }).catch(() => {
+        // Heartbeats are best-effort; stale cleanup is the fallback.
+      });
+    };
+
+    sendHeartbeat();
+    const timer = window.setInterval(sendHeartbeat, ROUND_TABLE_PRESENCE.heartbeatMs);
+    return () => window.clearInterval(timer);
+  }, [actorId, currentMember, sessionId]);
 
   const attemptPlayRemoteAudioElements = useCallback(async () => {
     const elements = Array.from(remoteAudioElementMapRef.current.values());
@@ -962,6 +918,44 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     void syncLocalVideoTrackToPeers();
   }, [syncLocalVideoTrackToPeers]);
 
+  useEffect(() => {
+    if (!currentMember) return;
+
+    const leaveNow = () => {
+      stopMicStream();
+      stopLocalCameraStream();
+      closeAllPeerConnections();
+      void fetch(`/api/roundtable/sessions/${sessionId}/leave`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-roundtable-actor-id": actorId,
+        },
+        body: JSON.stringify({ display_name: displayName }),
+        keepalive: true,
+      }).catch(() => {
+        // If leave beacon misses, heartbeat-based cleanup removes stale presence.
+      });
+    };
+
+    window.addEventListener("pagehide", leaveNow);
+    return () => {
+      window.removeEventListener("pagehide", leaveNow);
+    };
+  }, [actorId, closeAllPeerConnections, currentMember, displayName, sessionId, stopLocalCameraStream, stopMicStream]);
+
+  const activateMicStream = useCallback(async (stream: MediaStream) => {
+    mediaStreamRef.current = stream;
+    for (const track of stream.getAudioTracks()) {
+      track.enabled = true;
+    }
+    await syncLocalAudioTrackToPeers();
+    await renegotiateAllPeers();
+    void attemptPlayRemoteAudioElements();
+    setMicError(null);
+    setIsMyMicMuted(false);
+  }, [attemptPlayRemoteAudioElements, renegotiateAllPeers, syncLocalAudioTrackToPeers]);
+
   const enableMic = useCallback(async () => {
     try {
       if (!window.isSecureContext) {
@@ -978,57 +972,72 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
       let stream = mediaStreamRef.current;
       if (!stream) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-          });
-        } catch (constraintError) {
-          const shouldRetryWithBasicAudio =
-            constraintError instanceof DOMException && constraintError.name === "OverconstrainedError";
-          if (!shouldRetryWithBasicAudio) {
-            throw constraintError;
-          }
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const pendingStream = consumePendingJoinMicStream();
+        if (pendingStream) {
+          stream = pendingStream;
+        } else {
+          stream = await preparePendingJoinMicStream();
+          const preparedStream = consumePendingJoinMicStream();
+          stream = preparedStream ?? stream;
         }
-        mediaStreamRef.current = stream;
       }
-      for (const track of stream.getAudioTracks()) {
-        track.enabled = true;
+      if (stream) {
+        await activateMicStream(stream);
+        return;
       }
-      await syncLocalAudioTrackToPeers();
-      // iOS Safari can fail to propagate null->live sender track changes without a renegotiation.
-      await renegotiateAllPeers();
-      void attemptPlayRemoteAudioElements();
-      setMicError(null);
-      setIsMyMicMuted(false);
+
+      setIsMyMicMuted(true);
     } catch (errorValue) {
       const message = mapMicError(errorValue);
       setMicError(message);
       setIsMyMicMuted(true);
     }
-  }, [attemptPlayRemoteAudioElements, renegotiateAllPeers, syncLocalAudioTrackToPeers]);
+  }, [activateMicStream]);
 
   useEffect(() => {
-    const memberId = currentMember?.id ?? null;
-    if (!memberId) {
-      autoMicPermissionPromptedMemberRef.current = null;
-      return;
-    }
-    if (autoMicPermissionPromptedMemberRef.current === memberId) return;
+    if (!currentMember || mediaStreamRef.current) return;
+    const pendingStream = consumePendingJoinMicStream();
+    if (!pendingStream) return;
+    void activateMicStream(pendingStream);
+  }, [activateMicStream, currentMember]);
 
-    autoMicPermissionPromptedMemberRef.current = memberId;
-    void attemptPlayRemoteAudioElements();
-    void enableMic();
-  }, [attemptPlayRemoteAudioElements, currentMember?.id, enableMic]);
+  useEffect(() => {
+    const stream = mediaStreamRef.current;
+    const track = stream?.getAudioTracks()[0];
+    if (!track) return;
+
+    const handleEnded = () => {
+      setIsMyMicMuted(true);
+      setMicError("Microphone disconnected. Tap Enable mic to reconnect.");
+    };
+
+    track.addEventListener("ended", handleEnded);
+    return () => {
+      track.removeEventListener("ended", handleEnded);
+    };
+  }, [isMyMicMuted, currentMember?.id]);
+
+  useEffect(() => {
+    if (!navigator.mediaDevices?.addEventListener) return;
+
+    const handleDeviceChange = () => {
+      const activeTrack = mediaStreamRef.current?.getAudioTracks()[0];
+      if (!activeTrack || activeTrack.readyState === "live") return;
+      setIsMyMicMuted(true);
+      setMicError("Microphone changed or disconnected. Tap Enable mic to retry.");
+    };
+
+    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
+    return () => {
+      navigator.mediaDevices.removeEventListener("devicechange", handleDeviceChange);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
       stopMicStream();
       stopLocalCameraStream();
+      clearPendingJoinMicStream();
     };
   }, [stopLocalCameraStream, stopMicStream]);
 
@@ -1038,15 +1047,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     busyKey: string,
     options?: { refreshOnSuccess?: boolean }
   ): Promise<ApiCallResult<T>> {
-    if (!guestId) {
-      return {
-        ok: false,
-        payload: null,
-        status: 0,
-        message: "Unable to initialize guest identity.",
-      };
-    }
-
     try {
       setBusyAction(busyKey);
       setActionError(null);
@@ -1056,7 +1056,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-roundtable-guest-id": guestId,
+          "x-roundtable-actor-id": actorId,
         },
         body: JSON.stringify({
           display_name: displayName,
@@ -1094,22 +1094,13 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     } finally {
       setBusyAction(null);
     }
-  }, [displayName, guestId, loadSnapshot]);
+  }, [actorId, displayName, loadSnapshot]);
 
   const updateCameraState = useCallback(async (
     nextState: CameraState,
     busyKey: string | null,
     options?: { refreshOnSuccess?: boolean }
   ): Promise<ApiCallResult<CameraActionResponse>> => {
-    if (!guestId) {
-      return {
-        ok: false,
-        payload: null,
-        status: 0,
-        message: "Unable to initialize guest identity.",
-      };
-    }
-
     try {
       if (busyKey) {
         setBusyAction(busyKey);
@@ -1119,7 +1110,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-roundtable-guest-id": guestId,
+          "x-roundtable-actor-id": actorId,
         },
         body: JSON.stringify({
           display_name: displayName,
@@ -1159,7 +1150,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         setBusyAction((current) => (current === busyKey ? null : current));
       }
     }
-  }, [displayName, guestId, loadSnapshot, sessionId]);
+  }, [actorId, displayName, loadSnapshot, sessionId]);
 
   const acquireCameraStream = useCallback(async () => {
     if (!window.isSecureContext) {
@@ -1275,10 +1266,26 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const handleShareSeat = useCallback(async (seatNo: number) => {
     if (!currentMember || typeof window === "undefined") return;
 
-    const inviteUrl = new URL(`/roundtable/${sessionId}`, window.location.origin);
-    inviteUrl.searchParams.set("seat", String(seatNo));
-    inviteUrl.searchParams.set("inviter", currentMember.id);
-    inviteUrl.searchParams.set("source", "invite");
+    let inviteUrl: string | null = null;
+    try {
+      const response = await fetch(`/api/roundtable/sessions/${sessionId}/invite`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-roundtable-actor-id": actorId,
+        },
+        body: JSON.stringify({ seat_no: seatNo }),
+      });
+
+      const payload = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error ?? "Unable to create invite.");
+      }
+      inviteUrl = payload.url;
+    } catch {
+      setShareFeedback({ seatNo, message: "Invite failed" });
+      return;
+    }
 
     let feedbackMessage = "Link copied";
     try {
@@ -1286,11 +1293,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         await navigator.share({
           title: `${snapshot?.topic.title ?? "StartupManch"} roundtable invite`,
           text: `Join me in ${snapshot?.topic.title ?? "this"} roundtable.`,
-          url: inviteUrl.toString(),
+          url: inviteUrl,
         });
         feedbackMessage = "Invite shared";
       } else {
-        await copyText(inviteUrl.toString());
+        await copyText(inviteUrl);
       }
     } catch (shareErrorValue) {
       if (shareErrorValue instanceof DOMException && shareErrorValue.name === "AbortError") {
@@ -1298,7 +1305,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       }
 
       try {
-        await copyText(inviteUrl.toString());
+        await copyText(inviteUrl);
       } catch {
         setShareFeedback({ seatNo, message: "Copy failed" });
         return;
@@ -1311,7 +1318,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(guestId ? { "x-roundtable-guest-id": guestId } : {}),
+        "x-roundtable-actor-id": actorId,
       },
       body: JSON.stringify({
         seat_no: seatNo,
@@ -1321,16 +1328,30 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }).catch(() => {
       // Share logging is best-effort only.
     });
-  }, [currentMember, guestId, sessionId, snapshot?.topic.title]);
+  }, [actorId, currentMember, sessionId, snapshot?.topic.title]);
 
   const handleJoinWithSeatPreference = useCallback(async (
     preferredSeatNo: number | null,
-    fallbackToAuto: boolean
+    fallbackToAuto: boolean,
+    options?: { prepareMic?: boolean }
   ) => {
+    let micPrepared = false;
+    if (options?.prepareMic) {
+      try {
+        await preparePendingJoinMicStream();
+        micPrepared = true;
+      } catch {
+        micPrepared = false;
+      }
+    }
+
     let usedFallback = false;
     let result = await callApi<ActionResponse>(
       `/api/roundtable/sessions/${sessionId}/join`,
-      { seat_no: preferredSeatNo ?? undefined },
+      {
+        seat_no: preferredSeatNo ?? undefined,
+        invite_token: inviteContext.invite_token ?? undefined,
+      },
       "join"
     );
 
@@ -1338,12 +1359,18 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       usedFallback = true;
       result = await callApi<ActionResponse>(
         `/api/roundtable/sessions/${sessionId}/join`,
-        { seat_no: undefined },
+        {
+          seat_no: undefined,
+          invite_token: inviteContext.invite_token ?? undefined,
+        },
         "join"
       );
     }
 
     if (!result.ok) {
+      if (micPrepared) {
+        clearPendingJoinMicStream();
+      }
       setActionError(result.message);
       if (usedFallback && preferredSeatNo) {
         if (result.payload?.code === "room_full" || result.payload?.code === "session_closed") {
@@ -1366,7 +1393,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       } satisfies ApiCallResult<ActionResponse>;
     }
 
-    persistMemberId(memberId);
     setActionError(null);
     if (usedFallback && preferredSeatNo) {
       const matchedSeatNo = result.payload?.seat_no;
@@ -1378,11 +1404,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     } else {
       setInviteFeedback(null);
     }
-    autoMicPermissionPromptedMemberRef.current = memberId;
-    void attemptPlayRemoteAudioElements();
-    await enableMic();
+
+    const pendingStream = consumePendingJoinMicStream();
+    if (pendingStream) {
+      await activateMicStream(pendingStream);
+    }
+
     return result;
-  }, [attemptPlayRemoteAudioElements, callApi, enableMic, persistMemberId, sessionId]);
+  }, [activateMicStream, callApi, inviteContext.invite_token, sessionId]);
 
   const handleJoin = useCallback(async () => {
     if (!displayName.trim().length) {
@@ -1390,52 +1419,19 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       return;
     }
 
-    setJoinAnyError(null);
     const selectedSeatNo = seatChoice === "auto" ? null : seatChoice;
     const shouldFallbackFromInvite =
       inviteContext.source === "invite" &&
       preferredInviteSeatNo !== null &&
       selectedSeatNo === preferredInviteSeatNo;
 
-    await handleJoinWithSeatPreference(selectedSeatNo, shouldFallbackFromInvite);
+    await handleJoinWithSeatPreference(selectedSeatNo, shouldFallbackFromInvite, { prepareMic: true });
   }, [displayName, handleJoinWithSeatPreference, inviteContext.source, preferredInviteSeatNo, seatChoice]);
 
-  const handleJoinAny = useCallback(async () => {
-    if (!displayName.trim().length) {
-      setJoinAnyError("Display name is required before using Join Any.");
-      return;
-    }
-
-    if (isViewerSeatedElsewhere) {
-      setJoinAnyError("Leave your current roundtable seat before joining another room.");
-      return;
-    }
-
-    setJoinAnyError(null);
-    const result = await callApi<JoinAnyResponse>("/api/roundtable/join-any", {}, "join-any", {
+  const handleLeave = useCallback(async () => {
+    const result = await callApi<ActionResponse>(`/api/roundtable/sessions/${sessionId}/leave`, {}, "leave", {
       refreshOnSuccess: false,
     });
-
-    if (!result.ok) {
-      setJoinAnyError(result.message);
-      return;
-    }
-
-    const targetSessionId = result.payload?.session_id ?? null;
-    const memberId = result.payload?.member_id ?? null;
-    if (!targetSessionId || !memberId) {
-      setJoinAnyError("Unable to join a roundtable right now.");
-      return;
-    }
-
-    persistMemberId(memberId, targetSessionId);
-    if (typeof window !== "undefined") {
-      window.location.assign(`/roundtable/${targetSessionId}?source=join-any`);
-    }
-  }, [callApi, displayName, isViewerSeatedElsewhere, persistMemberId]);
-
-  const handleLeave = useCallback(async () => {
-    const result = await callApi<ActionResponse>(`/api/roundtable/sessions/${sessionId}/leave`, {}, "leave");
     if (!result.ok) {
       setActionError(result.message);
       return;
@@ -1445,9 +1441,10 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       stopMicStream();
       stopLocalCameraStream();
       setCameraError(null);
-      clearPersistedMemberId();
+      setInviteFeedback(null);
+      router.replace(roomVisibility === "private" ? "/" : "/roundtable");
     }
-  }, [callApi, clearPersistedMemberId, sessionId, stopLocalCameraStream, stopMicStream]);
+  }, [callApi, roomVisibility, router, sessionId, stopLocalCameraStream, stopMicStream]);
 
   const handleResetSeats = useCallback(async () => {
     if (typeof window !== "undefined") {
@@ -1455,7 +1452,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       if (!confirmed) return;
     }
 
-    const result = await callApi<ActionResponse>(`/api/roundtable/sessions/${sessionId}/reset-seats`, {}, "reset-seats");
+    const result = await callApi<ActionResponse>(`/api/roundtable/sessions/${sessionId}/reset-seats`, {}, "reset-seats", {
+      refreshOnSuccess: false,
+    });
     if (!result.ok) {
       setActionError(result.message);
       return;
@@ -1465,9 +1464,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       stopMicStream();
       stopLocalCameraStream();
       setCameraError(null);
-      clearPersistedMemberId();
+      router.replace(roomVisibility === "private" ? "/" : "/roundtable");
     }
-  }, [callApi, clearPersistedMemberId, sessionId, stopLocalCameraStream, stopMicStream]);
+  }, [callApi, roomVisibility, router, sessionId, stopLocalCameraStream, stopMicStream]);
 
   useEffect(() => {
     if (inviteContext.source !== "invite") {
@@ -1487,25 +1486,24 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
   useEffect(() => {
     if (inviteContext.source !== "invite") return;
-    if (!snapshot || currentMember || !preferredInviteSeatNo) return;
+    if (!snapshot || currentMember) return;
     if (!displayName.trim().length) return;
-    if (isViewerSeatedElsewhere) return;
 
-    const attemptKey = `${sessionId}:${preferredInviteSeatNo}:${displayName.trim()}:${viewerJoinedSessionId ?? "none"}`;
+    const targetSeatNo = preferredInviteSeatNo ?? null;
+    const attemptKey = `${sessionId}:${targetSeatNo ?? "auto"}:${displayName.trim()}:${inviteContext.invite_token ?? "none"}`;
     if (inviteAutoJoinKeyRef.current === attemptKey) return;
     inviteAutoJoinKeyRef.current = attemptKey;
 
-    void handleJoinWithSeatPreference(preferredInviteSeatNo, true);
+    void handleJoinWithSeatPreference(targetSeatNo, targetSeatNo !== null);
   }, [
     currentMember,
     displayName,
     handleJoinWithSeatPreference,
     inviteContext.source,
-    isViewerSeatedElsewhere,
+    inviteContext.invite_token,
     preferredInviteSeatNo,
     sessionId,
     snapshot,
-    viewerJoinedSessionId,
   ]);
 
   const inviteNotice = useMemo(() => {
@@ -1514,9 +1512,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }
     if (inviteFeedback) {
       return inviteFeedback;
-    }
-    if (isViewerSeatedElsewhere) {
-      return "Leave your current roundtable seat before using this invite.";
     }
     if (!preferredInviteSeatNo) {
       return "This invite opened the same room. Pick any open seat to join.";
@@ -1530,7 +1525,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     displayName,
     inviteContext.source,
     inviteFeedback,
-    isViewerSeatedElsewhere,
     preferredInviteSeatNo,
   ]);
 
@@ -1540,7 +1534,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         <section className="roundtable-panel">Loading session...</section>
         <RoundtableHomepageVideoRail
           sessionId={sessionId}
-          participantId={guestId}
+          participantId={actorId}
           onPitchOpened={() => {
             setVideoLeaderboardRefreshToken((current) => current + 1);
           }}
@@ -1562,7 +1556,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         </section>
         <RoundtableHomepageVideoRail
           sessionId={sessionId}
-          participantId={guestId}
+          participantId={actorId}
           onPitchOpened={() => {
             setVideoLeaderboardRefreshToken((current) => current + 1);
           }}
@@ -1602,29 +1596,6 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       <section className="roundtable-panel roundtable-room-dock" aria-label="Roundtable controls">
         {!currentMember ? (
           <>
-            <section className="roundtable-match-panel" aria-label="Join any roundtable">
-              <div className="roundtable-match-actions">
-                <button
-                  type="button"
-                  className="roundtable-cta"
-                  onClick={() => void handleJoinAny()}
-                  disabled={busyAction === "join-any" || isViewerSeatedElsewhere}
-                >
-                  {busyAction === "join-any" ? "Matching..." : "Join Any"}
-                </button>
-                {joinAnyError ? (
-                  <p className="roundtable-error roundtable-visually-hidden" aria-live="polite">
-                    {joinAnyError}
-                  </p>
-                ) : null}
-                {!joinAnyError && isViewerSeatedElsewhere ? (
-                  <p className="roundtable-muted roundtable-visually-hidden" aria-live="polite">
-                    Leave your current roundtable seat before using Join Any.
-                  </p>
-                ) : null}
-              </div>
-            </section>
-
             <form
               className="roundtable-controls"
               onSubmit={(event) => {
@@ -1678,6 +1649,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
               ) : null}
             </form>
             {inviteNotice ? <p className="roundtable-muted roundtable-invite-note">{inviteNotice}</p> : null}
+            {roomVisibility === "private" && !inviteNotice ? (
+              <p className="roundtable-muted roundtable-invite-note">
+                This is a private room. Share an invite link to bring friends in.
+              </p>
+            ) : null}
             {!currentMember && isRoomFull ? (
               <p className="roundtable-error">
                 Room is full. Only {maxSeats} people can join this roundtable.
@@ -1702,7 +1678,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
                   muteMic();
                 }}
               >
-                {isMyMicMuted ? "Unmute mic" : "Mute mic"}
+                {isMyMicMuted ? "Enable mic" : "Mute mic"}
               </button>
               {needsRemoteAudioUnlock && remoteAudioEntries.length ? (
                 <button
@@ -1780,7 +1756,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       </div>
       <RoundtableHomepageVideoRail
         sessionId={sessionId}
-        participantId={currentMember?.id ?? guestId}
+        participantId={currentMember?.id ?? actorId}
         onPitchOpened={() => {
           setVideoLeaderboardRefreshToken((current) => current + 1);
         }}

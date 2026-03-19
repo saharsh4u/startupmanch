@@ -71,7 +71,7 @@ export default function RoundtableLobby() {
       <section className="roundtable-hero roundtable-lobby-hero">
         <p className="roundtable-kicker">Roundtable</p>
         <h1>StartupManch Roundtable</h1>
-        <p>Roulette-style founder discussions with live queueing, timed turns, and transparent scoring.</p>
+        <p>Join public founder rooms or create one of your own for open discussion.</p>
       </section>
 
       <section className="roundtable-rules" aria-label="Roundtable rules">
@@ -81,11 +81,11 @@ export default function RoundtableLobby() {
         <span>Auto-submit on timeout</span>
       </section>
 
-      <section className="roundtable-panel roundtable-lobby-sessions" aria-label="Live and waiting sessions">
-        <h4>Live / waiting sessions</h4>
+      <section className="roundtable-panel roundtable-lobby-sessions" aria-label="Public roundtable sessions">
+        <h4>Public rooms</h4>
         {loading ? <p className="roundtable-muted">Loading sessions...</p> : null}
         {error ? <p className="roundtable-error">{error}</p> : null}
-        {!loading && !sessions.length ? <p className="roundtable-muted">No active sessions yet.</p> : null}
+        {!loading && !sessions.length ? <p className="roundtable-muted">No active public rooms yet.</p> : null}
         <div className="roundtable-session-grid">
           {sessions.map((session) => (
             <RoundtableSessionCard key={session.session_id} session={session} />

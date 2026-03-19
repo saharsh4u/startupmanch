@@ -1,21 +1,9 @@
 import { createHash, randomUUID } from "crypto";
-import { getAuthContext } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { RoundtableActor, RoundtableMemberRow } from "@/lib/roundtable/types";
 
 const DEFAULT_IP = "0.0.0.0";
 const MAX_NAME_LENGTH = 48;
-
-const parseCookieMap = (cookieHeader: string | null) => {
-  const map = new Map<string, string>();
-  if (!cookieHeader) return map;
-  cookieHeader.split(";").forEach((pair) => {
-    const [rawKey, ...rawValue] = pair.trim().split("=");
-    if (!rawKey) return;
-    map.set(rawKey, decodeURIComponent(rawValue.join("=") || ""));
-  });
-  return map;
-};
 
 export const readIp = (request: Request) => {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -31,11 +19,10 @@ export const hashIp = (ip: string) => {
 };
 
 export const getGuestIdFromRequest = (request: Request) => {
+  const actorHeader = request.headers.get("x-roundtable-actor-id")?.trim();
+  if (actorHeader) return actorHeader;
   const headerValue = request.headers.get("x-roundtable-guest-id")?.trim();
   if (headerValue) return headerValue;
-  const cookieMap = parseCookieMap(request.headers.get("cookie"));
-  const cookieValue = cookieMap.get("rt_guest_id")?.trim();
-  if (cookieValue) return cookieValue;
   return null;
 };
 
@@ -56,15 +43,6 @@ export const parseTags = (value: unknown) => {
 };
 
 export const getRoundtableActor = async (request: Request, displayName?: string | null): Promise<RoundtableActor> => {
-  const auth = await getAuthContext(request);
-  if (auth) {
-    return {
-      profileId: auth.userId,
-      guestId: null,
-      displayName: displayName ? normalizeDisplayName(displayName) : auth.email,
-    };
-  }
-
   const guestId = getGuestIdFromRequest(request) ?? randomUUID();
   return {
     profileId: null,
@@ -103,16 +81,7 @@ export const getMemberForActor = async (sessionId: string, actor: RoundtableActo
   const [primary, ...duplicates] = members;
   if (duplicates.length) {
     const duplicateIds = duplicates.map((member) => member.id);
-    const { error: cleanupError } = await supabaseAdmin
-      .from("roundtable_members")
-      .update({ state: "left", left_at: nowIso() })
-      .in("id", duplicateIds)
-      .eq("session_id", sessionId)
-      .eq("state", "joined");
-
-    if (cleanupError) {
-      throw new Error(cleanupError.message);
-    }
+    await deleteRoundtableMembers(duplicateIds);
   }
 
   return primary;
@@ -165,6 +134,80 @@ export const logRoundtableEvent = async (
 };
 
 export const nowIso = () => new Date().toISOString();
+
+export const deleteRoundtableMembers = async (memberIds: string[]) => {
+  const ids = Array.from(new Set(memberIds.filter(Boolean)));
+  if (!ids.length) return;
+
+  const { error } = await supabaseAdmin
+    .from("roundtable_members")
+    .delete()
+    .in("id", ids);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+export const deleteSessionIfEmpty = async (sessionId: string) => {
+  const { count, error: countError } = await supabaseAdmin
+    .from("roundtable_members")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId)
+    .eq("state", "joined");
+
+  if (countError) {
+    throw new Error(countError.message);
+  }
+
+  if ((count ?? 0) > 0) return false;
+
+  const { data: session, error: sessionError } = await supabaseAdmin
+    .from("roundtable_sessions")
+    .select("topic_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (sessionError) {
+    throw new Error(sessionError.message);
+  }
+
+  if (!session) return true;
+
+  const topicId = String(session.topic_id);
+  const { error: deleteSessionError } = await supabaseAdmin
+    .from("roundtable_sessions")
+    .delete()
+    .eq("id", sessionId);
+
+  if (deleteSessionError) {
+    throw new Error(deleteSessionError.message);
+  }
+
+  if (topicId) {
+    const { count: topicCount, error: topicCountError } = await supabaseAdmin
+      .from("roundtable_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("topic_id", topicId);
+
+    if (topicCountError) {
+      throw new Error(topicCountError.message);
+    }
+
+    if ((topicCount ?? 0) === 0) {
+      const { error: topicDeleteError } = await supabaseAdmin
+        .from("roundtable_topics")
+        .delete()
+        .eq("id", topicId);
+
+      if (topicDeleteError) {
+        throw new Error(topicDeleteError.message);
+      }
+    }
+  }
+
+  return true;
+};
 
 export const isLikelySpamText = (body: string) => {
   if (body.length > 600) return true;

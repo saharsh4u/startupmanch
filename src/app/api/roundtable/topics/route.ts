@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ROUND_TABLE_LIMITS, ROUND_TABLE_TEXT_LIMITS } from "@/lib/roundtable/constants";
 import { logRoundtableEvent, parseTags } from "@/lib/roundtable/server";
+import { createRoundtableSession } from "@/lib/roundtable/create-session";
 import { parseJsonSafely, requireCaptcha, requireRateLimit, resolveActor, withGuestCookie } from "@/lib/roundtable/api";
-import { supabaseAdmin } from "@/lib/supabase/server";
 
 type CreateTopicPayload = {
   title?: string;
@@ -56,76 +56,28 @@ export async function POST(request: Request) {
 
   const tags = parseTags(payload.tags);
 
-  const { data: topic, error: topicError } = await supabaseAdmin
-    .from("roundtable_topics")
-    .insert({
+  let created;
+  try {
+    created = await createRoundtableSession({
+      actor,
       title,
-      description: description || null,
+      description,
       tags,
-      created_by_profile_id: actor.profileId,
-      created_by_guest_id: actor.guestId,
-    })
-    .select("id")
-    .single();
-
-  if (topicError || !topic?.id) {
-    return NextResponse.json({ error: topicError?.message ?? "Unable to create topic." }, { status: 500 });
-  }
-
-  const { data: session, error: sessionError } = await supabaseAdmin
-    .from("roundtable_sessions")
-    .insert({
-      topic_id: topic.id,
-      status: "lobby",
-      max_seats: 5,
-      turn_duration_sec: turnDurationSec,
-      created_by_profile_id: actor.profileId,
-      created_by_guest_id: actor.guestId,
-      updated_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (sessionError || !session?.id) {
-    return NextResponse.json({ error: sessionError?.message ?? "Unable to create session." }, { status: 500 });
-  }
-
-  const { data: member, error: memberError } = await supabaseAdmin
-    .from("roundtable_members")
-    .insert({
-      session_id: session.id,
-      seat_no: 1,
-      profile_id: actor.profileId,
-      guest_id: actor.guestId,
-      display_name: actor.displayName,
-      state: "joined",
-    })
-    .select("id")
-    .single();
-
-  if (memberError || !member?.id) {
-    return NextResponse.json({ error: memberError?.message ?? "Unable to reserve creator seat." }, { status: 500 });
-  }
-
-  await supabaseAdmin
-    .from("roundtable_scores")
-    .upsert(
-      {
-        session_id: session.id,
-        member_id: member.id,
-        points: 0,
-        approved_turns: 0,
-        upvotes_received: 0,
-        useful_marks: 0,
-        violations: 0,
-      },
-      { onConflict: "session_id,member_id" }
+      turnDurationSec,
+      visibility: "public",
+    });
+  } catch (creationError) {
+    return NextResponse.json(
+      { error: creationError instanceof Error ? creationError.message : "Unable to create topic." },
+      { status: 500 }
     );
+  }
 
   await logRoundtableEvent("roundtable_topic_created", {
-    session_id: session.id,
-    topic_id: topic.id,
-    tags,
+    session_id: created.sessionId,
+    topic_id: created.topicId,
+    tags: created.tags,
+    visibility: "public",
     turn_duration_sec: turnDurationSec,
     actor: actor.profileId ? "profile" : "guest",
   }, actor.profileId);
@@ -133,9 +85,9 @@ export async function POST(request: Request) {
   const response = NextResponse.json(
     {
       ok: true,
-      topic_id: topic.id,
-      session_id: session.id,
-      member_id: member.id,
+      topic_id: created.topicId,
+      session_id: created.sessionId,
+      member_id: created.memberId,
       guest_id: actor.guestId,
     },
     { status: 201 }

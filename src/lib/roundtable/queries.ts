@@ -10,8 +10,36 @@ import type {
   RoundtableTopicRow,
   RoundtableTurnRow,
 } from "@/lib/roundtable/types";
+import { normalizeRoundtableVisibility, sanitizeRoundtableTags } from "@/lib/roundtable/visibility";
 
 const withFallbackTags = (tags: string[] | null | undefined) => (Array.isArray(tags) ? tags : []);
+
+const getSessionTopic = (
+  topicValue: RoundtableTopicRow | RoundtableTopicRow[] | null
+): RoundtableTopicRow | null => (Array.isArray(topicValue) ? topicValue[0] ?? null : topicValue);
+
+const buildSessionSummary = (
+  session: RoundtableSessionRow & { roundtable_topics: RoundtableTopicRow | RoundtableTopicRow[] | null },
+  seatsTaken: number
+): RoundtableSessionSummary => {
+  const topic = getSessionTopic(session.roundtable_topics);
+  const rawTags = withFallbackTags(topic?.tags);
+  const visibility = normalizeRoundtableVisibility(rawTags);
+
+  return {
+    session_id: session.id,
+    topic_id: session.topic_id,
+    topic_title: topic?.title ?? "Untitled topic",
+    topic_description: topic?.description ?? null,
+    tags: sanitizeRoundtableTags(rawTags),
+    visibility,
+    status: session.status,
+    turn_duration_sec: session.turn_duration_sec,
+    max_seats: session.max_seats,
+    seats_taken: seatsTaken,
+    created_at: session.created_at,
+  };
+};
 
 const getMemberCameraStates = async (sessionId: string, memberIds: string[]) => {
   const stateByMemberId = new Map<string, RoundtableMemberRow["camera_state"]>();
@@ -38,8 +66,7 @@ const getMemberCameraStates = async (sessionId: string, memberIds: string[]) => 
     const memberId = String(metadata.member_id ?? "");
     if (!unresolved.has(memberId)) continue;
 
-    const nextState = metadata.state === "live" ? "live" : "off";
-    stateByMemberId.set(memberId, nextState);
+    stateByMemberId.set(memberId, metadata.state === "live" ? "live" : "off");
     unresolved.delete(memberId);
   }
 
@@ -88,7 +115,6 @@ export const getWeeklyLeaderboard = async (): Promise<RoundtableLeaderboardEntry
   }
 
   const aggregate = new Map<string, RoundtableLeaderboardEntry>();
-
   for (const row of (scores ?? []) as RoundtableScoreRow[]) {
     const current = aggregate.get(row.member_id) ?? {
       member_id: row.member_id,
@@ -125,10 +151,12 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
     throw new Error(error.message);
   }
 
-  const sessions = (data ?? []) as Array<RoundtableSessionRow & { roundtable_topics: RoundtableTopicRow | RoundtableTopicRow[] | null }>;
+  const sessions = (data ?? []) as Array<
+    RoundtableSessionRow & { roundtable_topics: RoundtableTopicRow | RoundtableTopicRow[] | null }
+  >;
   const sessionIds = sessions.map((session) => session.id);
-
   const seatsTaken = new Map<string, number>();
+
   if (sessionIds.length) {
     const { data: members, error: membersError } = await supabaseAdmin
       .from("roundtable_members")
@@ -146,54 +174,17 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
     }
   }
 
-  const summaries: RoundtableSessionSummary[] = sessions.map((session) => {
-    const topic = Array.isArray(session.roundtable_topics)
-      ? session.roundtable_topics[0] ?? null
-      : session.roundtable_topics;
+  const summaries = sessions
+    .map((session) => buildSessionSummary(session, seatsTaken.get(session.id) ?? 0))
+    .filter((session) => session.visibility === "public" && session.seats_taken > 0);
 
-    return {
-      session_id: session.id,
-      topic_id: session.topic_id,
-      topic_title: topic?.title ?? "Untitled topic",
-      topic_description: topic?.description ?? null,
-      tags: withFallbackTags(topic?.tags),
-      status: session.status,
-      turn_duration_sec: session.turn_duration_sec,
-      max_seats: session.max_seats,
-      seats_taken: seatsTaken.get(session.id) ?? 0,
-      created_at: session.created_at,
-    };
-  });
-
-  const leaderboard = await getWeeklyLeaderboard();
   return {
     sessions: summaries,
-    leaderboard,
+    leaderboard: await getWeeklyLeaderboard(),
   };
 };
 
-export const getHomepageSessionId = async (): Promise<string | null> => {
-  const { data, error } = await supabaseAdmin
-    .from("roundtable_sessions")
-    .select("id, status, created_at")
-    .in("status", ["lobby", "live"])
-    .order("created_at", { ascending: false })
-    .limit(24);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const sessions = (data ?? []) as Array<Pick<RoundtableSessionRow, "id" | "status" | "created_at">>;
-  const featuredSession = [...sessions].sort((left, right) => {
-    const leftRank = left.status === "live" ? 0 : 1;
-    const rightRank = right.status === "live" ? 0 : 1;
-    if (leftRank !== rightRank) return leftRank - rightRank;
-    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
-  })[0];
-
-  return featuredSession?.id ?? null;
-};
+export const getHomepageSessionId = async (): Promise<string | null> => null;
 
 export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableSessionSnapshot | null> => {
   const { data: sessionData, error: sessionError } = await supabaseAdmin
@@ -213,15 +204,13 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
   const session = sessionData as RoundtableSessionRow & {
     roundtable_topics: RoundtableTopicRow | RoundtableTopicRow[] | null;
   };
-
-  const topic = Array.isArray(session.roundtable_topics)
-    ? session.roundtable_topics[0] ?? null
-    : session.roundtable_topics;
+  const topic = getSessionTopic(session.roundtable_topics);
 
   const { data: membersData, error: membersError } = await supabaseAdmin
     .from("roundtable_members")
     .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
     .eq("session_id", sessionId)
+    .eq("state", "joined")
     .order("seat_no", { ascending: true });
 
   if (membersError) {
@@ -229,10 +218,10 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
   }
 
   const rawMembers = (membersData ?? []) as Omit<RoundtableMemberRow, "camera_state">[];
-  const joinedMemberIds = rawMembers
-    .filter((member) => member.state === "joined")
-    .map((member) => member.id);
-  const cameraStateByMemberId = await getMemberCameraStates(sessionId, joinedMemberIds);
+  const cameraStateByMemberId = await getMemberCameraStates(
+    sessionId,
+    rawMembers.map((member) => member.id)
+  );
   const members = rawMembers.map((member) => ({
     ...member,
     camera_state: cameraStateByMemberId.get(member.id) ?? "off",
@@ -251,7 +240,6 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
   }
 
   const turns = (turnsData ?? []) as RoundtableTurnRow[];
-
   const queue = turns
     .filter((turn) => turn.status === "queued")
     .map((turn) => ({
@@ -260,7 +248,6 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
     }));
 
   const activeTurn = turns.find((turn) => turn.status === "active") ?? null;
-
   const recentTurns = turns
     .filter((turn) => ["submitted", "expired", "skipped"].includes(turn.status))
     .filter((turn) => !turn.hidden_for_abuse)
@@ -286,29 +273,18 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
     member_display_name: nameByMemberId.get(score.member_id) ?? "Guest",
   }));
 
-  const seatsTaken = members.filter((member) => member.state === "joined").length;
+  const summary = buildSessionSummary(session, members.length);
+  const rawTags = withFallbackTags(topic?.tags);
 
   return {
     viewer_member_id: null,
     viewer_can_manage_members: false,
-    viewer_joined_session_id: null,
-    session: {
-      session_id: session.id,
-      topic_id: session.topic_id,
-      topic_title: topic?.title ?? "Untitled topic",
-      topic_description: topic?.description ?? null,
-      tags: withFallbackTags(topic?.tags),
-      status: session.status,
-      turn_duration_sec: session.turn_duration_sec,
-      max_seats: session.max_seats,
-      seats_taken: seatsTaken,
-      created_at: session.created_at,
-    },
+    session: summary,
     topic: {
       id: topic?.id ?? session.topic_id,
       title: topic?.title ?? "Untitled topic",
       description: topic?.description ?? null,
-      tags: withFallbackTags(topic?.tags),
+      tags: sanitizeRoundtableTags(rawTags),
     },
     members,
     queue,

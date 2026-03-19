@@ -1,7 +1,9 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { ROUND_TABLE_LIMITS } from "@/lib/roundtable/constants";
+import { verifyRoundtableInviteToken } from "@/lib/roundtable/invite-token";
 import { joinRoundtableSession } from "@/lib/roundtable/join-session";
+import { getSessionSnapshot } from "@/lib/roundtable/queries";
 import { logRoundtableEvent } from "@/lib/roundtable/server";
 import { parseJsonSafely, requireCaptcha, requireRateLimit, resolveActor, withGuestCookie } from "@/lib/roundtable/api";
 
@@ -9,6 +11,7 @@ type JoinPayload = {
   display_name?: string;
   seat_no?: number;
   captcha_token?: string;
+  invite_token?: string | null;
 };
 
 type JoinErrorCode =
@@ -18,6 +21,7 @@ type JoinErrorCode =
   | "session_not_found"
   | "session_closed"
   | "room_full"
+  | "invite_required"
   | "identity_conflict"
   | "seat_taken_retry_exhausted"
   | "join_failed";
@@ -44,7 +48,25 @@ export async function POST(
   }
 
   const actor: Actor | null = await resolveActor(request, payload.display_name ?? null);
-  const requestedSeatNo = Number.isInteger(payload.seat_no) ? Number(payload.seat_no) : null;
+  const snapshot = await getSessionSnapshot(params.sessionId);
+  if (!snapshot) {
+    return NextResponse.json({ error: "Session not found.", code: "session_not_found" }, { status: 404 });
+  }
+
+  const invite = verifyRoundtableInviteToken(payload.invite_token ?? null);
+  const hasValidInvite = Boolean(invite && invite.session_id === params.sessionId);
+  if (snapshot.session.visibility === "private" && !hasValidInvite) {
+    return NextResponse.json(
+      { error: "This private room requires a valid invite.", code: "invite_required" },
+      { status: 403 }
+    );
+  }
+
+  const requestedSeatNo = Number.isInteger(payload.seat_no)
+    ? Number(payload.seat_no)
+    : Number.isInteger(invite?.seat_no)
+      ? Number(invite?.seat_no)
+      : null;
 
   const emitJoinAttempt = async (
     code: JoinErrorCode | "joined" | "already_joined",

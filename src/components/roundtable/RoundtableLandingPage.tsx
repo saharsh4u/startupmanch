@@ -5,16 +5,16 @@ import RoundtableLobby from "@/components/roundtable/RoundtableLobby";
 
 export const roundtableLandingMetadata: Metadata = {
   title: "Roundtable | StartupManch",
-  description: "Structured startup roundtable discussions with timed speaking and live scoring.",
+  description: "Browse and join public StartupManch roundtable rooms.",
   openGraph: {
     title: "Roundtable | StartupManch",
-    description: "Structured startup roundtable discussions with timed speaking and live scoring.",
+    description: "Browse and join public StartupManch roundtable rooms.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Roundtable | StartupManch",
-    description: "Structured startup roundtable discussions with timed speaking and live scoring.",
+    description: "Browse and join public StartupManch roundtable rooms.",
   },
 };
 

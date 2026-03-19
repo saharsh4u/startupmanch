@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import RoundtableLandingPage from "@/components/roundtable/RoundtableLandingPage";
-import RoundtableRoomPageShell from "@/components/roundtable/RoundtableRoomPageShell";
-import { getHomepageSessionId } from "@/lib/roundtable/queries";
+import RoundtablePrivateRoomBootstrap from "@/components/roundtable/RoundtablePrivateRoomBootstrap";
 import { toAbsoluteSiteUrl } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -10,13 +8,13 @@ export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Roundtable Room | StartupManch",
-  description: "Join the default live startup roundtable room and participate in timed text turns.",
+  description: "Open a private StartupManch roundtable room and invite friends or founders in.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
     title: "Roundtable Room | StartupManch",
-    description: "Join the default live startup roundtable room and participate in timed text turns.",
+    description: "Open a private StartupManch roundtable room and invite friends or founders in.",
     url: "/",
     siteName: "StartupManch",
     type: "website",
@@ -24,17 +22,11 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Roundtable Room | StartupManch",
-    description: "Join the default live startup roundtable room and participate in timed text turns.",
+    description: "Open a private StartupManch roundtable room and invite friends or founders in.",
   },
 };
 
-export default async function Home() {
-  let sessionId: string | null = null;
-  try {
-    sessionId = await getHomepageSessionId();
-  } catch {
-    sessionId = null;
-  }
+export default function Home() {
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -64,7 +56,7 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
-      {sessionId ? <RoundtableRoomPageShell sessionId={sessionId} /> : <RoundtableLandingPage />}
+      <RoundtablePrivateRoomBootstrap />
     </>
   );
 }

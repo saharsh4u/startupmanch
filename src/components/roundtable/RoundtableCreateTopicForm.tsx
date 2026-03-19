@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { clearPendingJoinMicStream, preparePendingJoinMicStream } from "@/lib/roundtable/client-media";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 
 type RoundtableCreateTopicFormProps = {
@@ -14,6 +16,7 @@ type CreateResponse = {
 };
 
 export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreateTopicFormProps) {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -36,20 +39,22 @@ export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreat
     if (busy) return;
     setError(null);
 
-    const guestId = ensureGuestId();
-    if (!guestId) {
-      setError("Unable to initialize guest identity.");
+    const actorId = ensureGuestId();
+    if (!actorId) {
+      setError("Unable to initialize roundtable identity.");
       return;
     }
 
     try {
       setBusy(true);
       setDisplayName(displayName);
+      void preparePendingJoinMicStream().catch(() => null);
+
       const response = await fetch("/api/roundtable/topics", {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-roundtable-guest-id": guestId,
+          "x-roundtable-actor-id": actorId,
         },
         body: JSON.stringify({
           title,
@@ -62,13 +67,15 @@ export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreat
 
       const payload = (await response.json()) as CreateResponse;
       if (!response.ok || !payload.session_id) {
+        clearPendingJoinMicStream();
         setError(payload.error ?? "Unable to create topic.");
         return;
       }
 
       onCreated?.();
-      window.location.assign(`/roundtable/${payload.session_id}`);
+      router.push(`/roundtable/${payload.session_id}`);
     } catch {
+      clearPendingJoinMicStream();
       setError("Unable to create topic.");
     } finally {
       setBusy(false);
@@ -115,7 +122,7 @@ export default function RoundtableCreateTopicForm({ onCreated }: RoundtableCreat
       </div>
       {error ? <p className="roundtable-error">{error}</p> : null}
       <button type="button" className="roundtable-cta" onClick={() => void submit()} disabled={busy || title.trim().length < 4}>
-        {busy ? "Creating..." : "Create and join room"}
+        {busy ? "Creating..." : "Create public room"}
       </button>
     </section>
   );

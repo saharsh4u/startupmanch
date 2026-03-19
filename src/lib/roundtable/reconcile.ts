@@ -1,6 +1,7 @@
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { ROUND_TABLE_PRESENCE } from "@/lib/roundtable/constants";
+import { deleteRoundtableMembers, deleteSessionIfEmpty, logRoundtableEvent, nowIso } from "@/lib/roundtable/server";
 import type { RoundtableSessionRow, RoundtableTurnRow } from "@/lib/roundtable/types";
-import { logRoundtableEvent, nowIso } from "@/lib/roundtable/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 const INACTIVITY_END_MS = 10 * 60 * 1000;
 
@@ -36,6 +37,96 @@ const resolveQueuedHandForMember = async (sessionId: string, memberId: string) =
   }
 };
 
+const getLatestHeartbeatByMember = async (sessionId: string, memberIds: string[]) => {
+  const latestByMemberId = new Map<string, number>();
+  if (!memberIds.length) return latestByMemberId;
+
+  const { data, error } = await supabaseAdmin
+    .from("analytics")
+    .select("metadata, created_at")
+    .eq("event_type", "roundtable_member_heartbeat")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const unresolved = new Set(memberIds);
+  for (const row of data ?? []) {
+    if (!unresolved.size) break;
+    const metadata = row.metadata as Record<string, unknown> | null;
+    if (!metadata || String(metadata.session_id ?? "") !== sessionId) continue;
+    const memberId = String(metadata.member_id ?? "");
+    if (!unresolved.has(memberId)) continue;
+
+    const createdAtMs = toMs(String(row.created_at ?? ""));
+    if (Number.isFinite(createdAtMs)) {
+      latestByMemberId.set(memberId, createdAtMs);
+      unresolved.delete(memberId);
+    }
+  }
+
+  return latestByMemberId;
+};
+
+const purgeLegacyNonJoinedMembers = async (sessionId: string) => {
+  const { data, error } = await supabaseAdmin
+    .from("roundtable_members")
+    .select("id")
+    .eq("session_id", sessionId)
+    .neq("state", "joined");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const ids = (data ?? []).map((row) => String(row.id)).filter(Boolean);
+  if (ids.length) {
+    await deleteRoundtableMembers(ids);
+  }
+};
+
+const cleanupStaleMembers = async (session: RoundtableSessionRow) => {
+  const { data, error } = await supabaseAdmin
+    .from("roundtable_members")
+    .select("id, joined_at")
+    .eq("session_id", session.id)
+    .eq("state", "joined");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const joinedRows = (data ?? []) as Array<{ id: string; joined_at: string }>;
+  if (!joinedRows.length) {
+    await deleteSessionIfEmpty(session.id);
+    return true;
+  }
+
+  const heartbeatByMemberId = await getLatestHeartbeatByMember(
+    session.id,
+    joinedRows.map((row) => row.id)
+  );
+
+  const staleIds = joinedRows
+    .filter((row) => {
+      const lastSeenMs = heartbeatByMemberId.get(row.id) ?? toMs(row.joined_at);
+      return !Number.isFinite(lastSeenMs) || Date.now() - lastSeenMs >= ROUND_TABLE_PRESENCE.staleAfterMs;
+    })
+    .map((row) => row.id);
+
+  if (staleIds.length) {
+    await deleteRoundtableMembers(staleIds);
+    await logRoundtableEvent("roundtable_stale_members_purged", {
+      session_id: session.id,
+      member_ids: staleIds,
+    });
+  }
+
+  return deleteSessionIfEmpty(session.id);
+};
+
 const endExpiredActiveTurn = async (turn: RoundtableTurnRow) => {
   const { error } = await supabaseAdmin
     .from("roundtable_turns")
@@ -63,7 +154,7 @@ const endExpiredActiveTurn = async (turn: RoundtableTurnRow) => {
 const activateNextTurn = async (session: RoundtableSessionRow) => {
   const { data: members, error: membersError } = await supabaseAdmin
     .from("roundtable_members")
-    .select("id, state")
+    .select("id")
     .eq("session_id", session.id)
     .eq("state", "joined");
 
@@ -71,8 +162,7 @@ const activateNextTurn = async (session: RoundtableSessionRow) => {
     throw new Error(membersError.message);
   }
 
-  const joinedIds = new Set((members ?? []).map((item) => item.id));
-
+  const joinedIds = new Set((members ?? []).map((item) => String(item.id)));
   const { data: queuedTurns, error: turnsError } = await supabaseAdmin
     .from("roundtable_turns")
     .select("id, session_id, member_id, status, body, starts_at, ends_at, submitted_at, auto_submitted, hidden_for_abuse, created_at, updated_at")
@@ -171,6 +261,10 @@ export const reconcileSession = async (sessionId: string) => {
   const session = sessionData as RoundtableSessionRow;
   if (session.status === "ended" || session.status === "cancelled") return;
 
+  await purgeLegacyNonJoinedMembers(session.id);
+  const deletedAfterCleanup = await cleanupStaleMembers(session);
+  if (deletedAfterCleanup) return;
+
   const { data: activeTurnData, error: activeTurnError } = await supabaseAdmin
     .from("roundtable_turns")
     .select("id, session_id, member_id, status, body, starts_at, ends_at, submitted_at, auto_submitted, hidden_for_abuse, created_at, updated_at")
@@ -224,6 +318,6 @@ export const reconcileOpenSessions = async (limit = 30) => {
   }
 
   for (const row of data ?? []) {
-    await reconcileSession(row.id as string);
+    await reconcileSession(String(row.id));
   }
 };

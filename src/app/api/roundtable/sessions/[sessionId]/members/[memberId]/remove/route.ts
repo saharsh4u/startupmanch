@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { nowIso, logRoundtableEvent } from "@/lib/roundtable/server";
+import { deleteRoundtableMembers, deleteSessionIfEmpty, logRoundtableEvent } from "@/lib/roundtable/server";
 import { resolveActor, withGuestCookie } from "@/lib/roundtable/api";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -54,41 +54,17 @@ export async function POST(
       return withGuestCookie(response, actor.guestId);
     }
 
-    const now = nowIso();
-
-    const { error: updateMemberError } = await supabaseAdmin
-      .from("roundtable_members")
-      .update({ state: "kicked", left_at: now })
-      .eq("id", params.memberId)
-      .eq("session_id", params.sessionId)
-      .eq("state", "joined");
-
-    if (updateMemberError) {
-      return NextResponse.json({ error: updateMemberError.message }, { status: 500 });
-    }
-
-    const { error: clearTurnsError } = await supabaseAdmin
-      .from("roundtable_turns")
-      .update({
-        status: "skipped",
-        submitted_at: now,
-        auto_submitted: true,
-        updated_at: now,
-      })
-      .eq("session_id", params.sessionId)
-      .eq("member_id", params.memberId)
-      .in("status", ["queued", "active"]);
-
-    if (clearTurnsError) {
-      return NextResponse.json({ error: clearTurnsError.message }, { status: 500 });
-    }
+    await deleteRoundtableMembers([params.memberId]);
 
     await supabaseAdmin
       .from("roundtable_sessions")
-      .update({ updated_at: now })
+      .update({ updated_at: new Date().toISOString() })
       .eq("id", params.sessionId);
 
-    await reconcileSession(params.sessionId);
+    const deletedSession = await deleteSessionIfEmpty(params.sessionId);
+    if (!deletedSession) {
+      await reconcileSession(params.sessionId);
+    }
 
     await logRoundtableEvent(
       "roundtable_member_removed",

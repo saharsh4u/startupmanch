@@ -5,16 +5,7 @@ import { getRoundtableActor, hashIp, normalizeDisplayName, readIp } from "@/lib/
 
 export const runtime = "nodejs";
 
-export const withGuestCookie = (response: NextResponse, guestId: string | null) => {
-  if (!guestId) return response;
-  response.cookies.set("rt_guest_id", guestId, {
-    path: "/",
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 180,
-  });
-  return response;
-};
+export const withGuestCookie = (response: NextResponse, guestId: string | null) => response;
 
 export const parseJsonSafely = async <T>(request: Request): Promise<T | null> => {
   try {

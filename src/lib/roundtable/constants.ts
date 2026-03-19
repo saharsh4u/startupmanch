@@ -11,3 +11,8 @@ export const ROUND_TABLE_TEXT_LIMITS = {
   descriptionMax: 1000,
   turnBodyMax: 600,
 } as const;
+
+export const ROUND_TABLE_PRESENCE = {
+  heartbeatMs: 15_000,
+  staleAfterMs: 45_000,
+} as const;

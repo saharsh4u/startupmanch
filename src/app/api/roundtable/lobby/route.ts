@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLobbyData } from "@/lib/roundtable/queries";
 import { applyNoStoreCache } from "@/lib/http/cache";
+import { reconcileOpenSessions } from "@/lib/roundtable/reconcile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
+    await reconcileOpenSessions(40);
     const payload = await getLobbyData();
     const response = NextResponse.json(payload, { status: 200 });
     applyNoStoreCache(response);

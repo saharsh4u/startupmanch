@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
-import { logRoundtableEvent } from "@/lib/roundtable/server";
+import { deleteRoundtableMembers, deleteSessionIfEmpty, logRoundtableEvent } from "@/lib/roundtable/server";
 import type { RoundtableActor } from "@/lib/roundtable/types";
 
 type JoinErrorCode =
@@ -69,6 +69,41 @@ export const joinRoundtableSession = async (params: {
   requestedSeatNo?: number | null;
 }): Promise<JoinSessionResult> => {
   try {
+    if (params.actor.profileId || params.actor.guestId) {
+      let priorMembershipQuery = supabaseAdmin
+        .from("roundtable_members")
+        .select("id, session_id")
+        .eq("state", "joined");
+
+      if (params.actor.profileId) {
+        priorMembershipQuery = priorMembershipQuery.eq("profile_id", params.actor.profileId);
+      } else if (params.actor.guestId) {
+        priorMembershipQuery = priorMembershipQuery.eq("guest_id", params.actor.guestId);
+      }
+
+      const { data: priorMemberships, error: priorMembershipError } = await priorMembershipQuery;
+      if (priorMembershipError) {
+        return {
+          ok: false,
+          status: 500,
+          code: "join_failed",
+          error: priorMembershipError.message,
+        };
+      }
+
+      const staleRows = (priorMemberships ?? [])
+        .map((row) => ({ id: String(row.id), sessionId: String(row.session_id) }))
+        .filter((row) => row.sessionId && row.sessionId !== params.sessionId);
+
+      if (staleRows.length) {
+        await deleteRoundtableMembers(staleRows.map((row) => row.id));
+        const staleSessionIds = Array.from(new Set(staleRows.map((row) => row.sessionId)));
+        for (const staleSessionId of staleSessionIds) {
+          await deleteSessionIfEmpty(staleSessionId);
+        }
+      }
+    }
+
     await reconcileSession(params.sessionId);
 
     const { data: session, error: sessionError } = await supabaseAdmin
@@ -140,22 +175,7 @@ export const joinRoundtableSession = async (params: {
 
       if (existingMembers.length > 1) {
         const duplicateIds = existingMembers.slice(1).map((member) => member.id);
-        const { error: cleanupError } = await supabaseAdmin
-          .from("roundtable_members")
-          .update({ state: "left", left_at: new Date().toISOString() })
-          .in("id", duplicateIds)
-          .eq("session_id", params.sessionId)
-          .eq("state", "joined");
-
-        if (cleanupError) {
-          return {
-            ok: false,
-            status: 500,
-            code: "join_failed",
-            error: cleanupError.message,
-            metadata: { attempt },
-          };
-        }
+        await deleteRoundtableMembers(duplicateIds);
       }
 
       if (existing?.id) {
@@ -268,147 +288,75 @@ export const joinRoundtableSession = async (params: {
           continue;
         }
 
-        const { data: revivedMember, error: reviveError } = await supabaseAdmin
-          .from("roundtable_members")
-          .update({
-            profile_id: params.actor.profileId,
-            guest_id: params.actor.guestId,
-            display_name: params.actor.displayName,
-            state: "joined",
-            joined_at: new Date().toISOString(),
-            left_at: null,
-          })
-          .eq("id", seatRecord.id)
-          .eq("session_id", params.sessionId)
-          .neq("state", "joined")
-          .select("id, seat_no")
-          .maybeSingle();
+        await deleteRoundtableMembers([seatRecord.id]);
+      }
 
-        if (reviveError) {
-          if (isUniqueViolation(reviveError)) {
-            if (isActorConflict(reviveError)) {
-              let actorConflictQuery = supabaseAdmin
-                .from("roundtable_members")
-                .select("id, seat_no")
-                .eq("session_id", params.sessionId)
-                .eq("state", "joined");
+      const { data: insertedMember, error: memberError } = await supabaseAdmin
+        .from("roundtable_members")
+        .insert({
+          session_id: params.sessionId,
+          seat_no: seatNo,
+          profile_id: params.actor.profileId,
+          guest_id: params.actor.guestId,
+          display_name: params.actor.displayName,
+          state: "joined",
+        })
+        .select("id, seat_no")
+        .single();
 
-              if (params.actor.profileId) {
-                actorConflictQuery = actorConflictQuery.eq("profile_id", params.actor.profileId);
-              } else if (params.actor.guestId) {
-                actorConflictQuery = actorConflictQuery.eq("guest_id", params.actor.guestId);
-              }
+      if (memberError || !insertedMember?.id) {
+        if (isUniqueViolation(memberError)) {
+          if (isActorConflict(memberError)) {
+            let actorConflictQuery = supabaseAdmin
+              .from("roundtable_members")
+              .select("id, seat_no")
+              .eq("session_id", params.sessionId)
+              .eq("state", "joined");
 
-              const { data: actorConflictRows } = await actorConflictQuery
-                .order("joined_at", { ascending: false })
-                .limit(1);
-              const conflictMember = (actorConflictRows?.[0] as { id: string; seat_no: number } | undefined) ?? null;
-              if (conflictMember?.id) {
-                return {
-                  ok: true,
-                  status: 200,
-                  code: "already_joined",
-                  member: conflictMember,
-                  attempt,
-                  metadata: {
-                    resolved_from: "identity_conflict",
-                  },
-                };
-              }
+            if (params.actor.profileId) {
+              actorConflictQuery = actorConflictQuery.eq("profile_id", params.actor.profileId);
+            } else if (params.actor.guestId) {
+              actorConflictQuery = actorConflictQuery.eq("guest_id", params.actor.guestId);
+            }
 
+            const { data: actorConflictRows } = await actorConflictQuery
+              .order("joined_at", { ascending: false })
+              .limit(1);
+            const conflictMember = (actorConflictRows?.[0] as { id: string; seat_no: number } | undefined) ?? null;
+            if (conflictMember?.id) {
               return {
-                ok: false,
-                status: 409,
-                code: "identity_conflict",
-                error: "You already have an active seat in this room.",
-                metadata: { attempt, seat_no: seatNo },
+                ok: true,
+                status: 200,
+                code: "already_joined",
+                member: conflictMember,
+                attempt,
+                metadata: {
+                  resolved_from: "identity_conflict",
+                },
               };
             }
-            continue;
+
+            return {
+              ok: false,
+              status: 409,
+              code: "identity_conflict",
+              error: "You already have an active seat in this room.",
+              metadata: { attempt, seat_no: seatNo },
+            };
           }
-
-          return {
-            ok: false,
-            status: 500,
-            code: "join_failed",
-            error: reviveError.message,
-            metadata: { attempt, seat_no: seatNo },
-          };
-        }
-
-        if (!revivedMember?.id) {
           continue;
         }
 
-        member = revivedMember;
-      } else {
-        const { data: insertedMember, error: memberError } = await supabaseAdmin
-          .from("roundtable_members")
-          .insert({
-            session_id: params.sessionId,
-            seat_no: seatNo,
-            profile_id: params.actor.profileId,
-            guest_id: params.actor.guestId,
-            display_name: params.actor.displayName,
-            state: "joined",
-          })
-          .select("id, seat_no")
-          .single();
-
-        if (memberError || !insertedMember?.id) {
-          if (isUniqueViolation(memberError)) {
-            if (isActorConflict(memberError)) {
-              let actorConflictQuery = supabaseAdmin
-                .from("roundtable_members")
-                .select("id, seat_no")
-                .eq("session_id", params.sessionId)
-                .eq("state", "joined");
-
-              if (params.actor.profileId) {
-                actorConflictQuery = actorConflictQuery.eq("profile_id", params.actor.profileId);
-              } else if (params.actor.guestId) {
-                actorConflictQuery = actorConflictQuery.eq("guest_id", params.actor.guestId);
-              }
-
-              const { data: actorConflictRows } = await actorConflictQuery
-                .order("joined_at", { ascending: false })
-                .limit(1);
-              const conflictMember = (actorConflictRows?.[0] as { id: string; seat_no: number } | undefined) ?? null;
-              if (conflictMember?.id) {
-                return {
-                  ok: true,
-                  status: 200,
-                  code: "already_joined",
-                  member: conflictMember,
-                  attempt,
-                  metadata: {
-                    resolved_from: "identity_conflict",
-                  },
-                };
-              }
-
-              return {
-                ok: false,
-                status: 409,
-                code: "identity_conflict",
-                error: "You already have an active seat in this room.",
-                metadata: { attempt, seat_no: seatNo },
-              };
-            }
-            continue;
-          }
-
-          return {
-            ok: false,
-            status: 500,
-            code: "join_failed",
-            error: memberError?.message ?? "Unable to join.",
-            metadata: { attempt, seat_no: seatNo },
-          };
-        }
-
-        member = insertedMember;
+        return {
+          ok: false,
+          status: 500,
+          code: "join_failed",
+          error: memberError?.message ?? "Unable to join.",
+          metadata: { attempt, seat_no: seatNo },
+        };
       }
+
+      member = insertedMember;
 
       await supabaseAdmin
         .from("roundtable_scores")

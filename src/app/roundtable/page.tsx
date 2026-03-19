@@ -1,2 +1,2 @@
-export { marketplaceHomepageMetadata as metadata } from "@/components/MarketplaceHomepagePage";
-export { default } from "@/components/MarketplaceHomepagePage";
+export { roundtableLandingMetadata as metadata } from "@/components/roundtable/RoundtableLandingPage";
+export { default } from "@/components/roundtable/RoundtableLandingPage";

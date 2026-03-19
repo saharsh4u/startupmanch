@@ -1,14 +1,64 @@
+"use client";
+
 import type { CSSProperties } from "react";
-import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { clearPendingJoinMicStream, preparePendingJoinMicStream } from "@/lib/roundtable/client-media";
+import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 import type { RoundtableSessionSummary } from "@/lib/roundtable/types";
 
 type RoundtableSessionCardProps = {
   session: RoundtableSessionSummary;
 };
 
+type JoinResponse = {
+  ok?: boolean;
+  error?: string;
+};
+
 export default function RoundtableSessionCard({ session }: RoundtableSessionCardProps) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const seatCount = Math.max(1, session.max_seats);
   const occupiedSeats = Math.min(session.seats_taken, seatCount);
+
+  const handleJoin = async () => {
+    if (busy) return;
+    const actorId = ensureGuestId();
+    const displayName = setDisplayName(getDisplayName());
+
+    try {
+      setBusy(true);
+      setError(null);
+      void preparePendingJoinMicStream().catch(() => null);
+
+      const response = await fetch(`/api/roundtable/sessions/${session.session_id}/join`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-roundtable-actor-id": actorId,
+        },
+        body: JSON.stringify({
+          display_name: displayName,
+        }),
+      });
+
+      const payload = (await response.json()) as JoinResponse;
+      if (!response.ok) {
+        clearPendingJoinMicStream();
+        setError(payload.error ?? "Unable to join room.");
+        return;
+      }
+
+      router.push(`/roundtable/${session.session_id}`);
+    } catch {
+      clearPendingJoinMicStream();
+      setError("Unable to join room.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <article className="roundtable-session-card">
@@ -37,8 +87,11 @@ export default function RoundtableSessionCard({ session }: RoundtableSessionCard
       </div>
       <div className="roundtable-session-foot">
         <span>{session.turn_duration_sec}s turns</span>
-        <Link href={`/roundtable/${session.session_id}`}>Open room</Link>
+        <button type="button" onClick={() => void handleJoin()} disabled={busy}>
+          {busy ? "Joining..." : "Join room"}
+        </button>
       </div>
+      {error ? <p className="roundtable-error">{error}</p> : null}
     </article>
   );
 }

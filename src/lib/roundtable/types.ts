@@ -1,6 +1,7 @@
 export type RoundtableSessionStatus = "lobby" | "live" | "ended" | "cancelled";
 export type RoundtableTurnStatus = "queued" | "active" | "submitted" | "expired" | "skipped";
 export type RoundtableMemberState = "joined" | "left" | "kicked";
+export type RoundtableSessionVisibility = "public" | "private";
 
 export type RoundtableTopicRow = {
   id: string;
@@ -16,6 +17,7 @@ export type RoundtableSessionRow = {
   id: string;
   topic_id: string;
   status: RoundtableSessionStatus;
+  visibility?: RoundtableSessionVisibility | null;
   max_seats: number;
   turn_duration_sec: number;
   created_by_profile_id: string | null;
@@ -36,6 +38,7 @@ export type RoundtableMemberRow = {
   camera_state: "off" | "live";
   state: RoundtableMemberState;
   joined_at: string;
+  last_seen_at?: string | null;
   left_at: string | null;
 };
 
@@ -80,6 +83,7 @@ export type RoundtableSessionSummary = {
   topic_title: string;
   topic_description: string | null;
   tags: string[];
+  visibility: RoundtableSessionVisibility;
   status: RoundtableSessionStatus;
   turn_duration_sec: number;
   max_seats: number;
@@ -99,7 +103,6 @@ export type RoundtableLeaderboardEntry = {
 export type RoundtableSessionSnapshot = {
   viewer_member_id: string | null;
   viewer_can_manage_members: boolean;
-  viewer_joined_session_id: string | null;
   session: RoundtableSessionSummary;
   topic: {
     id: string;
@@ -126,9 +129,10 @@ export type RoundtableLobbyResponse = {
 };
 
 export type RoundtableInviteContext = {
-  source: "invite" | "join-any" | null;
+  source: "invite" | null;
   preferred_seat_no: number | null;
   inviter_member_id: string | null;
+  invite_token: string | null;
 };
 
 export type JoinAnyResponse = {

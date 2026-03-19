@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMemberForActor, logRoundtableEvent } from "@/lib/roundtable/server";
+import { deleteRoundtableMembers, deleteSessionIfEmpty, getMemberForActor, logRoundtableEvent } from "@/lib/roundtable/server";
 import { parseJsonSafely, resolveActor, withGuestCookie } from "@/lib/roundtable/api";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -23,22 +23,17 @@ export async function POST(
       return NextResponse.json({ error: "Not joined in this session." }, { status: 404 });
     }
 
-    const { error } = await supabaseAdmin
-      .from("roundtable_members")
-      .update({ state: "left", left_at: new Date().toISOString() })
-      .eq("id", member.id)
-      .eq("state", "joined");
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    await deleteRoundtableMembers([member.id]);
 
     await supabaseAdmin
       .from("roundtable_sessions")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", params.sessionId);
 
-    await reconcileSession(params.sessionId);
+    const deletedSession = await deleteSessionIfEmpty(params.sessionId);
+    if (!deletedSession) {
+      await reconcileSession(params.sessionId);
+    }
 
     await logRoundtableEvent("roundtable_session_left", {
       session_id: params.sessionId,
