@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { applyNoStoreCache } from "@/lib/http/cache";
 import {
   PITCH_OPEN_EVENT_TYPE,
+  ROUNDTABLE_VIDEO_OPEN_TOPIC_PREFIX,
   ROUNDTABLE_VIDEO_RAIL_SOURCE,
   type VideoLeaderboardEntry,
   type VideoLeaderboardResponse,
@@ -42,8 +43,8 @@ const buildFallbackPoster = (index: number) => `/pitches/pitch-0${(index % 4) + 
 const isMissingAnalyticsTable = (message: string | null | undefined) =>
   (message ?? "").toLowerCase().includes("public.analytics");
 
-const isMissingRoundtableAuditTable = (message: string | null | undefined) =>
-  (message ?? "").toLowerCase().includes("public.roundtable_action_audit");
+const isMissingRoundtableTopicsTable = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("public.roundtable_topics");
 
 const fetchApprovedPitches = async () => {
   const rows: PitchRow[] = [];
@@ -126,24 +127,25 @@ const fetchOpenCounts = async () => {
   for (let from = 0; ; from += ANALYTICS_PAGE_SIZE) {
     const to = from + ANALYTICS_PAGE_SIZE - 1;
     const { data, error } = await supabaseAdmin
-      .from("roundtable_action_audit")
-      .select("ip_hash")
-      .eq("action_type", PITCH_OPEN_EVENT_TYPE)
-      .not("ip_hash", "is", null)
+      .from("roundtable_topics")
+      .select("title")
+      .like("title", `${ROUNDTABLE_VIDEO_OPEN_TOPIC_PREFIX}%`)
       .order("created_at", { ascending: true })
       .range(from, to);
 
     if (error) {
-      if (!isMissingRoundtableAuditTable(error.message)) {
+      if (!isMissingRoundtableTopicsTable(error.message)) {
         throw new Error(error.message);
       }
       break;
     }
 
-    const nextRows = (data ?? []) as Array<{ ip_hash: string | null }>;
+    const nextRows = (data ?? []) as Array<{ title: string | null }>;
     for (const row of nextRows) {
-      if (!row.ip_hash) continue;
-      counts.set(row.ip_hash, (counts.get(row.ip_hash) ?? 0) + 1);
+      if (!row.title?.startsWith(ROUNDTABLE_VIDEO_OPEN_TOPIC_PREFIX)) continue;
+      const pitchId = row.title.slice(ROUNDTABLE_VIDEO_OPEN_TOPIC_PREFIX.length).trim();
+      if (!pitchId) continue;
+      counts.set(pitchId, (counts.get(pitchId) ?? 0) + 1);
     }
 
     if (nextRows.length < ANALYTICS_PAGE_SIZE) {
