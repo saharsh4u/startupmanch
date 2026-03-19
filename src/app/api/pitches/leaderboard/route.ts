@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { applyNoStoreCache } from "@/lib/http/cache";
 import {
   PITCH_OPEN_EVENT_TYPE,
-  ROUNDTABLE_VIDEO_OPEN_FALLBACK_MESSAGE,
   ROUNDTABLE_VIDEO_RAIL_SOURCE,
   type VideoLeaderboardEntry,
   type VideoLeaderboardResponse,
@@ -42,6 +41,9 @@ const buildFallbackPoster = (index: number) => `/pitches/pitch-0${(index % 4) + 
 
 const isMissingAnalyticsTable = (message: string | null | undefined) =>
   (message ?? "").toLowerCase().includes("public.analytics");
+
+const isMissingRoundtableAuditTable = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("public.roundtable_action_audit");
 
 const fetchApprovedPitches = async () => {
   const rows: PitchRow[] = [];
@@ -124,21 +126,24 @@ const fetchOpenCounts = async () => {
   for (let from = 0; ; from += ANALYTICS_PAGE_SIZE) {
     const to = from + ANALYTICS_PAGE_SIZE - 1;
     const { data, error } = await supabaseAdmin
-      .from("contact_requests")
-      .select("pitch_id")
-      .eq("message", ROUNDTABLE_VIDEO_OPEN_FALLBACK_MESSAGE)
-      .not("pitch_id", "is", null)
+      .from("roundtable_action_audit")
+      .select("ip_hash")
+      .eq("action_type", PITCH_OPEN_EVENT_TYPE)
+      .not("ip_hash", "is", null)
       .order("created_at", { ascending: true })
       .range(from, to);
 
     if (error) {
-      throw new Error(error.message);
+      if (!isMissingRoundtableAuditTable(error.message)) {
+        throw new Error(error.message);
+      }
+      break;
     }
 
-    const nextRows = (data ?? []) as Array<{ pitch_id: string | null }>;
+    const nextRows = (data ?? []) as Array<{ ip_hash: string | null }>;
     for (const row of nextRows) {
-      if (!row.pitch_id) continue;
-      counts.set(row.pitch_id, (counts.get(row.pitch_id) ?? 0) + 1);
+      if (!row.ip_hash) continue;
+      counts.set(row.ip_hash, (counts.get(row.ip_hash) ?? 0) + 1);
     }
 
     if (nextRows.length < ANALYTICS_PAGE_SIZE) {

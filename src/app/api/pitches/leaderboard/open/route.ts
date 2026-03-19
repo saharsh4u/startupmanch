@@ -3,7 +3,6 @@ import { getAuthContext } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   PITCH_OPEN_EVENT_TYPE,
-  ROUNDTABLE_VIDEO_OPEN_FALLBACK_MESSAGE,
   ROUNDTABLE_VIDEO_RAIL_SOURCE,
 } from "@/lib/pitches/leaderboard";
 
@@ -25,6 +24,9 @@ const asTrimmedString = (value: unknown, maxLength: number) => {
 
 const isMissingAnalyticsTable = (message: string | null | undefined) =>
   (message ?? "").toLowerCase().includes("public.analytics");
+
+const isMissingRoundtableAuditTable = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("public.roundtable_action_audit");
 
 export async function POST(request: NextRequest) {
   let payload: OpenPayload;
@@ -75,17 +77,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    const { error: fallbackInsertError } = await supabaseAdmin.from("contact_requests").insert({
-      pitch_id: pitchId,
-      startup_id: pitchRow.startup_id ?? null,
-      name: null,
-      email: null,
-      message: ROUNDTABLE_VIDEO_OPEN_FALLBACK_MESSAGE,
-      offer_amount: null,
+    const { error: fallbackInsertError } = await supabaseAdmin.from("roundtable_action_audit").insert({
+      session_id: sessionId,
+      guest_id: participantId,
+      ip_hash: pitchId,
+      action_type: PITCH_OPEN_EVENT_TYPE,
     });
 
     if (fallbackInsertError) {
-      return NextResponse.json({ error: fallbackInsertError.message }, { status: 500 });
+      if (!isMissingRoundtableAuditTable(fallbackInsertError.message)) {
+        return NextResponse.json({ error: fallbackInsertError.message }, { status: 500 });
+      }
     }
   }
 
