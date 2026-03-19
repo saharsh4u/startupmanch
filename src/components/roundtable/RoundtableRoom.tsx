@@ -169,6 +169,8 @@ const copyText = async (value: string) => {
 };
 
 const toSeatLetter = (displayName: string) => displayName.trim().charAt(0).toUpperCase() || "?";
+const streamHasLiveVideo = (stream: MediaStream | null | undefined) =>
+  Boolean(stream?.getVideoTracks().some((track) => track.readyState !== "ended"));
 
 export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const searchParams = useSearchParams();
@@ -436,6 +438,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       const isQueued = false;
       const isMe = Boolean(member && member.id === currentMember?.id);
       const isEmpty = !member;
+      const localCameraLive = isMe && streamHasLiveVideo(localCameraStream);
+      const remoteCameraLive = member?.id ? streamHasLiveVideo(remoteMediaStreams[member.id] ?? null) : false;
+      const isCameraLive = Boolean(member && (localCameraLive || remoteCameraLive || member.camera_state === "live"));
 
       return {
         seatNo,
@@ -446,14 +451,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         isQueued,
         isMe,
         isEmpty,
-        isCameraLive: member?.camera_state === "live",
-        stateLabel: isActive ? "Speaking" : member?.camera_state === "live" ? "Live camera" : member ? "Open mic" : "Available",
+        isCameraLive,
+        stateLabel: isActive ? "Speaking" : isCameraLive ? "Live camera" : member ? "Open mic" : "Available",
         canShareInvite: Boolean(currentMember && isEmpty),
         canToggleCamera: Boolean(member && currentMember && member.id === currentMember.id),
         shareStatus: shareFeedback?.seatNo === seatNo ? shareFeedback.message : null,
       };
     });
-  }, [currentMember, isMyMicMuted, shareFeedback, snapshot]);
+  }, [currentMember, isMyMicMuted, localCameraStream, remoteMediaStreams, shareFeedback, snapshot]);
 
   const remoteAudioEntries = useMemo(
     () =>
@@ -1190,23 +1195,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       return;
     }
 
+    setBusyAction("camera-live");
     let stream: MediaStream | null = localCameraStreamRef.current;
-    let acquiredHere = false;
     try {
       if (!stream) {
         stream = await acquireCameraStream();
-        acquiredHere = true;
-      }
-
-      if (!options?.recovery) {
-        const result = await updateCameraState("live", "camera-live");
-        if (!result.ok) {
-          if (acquiredHere && stream) {
-            stream.getTracks().forEach((track) => track.stop());
-          }
-          setCameraError(result.message);
-          return;
-        }
       }
 
       localCameraStreamRef.current = stream;
@@ -1215,27 +1208,43 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       await renegotiateAllPeers();
       setCameraError(null);
       setCameraMenuSeatNo(null);
-    } catch (errorValue) {
-      setCameraError(mapCameraError(errorValue));
-      if (options?.recovery && currentMember.camera_state === "live") {
-        void updateCameraState("off", null, { refreshOnSuccess: false });
+
+      if (!options?.recovery) {
+        void updateCameraState("live", null, { refreshOnSuccess: false }).then((result) => {
+          if (!result.ok) {
+            console.error("roundtable camera live persistence failed", result.message);
+          }
+        });
       }
+    } catch (errorValue) {
+      if (!localCameraStreamRef.current) {
+        setCameraError(mapCameraError(errorValue));
+      } else {
+        console.error("roundtable live camera sync failed", errorValue);
+      }
+    } finally {
+      setBusyAction((current) => (current === "camera-live" ? null : current));
     }
   }, [acquireCameraStream, currentMember, renegotiateAllPeers, syncLocalVideoTrackToPeers, updateCameraState]);
 
   const stopLiveCamera = useCallback(async (options?: { skipServer?: boolean }) => {
-    if (!options?.skipServer) {
-      const result = await updateCameraState("off", "camera-off");
-      if (!result.ok) {
-        setCameraError(result.message);
-        return;
-      }
-    }
+    setBusyAction("camera-off");
+    try {
+      stopLocalCameraStream();
+      await renegotiateAllPeers();
+      setCameraError(null);
+      setCameraMenuSeatNo(null);
 
-    stopLocalCameraStream();
-    await renegotiateAllPeers();
-    setCameraError(null);
-    setCameraMenuSeatNo(null);
+      if (!options?.skipServer) {
+        void updateCameraState("off", null, { refreshOnSuccess: false }).then((result) => {
+          if (!result.ok) {
+            console.error("roundtable camera off persistence failed", result.message);
+          }
+        });
+      }
+    } finally {
+      setBusyAction((current) => (current === "camera-off" ? null : current));
+    }
   }, [renegotiateAllPeers, stopLocalCameraStream, updateCameraState]);
 
   useEffect(() => {
@@ -1249,16 +1258,12 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       return;
     }
 
-    if (member.camera_state !== "live") {
-      autoCameraRecoveryMemberRef.current = null;
-      if (localCameraStreamRef.current) {
-        stopLocalCameraStream();
-        void renegotiateAllPeers();
-      }
+    if (localCameraStreamRef.current) {
       return;
     }
 
-    if (localCameraStreamRef.current) {
+    if (member.camera_state !== "live") {
+      autoCameraRecoveryMemberRef.current = null;
       return;
     }
 

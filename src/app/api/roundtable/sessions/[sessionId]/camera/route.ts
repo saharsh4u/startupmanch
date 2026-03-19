@@ -37,7 +37,11 @@ export async function POST(
       actor.profileId
     );
     if (!persisted) {
-      return NextResponse.json({ error: "Unable to persist live camera state." }, { status: 500 });
+      console.error("roundtable camera state persistence fell back to client-only mode", {
+        sessionId: params.sessionId,
+        memberId: member.id,
+        nextState,
+      });
     }
 
     const response = NextResponse.json({ ok: true, state: nextState }, { status: 200 });
