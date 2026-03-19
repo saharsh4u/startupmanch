@@ -8,7 +8,7 @@ type RoundtableVideoLeaderboardProps = {
   limit?: number;
 };
 
-const REFRESH_INTERVAL_MS = 60_000;
+const REFRESH_INTERVAL_MS = 8_000;
 
 const formatOpenCount = (value: number) => new Intl.NumberFormat("en-US").format(value);
 
@@ -73,10 +73,12 @@ export default function RoundtableVideoLeaderboard({
               <span className="roundtable-video-leaderboard-rank" />
               <span className="roundtable-video-leaderboard-thumb" />
               <span className="roundtable-video-leaderboard-text">
-                <span className="roundtable-video-leaderboard-line" />
+                <span className="roundtable-video-leaderboard-title-row">
+                  <span className="roundtable-video-leaderboard-line" />
+                  <span className="roundtable-video-leaderboard-count" />
+                </span>
                 <span className="roundtable-video-leaderboard-line short" />
               </span>
-              <span className="roundtable-video-leaderboard-count" />
             </div>
           ))}
         </div>
@@ -98,20 +100,16 @@ export default function RoundtableVideoLeaderboard({
                 {entry.rank}
               </div>
               <div className="roundtable-video-leaderboard-thumb" aria-hidden="true">
-                {entry.poster_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entry.poster_url} alt="" loading="lazy" />
-                ) : (
-                  <span>{toInitial(entry.startup_name)}</span>
-                )}
+                <span>{toInitial(entry.startup_name)}</span>
               </div>
               <div className="roundtable-video-leaderboard-text">
-                <strong>{entry.startup_name}</strong>
-                <span>{entry.tagline ?? "No one-liner added yet."}</span>
-              </div>
-              <div className="roundtable-video-leaderboard-count">
-                <strong>{formatOpenCount(entry.open_count)}</strong>
-                <span>opens</span>
+                <div className="roundtable-video-leaderboard-title-row">
+                  <strong>{entry.startup_name}</strong>
+                  <span className="roundtable-video-leaderboard-count">{formatOpenCount(entry.open_count)}</span>
+                </div>
+                <span className="roundtable-video-leaderboard-tagline">
+                  {entry.tagline ?? "No one-liner added yet."}
+                </span>
               </div>
             </div>
           ))}
