@@ -5,6 +5,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useSearchParams } from "next/navigation";
 import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
+import RoundtableVideoLeaderboard from "@/components/roundtable/RoundtableVideoLeaderboard";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 import type { JoinAnyResponse, RoundtableInviteContext, RoundtableSessionSnapshot } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
@@ -160,6 +161,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [displayName, setDisplayNameState] = useState(() => getDisplayName());
   const [seatChoice, setSeatChoice] = useState<number | "auto">("auto");
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [videoLeaderboardRefreshToken, setVideoLeaderboardRefreshToken] = useState(0);
   const [isMyMicMuted, setIsMyMicMuted] = useState(true);
   const [micError, setMicError] = useState<string | null>(null);
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null);
@@ -1267,7 +1269,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return (
       <div className="roundtable-shell">
         <section className="roundtable-panel">Loading session...</section>
-        <RoundtableHomepageVideoRail sessionId={sessionId} participantId={guestId} />
+        <RoundtableHomepageVideoRail
+          sessionId={sessionId}
+          participantId={guestId}
+          onPitchOpened={() => {
+            setVideoLeaderboardRefreshToken((current) => current + 1);
+          }}
+        />
+        <RoundtableVideoLeaderboard refreshToken={videoLeaderboardRefreshToken} />
       </div>
     );
   }
@@ -1282,7 +1291,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             Retry
           </button>
         </section>
-        <RoundtableHomepageVideoRail sessionId={sessionId} participantId={guestId} />
+        <RoundtableHomepageVideoRail
+          sessionId={sessionId}
+          participantId={guestId}
+          onPitchOpened={() => {
+            setVideoLeaderboardRefreshToken((current) => current + 1);
+          }}
+        />
+        <RoundtableVideoLeaderboard refreshToken={videoLeaderboardRefreshToken} />
       </div>
     );
   }
@@ -1478,7 +1494,14 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           />
         ))}
       </div>
-      <RoundtableHomepageVideoRail sessionId={sessionId} participantId={currentMember?.id ?? guestId} />
+      <RoundtableHomepageVideoRail
+        sessionId={sessionId}
+        participantId={currentMember?.id ?? guestId}
+        onPitchOpened={() => {
+          setVideoLeaderboardRefreshToken((current) => current + 1);
+        }}
+      />
+      <RoundtableVideoLeaderboard refreshToken={videoLeaderboardRefreshToken} />
     </div>
   );
 }

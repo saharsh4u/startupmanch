@@ -11,6 +11,7 @@ import {
   type WheelEvent,
 } from "react";
 import PitchShowCard, { type PitchShow } from "@/components/PitchShowCard";
+import { ROUNDTABLE_VIDEO_RAIL_SOURCE } from "@/lib/pitches/leaderboard";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
 
 type ApiPitch = {
@@ -57,6 +58,7 @@ const RESOLVE_TIMEOUT_MS = 9000;
 type RoundtableHomepageVideoRailProps = {
   sessionId: string;
   participantId: string | null;
+  onPitchOpened?: () => void;
 };
 
 type SharedMiniPlayerPayload = {
@@ -138,6 +140,7 @@ const mapPitch = (item: ApiPitch, index: number): PitchShow => {
 export default function RoundtableHomepageVideoRail({
   sessionId,
   participantId,
+  onPitchOpened,
 }: RoundtableHomepageVideoRailProps) {
   const [pitches, setPitches] = useState<PitchShow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -325,6 +328,34 @@ export default function RoundtableHomepageVideoRail({
     [syncSenderId]
   );
 
+  const trackPitchOpen = useCallback(
+    async (pitchId: string) => {
+      try {
+        const response = await fetch("/api/pitches/leaderboard/open", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            pitch_id: pitchId,
+            session_id: sessionId,
+            participant_id: participantId,
+            source: ROUNDTABLE_VIDEO_RAIL_SOURCE,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to track pitch open.");
+        }
+
+        onPitchOpened?.();
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [onPitchOpened, participantId, sessionId]
+  );
+
   useEffect(() => {
     if (!hasBrowserSupabaseEnv) return;
 
@@ -377,6 +408,7 @@ export default function RoundtableHomepageVideoRail({
       markInteraction(1800);
       const pitch = pitches[bounded];
       if (pitch?.id) {
+        void trackPitchOpen(pitch.id);
         sendSharedPlayerEvent({
           action: "open",
           pitchId: pitch.id,
@@ -385,7 +417,7 @@ export default function RoundtableHomepageVideoRail({
         });
       }
     },
-    [markInteraction, pitches, sendSharedPlayerEvent]
+    [markInteraction, pitches, sendSharedPlayerEvent, trackPitchOpen]
   );
 
   const closePip = useCallback(() => {
