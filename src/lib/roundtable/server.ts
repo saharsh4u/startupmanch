@@ -94,7 +94,10 @@ export const getMemberForActor = async (sessionId: string, actor: RoundtableActo
     throw new Error(error.message);
   }
 
-  const members = (data ?? []) as RoundtableMemberRow[];
+  const members = ((data ?? []) as Omit<RoundtableMemberRow, "camera_state">[]).map((member) => ({
+    ...member,
+    camera_state: "off",
+  })) as RoundtableMemberRow[];
   if (!members.length) return null;
 
   const [primary, ...duplicates] = members;
@@ -134,7 +137,11 @@ export const getLatestJoinedMemberForActor = async (actor: RoundtableActor) => {
     throw new Error(error.message);
   }
 
-  return (data as RoundtableMemberRow | null) ?? null;
+  if (!data) return null;
+  return {
+    ...(data as Omit<RoundtableMemberRow, "camera_state">),
+    camera_state: "off",
+  } satisfies RoundtableMemberRow;
 };
 
 export const logRoundtableEvent = async (
@@ -151,7 +158,10 @@ export const logRoundtableEvent = async (
 
   if (error) {
     console.error("roundtable analytics insert failed", error.message);
+    return false;
   }
+
+  return true;
 };
 
 export const nowIso = () => new Date().toISOString();

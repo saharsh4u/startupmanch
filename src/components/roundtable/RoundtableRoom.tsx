@@ -25,6 +25,15 @@ type ActionResponse = {
   seats_cleared?: number;
 };
 
+type CameraState = "off" | "live";
+
+type CameraActionResponse = {
+  ok?: boolean;
+  error?: string;
+  code?: string;
+  state?: CameraState;
+};
+
 type ApiCallResult<T extends { error?: string; code?: string }> = {
   ok: boolean;
   payload: T | null;
@@ -79,6 +88,26 @@ const mapMicError = (errorValue: unknown) => {
   }
   if (errorValue.name === "SecurityError") {
     return "Microphone access requires a secure page (HTTPS).";
+  }
+
+  return errorValue.message || fallback;
+};
+
+const mapCameraError = (errorValue: unknown) => {
+  const fallback = "Could not access camera.";
+  if (!(errorValue instanceof Error)) return fallback;
+
+  if (errorValue.name === "NotAllowedError" || /permission denied/i.test(errorValue.message)) {
+    return "Camera request was denied by browser or OS. Allow camera access, reload the page, and try again.";
+  }
+  if (errorValue.name === "NotFoundError") {
+    return "No camera device was found.";
+  }
+  if (errorValue.name === "NotReadableError") {
+    return "Camera is busy in another app. Close other apps using the camera and try again.";
+  }
+  if (errorValue.name === "SecurityError") {
+    return "Camera access requires a secure page (HTTPS).";
   }
 
   return errorValue.message || fallback;
@@ -139,15 +168,7 @@ const copyText = async (value: string) => {
   }
 };
 
-const toInitials = (displayName: string) => {
-  const parts = displayName
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-};
+const toSeatLetter = (displayName: string) => displayName.trim().charAt(0).toUpperCase() || "?";
 
 export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const searchParams = useSearchParams();
@@ -164,19 +185,25 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [videoLeaderboardRefreshToken, setVideoLeaderboardRefreshToken] = useState(0);
   const [isMyMicMuted, setIsMyMicMuted] = useState(true);
   const [micError, setMicError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraMenuSeatNo, setCameraMenuSeatNo] = useState<number | null>(null);
   const [selfMemberId, setSelfMemberId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
+  const [localCameraStream, setLocalCameraStream] = useState<MediaStream | null>(null);
+  const [remoteMediaStreams, setRemoteMediaStreams] = useState<Record<string, MediaStream>>({});
   const [needsRemoteAudioUnlock, setNeedsRemoteAudioUnlock] = useState(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const localCameraStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioElementMapRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const voiceChannelRef = useRef<RealtimeChannel | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const peerAudioSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
+  const peerVideoSendersRef = useRef<Map<string, RTCRtpSender>>(new Map());
   const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const peerReconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const joinedMemberIdSetRef = useRef<Set<string>>(new Set());
   const autoMicPermissionPromptedMemberRef = useRef<string | null>(null);
+  const autoCameraRecoveryMemberRef = useRef<string | null>(null);
   const lastVoiceRecoveryAtRef = useRef(0);
   const invitePrefillKeyRef = useRef<string | null>(null);
   const inviteAutoJoinKeyRef = useRef<string | null>(null);
@@ -372,6 +399,15 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }
   }, [currentMember]);
 
+  useEffect(() => {
+    if (!currentMember) {
+      setCameraMenuSeatNo(null);
+      autoCameraRecoveryMemberRef.current = null;
+      return;
+    }
+    setCameraMenuSeatNo((current) => (current === currentMember.seat_no ? current : null));
+  }, [currentMember]);
+
   const canManageMembers = Boolean(snapshot?.viewer_can_manage_members);
   const joinedMembers = useMemo(
     () =>
@@ -405,17 +441,27 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         seatNo,
         memberId: member?.id ?? null,
         displayName: member?.display_name ?? "Open seat",
-        initials: member ? toInitials(member.display_name) : "OS",
+        avatarLabel: member ? toSeatLetter(member.display_name) : "OS",
         isActive,
         isQueued,
         isMe,
         isEmpty,
-        stateLabel: isActive ? "Speaking" : member ? "Open mic" : "Available",
+        isCameraLive: member?.camera_state === "live",
+        stateLabel: isActive ? "Speaking" : member?.camera_state === "live" ? "Live camera" : member ? "Open mic" : "Available",
         canShareInvite: Boolean(currentMember && isEmpty),
+        canToggleCamera: Boolean(member && currentMember && member.id === currentMember.id),
         shareStatus: shareFeedback?.seatNo === seatNo ? shareFeedback.message : null,
       };
     });
   }, [currentMember, isMyMicMuted, shareFeedback, snapshot]);
+
+  const remoteAudioEntries = useMemo(
+    () =>
+      Object.entries(remoteMediaStreams).filter(([, stream]) =>
+        stream.getAudioTracks().some((track) => track.readyState !== "ended")
+      ),
+    [remoteMediaStreams]
+  );
 
   const wheelFlareToken = useMemo(() => {
     if (currentMember?.id && !isMyMicMuted) {
@@ -500,18 +546,24 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     setNeedsRemoteAudioUnlock(blockedByPolicy);
   }, []);
 
-  const setRemoteStreamForMember = useCallback((memberId: string, stream: MediaStream) => {
-    setRemoteAudioStreams((current) => {
-      if (current[memberId] === stream) return current;
+  const setRemoteStreamForMember = useCallback((memberId: string, stream: MediaStream | null, track?: MediaStreamTrack) => {
+    setRemoteMediaStreams((current) => {
+      const existing = current[memberId] ?? null;
+      const nextStream = stream ?? existing ?? new MediaStream();
+
+      if (track && !nextStream.getTracks().some((existingTrack) => existingTrack.id === track.id)) {
+        nextStream.addTrack(track);
+      }
+
       return {
         ...current,
-        [memberId]: stream,
+        [memberId]: nextStream,
       };
     });
   }, []);
 
   const removeRemoteStreamForMember = useCallback((memberId: string) => {
-    setRemoteAudioStreams((current) => {
+    setRemoteMediaStreams((current) => {
       if (!Object.prototype.hasOwnProperty.call(current, memberId)) return current;
       const next = { ...current };
       delete next[memberId];
@@ -530,6 +582,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
     peerConnectionsRef.current.delete(memberId);
     peerAudioSendersRef.current.delete(memberId);
+    peerVideoSendersRef.current.delete(memberId);
     pendingIceCandidatesRef.current.delete(memberId);
     peerReconnectAttemptsRef.current.delete(memberId);
     removeRemoteStreamForMember(memberId);
@@ -540,7 +593,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       closePeerConnectionForMember(memberId);
     }
     remoteAudioElementMapRef.current.clear();
-    setRemoteAudioStreams({});
+    setRemoteMediaStreams({});
   }, [closePeerConnectionForMember]);
 
   const flushPendingIceCandidates = useCallback(async (memberId: string, peer: RTCPeerConnection) => {
@@ -560,6 +613,17 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const syncLocalAudioTrackToPeers = useCallback(async () => {
     const localTrack = mediaStreamRef.current?.getAudioTracks()[0] ?? null;
     for (const sender of peerAudioSendersRef.current.values()) {
+      try {
+        await sender.replaceTrack(localTrack);
+      } catch {
+        // Peer could be reconnecting; next signaling cycle will resync track.
+      }
+    }
+  }, []);
+
+  const syncLocalVideoTrackToPeers = useCallback(async () => {
+    const localTrack = localCameraStreamRef.current?.getVideoTracks()[0] ?? null;
+    for (const sender of peerVideoSendersRef.current.values()) {
       try {
         await sender.replaceTrack(localTrack);
       } catch {
@@ -590,12 +654,20 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       iceCandidatePoolSize: 4,
     });
 
-    const transceiver = peer.addTransceiver("audio", { direction: "sendrecv" });
-    peerAudioSendersRef.current.set(remoteMemberId, transceiver.sender);
+    const audioTransceiver = peer.addTransceiver("audio", { direction: "sendrecv" });
+    peerAudioSendersRef.current.set(remoteMemberId, audioTransceiver.sender);
 
-    const localTrack = mediaStreamRef.current?.getAudioTracks()[0] ?? null;
-    void transceiver.sender.replaceTrack(localTrack).catch(() => {
+    const localAudioTrack = mediaStreamRef.current?.getAudioTracks()[0] ?? null;
+    void audioTransceiver.sender.replaceTrack(localAudioTrack).catch(() => {
       // Track will be attached on the next mic state sync.
+    });
+
+    const videoTransceiver = peer.addTransceiver("video", { direction: "sendrecv" });
+    peerVideoSendersRef.current.set(remoteMemberId, videoTransceiver.sender);
+
+    const localVideoTrack = localCameraStreamRef.current?.getVideoTracks()[0] ?? null;
+    void videoTransceiver.sender.replaceTrack(localVideoTrack).catch(() => {
+      // Track will be attached on the next camera state sync.
     });
 
     peer.onicecandidate = (event) => {
@@ -609,11 +681,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
     peer.ontrack = (event) => {
       const [stream] = event.streams;
-      if (stream) {
-        setRemoteStreamForMember(remoteMemberId, stream);
-        return;
-      }
-      setRemoteStreamForMember(remoteMemberId, new MediaStream([event.track]));
+      setRemoteStreamForMember(remoteMemberId, stream ?? null, event.track);
     };
 
     peer.onconnectionstatechange = () => {
@@ -668,6 +736,16 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       sdp: peer.localDescription ?? offer,
     });
   }, [getOrCreatePeerConnection, sendVoiceSignal]);
+
+  const renegotiateAllPeers = useCallback(async () => {
+    for (const remoteMemberId of Array.from(peerConnectionsRef.current.keys())) {
+      try {
+        await createAndSendOffer(remoteMemberId);
+      } catch {
+        // Renegotiation is best-effort; the presence heartbeat will retry.
+      }
+    }
+  }, [createAndSendOffer]);
 
   useEffect(() => {
     joinedMemberIdSetRef.current = new Set(joinedMembers.map((member) => member.id));
@@ -808,7 +886,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         .filter((memberId) => memberId !== currentParticipantId);
       if (!remoteJoinedIds.length) return;
 
-      const hasAtLeastOneRemoteStream = Object.keys(remoteAudioStreams).length > 0;
+      const hasAtLeastOneRemoteStream = Object.keys(remoteMediaStreams).length > 0;
       if (hasAtLeastOneRemoteStream) return;
 
       const now = Date.now();
@@ -826,15 +904,15 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [createAndSendOffer, currentParticipantId, joinedMembers, remoteAudioStreams, sendVoiceSignal]);
+  }, [createAndSendOffer, currentParticipantId, joinedMembers, remoteMediaStreams, sendVoiceSignal]);
 
   useEffect(() => {
-    if (!Object.keys(remoteAudioStreams).length) {
+    if (!remoteAudioEntries.length) {
       setNeedsRemoteAudioUnlock(false);
       return;
     }
     void attemptPlayRemoteAudioElements();
-  }, [attemptPlayRemoteAudioElements, remoteAudioStreams]);
+  }, [attemptPlayRemoteAudioElements, remoteAudioEntries]);
 
   useEffect(() => {
     const unlock = () => {
@@ -867,6 +945,17 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     void syncLocalAudioTrackToPeers();
     setIsMyMicMuted(true);
   }, [syncLocalAudioTrackToPeers]);
+
+  const stopLocalCameraStream = useCallback(() => {
+    if (localCameraStreamRef.current) {
+      for (const track of localCameraStreamRef.current.getTracks()) {
+        track.stop();
+      }
+    }
+    localCameraStreamRef.current = null;
+    setLocalCameraStream(null);
+    void syncLocalVideoTrackToPeers();
+  }, [syncLocalVideoTrackToPeers]);
 
   const enableMic = useCallback(async () => {
     try {
@@ -907,13 +996,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       }
       await syncLocalAudioTrackToPeers();
       // iOS Safari can fail to propagate null->live sender track changes without a renegotiation.
-      for (const remoteMemberId of Array.from(peerConnectionsRef.current.keys())) {
-        try {
-          await createAndSendOffer(remoteMemberId);
-        } catch {
-          // Best-effort renegotiation; presence heartbeats will retry voice setup.
-        }
-      }
+      await renegotiateAllPeers();
       void attemptPlayRemoteAudioElements();
       setMicError(null);
       setIsMyMicMuted(false);
@@ -922,7 +1005,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setMicError(message);
       setIsMyMicMuted(true);
     }
-  }, [attemptPlayRemoteAudioElements, createAndSendOffer, syncLocalAudioTrackToPeers]);
+  }, [attemptPlayRemoteAudioElements, renegotiateAllPeers, syncLocalAudioTrackToPeers]);
 
   useEffect(() => {
     const memberId = currentMember?.id ?? null;
@@ -940,8 +1023,9 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   useEffect(() => {
     return () => {
       stopMicStream();
+      stopLocalCameraStream();
     };
-  }, [stopMicStream]);
+  }, [stopLocalCameraStream, stopMicStream]);
 
   const callApi = useCallback(async function callApi<T extends { error?: string; code?: string } = ActionResponse>(
     path: string,
@@ -1006,6 +1090,182 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
       setBusyAction(null);
     }
   }, [displayName, guestId, loadSnapshot]);
+
+  const updateCameraState = useCallback(async (
+    nextState: CameraState,
+    busyKey: string | null,
+    options?: { refreshOnSuccess?: boolean }
+  ): Promise<ApiCallResult<CameraActionResponse>> => {
+    if (!guestId) {
+      return {
+        ok: false,
+        payload: null,
+        status: 0,
+        message: "Unable to initialize guest identity.",
+      };
+    }
+
+    try {
+      if (busyKey) {
+        setBusyAction(busyKey);
+      }
+
+      const response = await fetch(`/api/roundtable/sessions/${sessionId}/camera`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-roundtable-guest-id": guestId,
+        },
+        body: JSON.stringify({
+          display_name: displayName,
+          state: nextState,
+        }),
+      });
+
+      const payload = (await response.json()) as CameraActionResponse;
+      if (!response.ok) {
+        return {
+          ok: false,
+          payload,
+          status: response.status,
+          message: payload.error ?? "Unable to update live camera.",
+        };
+      }
+
+      if (options?.refreshOnSuccess !== false) {
+        await loadSnapshot();
+      }
+
+      return {
+        ok: true,
+        payload,
+        status: response.status,
+        message: "",
+      };
+    } catch (cameraActionError) {
+      return {
+        ok: false,
+        payload: null,
+        status: 0,
+        message: cameraActionError instanceof Error ? cameraActionError.message : "Unable to update live camera.",
+      };
+    } finally {
+      if (busyKey) {
+        setBusyAction((current) => (current === busyKey ? null : current));
+      }
+    }
+  }, [displayName, guestId, loadSnapshot, sessionId]);
+
+  const acquireCameraStream = useCallback(async () => {
+    if (!window.isSecureContext) {
+      throw new Error("Camera works only on HTTPS pages.");
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("This browser does not support camera access.");
+    }
+
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 640 },
+        },
+        audio: false,
+      });
+    } catch (constraintError) {
+      const shouldRetryWithBasicVideo =
+        constraintError instanceof DOMException && constraintError.name === "OverconstrainedError";
+      if (!shouldRetryWithBasicVideo) {
+        throw constraintError;
+      }
+      return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+  }, []);
+
+  const startLiveCamera = useCallback(async (options?: { recovery?: boolean }) => {
+    if (!currentMember) {
+      setCameraError("Join a seat before starting live camera.");
+      return;
+    }
+
+    let stream: MediaStream | null = localCameraStreamRef.current;
+    let acquiredHere = false;
+    try {
+      if (!stream) {
+        stream = await acquireCameraStream();
+        acquiredHere = true;
+      }
+
+      if (!options?.recovery) {
+        const result = await updateCameraState("live", "camera-live");
+        if (!result.ok) {
+          if (acquiredHere && stream) {
+            stream.getTracks().forEach((track) => track.stop());
+          }
+          setCameraError(result.message);
+          return;
+        }
+      }
+
+      localCameraStreamRef.current = stream;
+      setLocalCameraStream(stream);
+      await syncLocalVideoTrackToPeers();
+      await renegotiateAllPeers();
+      setCameraError(null);
+      setCameraMenuSeatNo(null);
+    } catch (errorValue) {
+      setCameraError(mapCameraError(errorValue));
+      if (options?.recovery && currentMember.camera_state === "live") {
+        void updateCameraState("off", null, { refreshOnSuccess: false });
+      }
+    }
+  }, [acquireCameraStream, currentMember, renegotiateAllPeers, syncLocalVideoTrackToPeers, updateCameraState]);
+
+  const stopLiveCamera = useCallback(async (options?: { skipServer?: boolean }) => {
+    if (!options?.skipServer) {
+      const result = await updateCameraState("off", "camera-off");
+      if (!result.ok) {
+        setCameraError(result.message);
+        return;
+      }
+    }
+
+    stopLocalCameraStream();
+    await renegotiateAllPeers();
+    setCameraError(null);
+    setCameraMenuSeatNo(null);
+  }, [renegotiateAllPeers, stopLocalCameraStream, updateCameraState]);
+
+  useEffect(() => {
+    const member = currentMember;
+    if (!member) {
+      autoCameraRecoveryMemberRef.current = null;
+      if (localCameraStreamRef.current) {
+        stopLocalCameraStream();
+        void renegotiateAllPeers();
+      }
+      return;
+    }
+
+    if (member.camera_state !== "live") {
+      autoCameraRecoveryMemberRef.current = null;
+      if (localCameraStreamRef.current) {
+        stopLocalCameraStream();
+        void renegotiateAllPeers();
+      }
+      return;
+    }
+
+    if (localCameraStreamRef.current) {
+      return;
+    }
+
+    if (autoCameraRecoveryMemberRef.current === member.id) return;
+    autoCameraRecoveryMemberRef.current = member.id;
+    void startLiveCamera({ recovery: true });
+  }, [currentMember, renegotiateAllPeers, startLiveCamera, stopLocalCameraStream]);
 
   const handleShareSeat = useCallback(async (seatNo: number) => {
     if (!currentMember || typeof window === "undefined") return;
@@ -1178,9 +1438,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
     if (result.payload?.ok) {
       stopMicStream();
+      stopLocalCameraStream();
+      setCameraError(null);
       clearPersistedMemberId();
     }
-  }, [callApi, clearPersistedMemberId, sessionId, stopMicStream]);
+  }, [callApi, clearPersistedMemberId, sessionId, stopLocalCameraStream, stopMicStream]);
 
   const handleResetSeats = useCallback(async () => {
     if (typeof window !== "undefined") {
@@ -1196,9 +1458,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
     if (result.payload?.ok) {
       stopMicStream();
+      stopLocalCameraStream();
+      setCameraError(null);
       clearPersistedMemberId();
     }
-  }, [callApi, clearPersistedMemberId, sessionId, stopMicStream]);
+  }, [callApi, clearPersistedMemberId, sessionId, stopLocalCameraStream, stopMicStream]);
 
   useEffect(() => {
     if (inviteContext.source !== "invite") {
@@ -1305,6 +1569,8 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
   const canJoinSeat = !currentMember && !isRoomFull;
   const seatOptions = Array.from({ length: snapshot.session.max_seats }, (_, index) => index + 1);
+  const cameraBusyState =
+    busyAction === "camera-live" ? "live" : busyAction === "camera-off" ? "off" : null;
 
   return (
     <div className="roundtable-shell">
@@ -1312,8 +1578,20 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         seats={seats}
         flareToken={wheelFlareToken}
         eyeTargetSeatNo={silentSeatTarget.seatNo}
+        cameraMenuSeatNo={cameraMenuSeatNo}
+        cameraBusyState={cameraBusyState}
+        localVideoStream={localCameraStream}
+        remoteVideoStreams={remoteMediaStreams}
         onShareSeat={(seatNo) => {
           void handleShareSeat(seatNo);
+        }}
+        onToggleCameraMenu={setCameraMenuSeatNo}
+        onToggleLiveCamera={(nextState) => {
+          if (nextState === "live") {
+            void startLiveCamera();
+            return;
+          }
+          void stopLiveCamera();
         }}
       />
       <section className="roundtable-panel roundtable-room-dock" aria-label="Roundtable controls">
@@ -1421,7 +1699,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
               >
                 {isMyMicMuted ? "Unmute mic" : "Mute mic"}
               </button>
-              {needsRemoteAudioUnlock && Object.keys(remoteAudioStreams).length ? (
+              {needsRemoteAudioUnlock && remoteAudioEntries.length ? (
                 <button
                   type="button"
                   className="roundtable-ghost-btn"
@@ -1451,7 +1729,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
                 </button>
               ) : null}
             </div>
-            {needsRemoteAudioUnlock && Object.keys(remoteAudioStreams).length ? (
+            {needsRemoteAudioUnlock && remoteAudioEntries.length ? (
               <p className="roundtable-muted">
                 Browser blocked speaker playback. Tap Enable speaker audio once to hear others.
               </p>
@@ -1461,6 +1739,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
 
         {actionError ? <p className="roundtable-error">{actionError}</p> : null}
         {micError ? <p className="roundtable-error">{micError}</p> : null}
+        {cameraError ? <p className="roundtable-error">{cameraError}</p> : null}
       </section>
       <div
         style={{
@@ -1475,7 +1754,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         }}
         aria-hidden
       >
-        {Object.entries(remoteAudioStreams).map(([memberId, stream]) => (
+        {remoteAudioEntries.map(([memberId, stream]) => (
           <audio
             key={memberId}
             autoPlay

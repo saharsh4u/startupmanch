@@ -33,6 +33,7 @@ export type RoundtableMemberRow = {
   profile_id: string | null;
   guest_id: string | null;
   display_name: string;
+  camera_state: "off" | "live";
   state: RoundtableMemberState;
   joined_at: string;
   left_at: string | null;

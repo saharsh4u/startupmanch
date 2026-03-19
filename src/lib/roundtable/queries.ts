@@ -13,6 +13,39 @@ import type {
 
 const withFallbackTags = (tags: string[] | null | undefined) => (Array.isArray(tags) ? tags : []);
 
+const getMemberCameraStates = async (sessionId: string, memberIds: string[]) => {
+  const stateByMemberId = new Map<string, RoundtableMemberRow["camera_state"]>();
+  if (!memberIds.length) return stateByMemberId;
+
+  const { data, error } = await supabaseAdmin
+    .from("analytics")
+    .select("metadata, created_at")
+    .eq("event_type", "roundtable_camera_state_changed")
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error("roundtable camera-state analytics lookup failed", error.message);
+    return stateByMemberId;
+  }
+
+  const unresolved = new Set(memberIds);
+  for (const row of data ?? []) {
+    if (!unresolved.size) break;
+    const metadata = row.metadata as Record<string, unknown> | null;
+    if (!metadata || String(metadata.session_id ?? "") !== sessionId) continue;
+
+    const memberId = String(metadata.member_id ?? "");
+    if (!unresolved.has(memberId)) continue;
+
+    const nextState = metadata.state === "live" ? "live" : "off";
+    stateByMemberId.set(memberId, nextState);
+    unresolved.delete(memberId);
+  }
+
+  return stateByMemberId;
+};
+
 export const getWeeklyLeaderboard = async (): Promise<RoundtableLeaderboardEntry[]> => {
   const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -195,7 +228,15 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
     throw new Error(membersError.message);
   }
 
-  const members = (membersData ?? []) as RoundtableMemberRow[];
+  const rawMembers = (membersData ?? []) as Omit<RoundtableMemberRow, "camera_state">[];
+  const joinedMemberIds = rawMembers
+    .filter((member) => member.state === "joined")
+    .map((member) => member.id);
+  const cameraStateByMemberId = await getMemberCameraStates(sessionId, joinedMemberIds);
+  const members = rawMembers.map((member) => ({
+    ...member,
+    camera_state: cameraStateByMemberId.get(member.id) ?? "off",
+  })) as RoundtableMemberRow[];
   const nameByMemberId = new Map<string, string>(members.map((member) => [member.id, member.display_name]));
 
   const { data: turnsData, error: turnsError } = await supabaseAdmin

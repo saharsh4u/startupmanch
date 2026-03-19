@@ -39,69 +39,65 @@ const roundtableFallbackSeats: RoundtableSeatViewModel[] = [
     seatNo: 1,
     memberId: "preview-host",
     displayName: "Host",
-    initials: "HO",
+    avatarLabel: "H",
     isActive: true,
     isQueued: false,
     isMe: false,
     isEmpty: false,
+    isCameraLive: false,
     stateLabel: "Speaking",
   },
   {
     seatNo: 2,
     memberId: "preview-builder",
     displayName: "Builder",
-    initials: "BU",
+    avatarLabel: "B",
     isActive: false,
     isQueued: true,
     isMe: false,
     isEmpty: false,
+    isCameraLive: false,
     stateLabel: "Queued",
   },
   {
     seatNo: 3,
     memberId: "preview-ops",
     displayName: "Operator",
-    initials: "OP",
+    avatarLabel: "O",
     isActive: false,
     isQueued: false,
     isMe: false,
     isEmpty: false,
+    isCameraLive: false,
     stateLabel: "Ready",
   },
   {
     seatNo: 4,
     memberId: "preview-founder",
     displayName: "Founder",
-    initials: "FO",
+    avatarLabel: "F",
     isActive: false,
     isQueued: false,
     isMe: false,
     isEmpty: false,
+    isCameraLive: false,
     stateLabel: "Ready",
   },
   {
     seatNo: 5,
     memberId: null,
     displayName: "Open seat",
-    initials: "OS",
+    avatarLabel: "OS",
     isActive: false,
     isQueued: false,
     isMe: false,
     isEmpty: true,
+    isCameraLive: false,
     stateLabel: "Available",
   },
 ];
 
-const toInitials = (displayName: string) => {
-  const parts = displayName
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-};
+const toSeatLetter = (displayName: string) => displayName.trim().charAt(0).toUpperCase() || "?";
 
 const pickPrioritySession = (sessions: RoundtableSessionSummary[]) =>
   sessions.find((session) => session.status === "live") ?? sessions[0] ?? null;
@@ -337,11 +333,12 @@ export default function HomeStreamingPage() {
         seatNo,
         memberId: member?.id ?? null,
         displayName: member?.display_name ?? "Open seat",
-        initials: member ? toInitials(member.display_name) : "OS",
+        avatarLabel: member ? toSeatLetter(member.display_name) : "OS",
         isActive,
         isQueued,
         isMe: false,
         isEmpty,
+        isCameraLive: false,
         stateLabel: isActive ? "Speaking" : isQueued ? "Queued" : member ? "Ready" : "Available",
       } satisfies RoundtableSeatViewModel;
     });

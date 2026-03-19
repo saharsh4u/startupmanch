@@ -4,13 +4,15 @@ export type RoundtableSeatViewModel = {
   seatNo: number;
   memberId: string | null;
   displayName: string;
-  initials: string;
+  avatarLabel: string;
   isActive: boolean;
   isQueued: boolean;
   isMe: boolean;
   isEmpty: boolean;
+  isCameraLive: boolean;
   stateLabel: string;
   canShareInvite?: boolean;
+  canToggleCamera?: boolean;
   shareStatus?: string | null;
 };
 
@@ -18,7 +20,13 @@ type RoundtableSeatCircleProps = {
   seats: RoundtableSeatViewModel[];
   flareToken: string | null;
   eyeTargetSeatNo: number | null;
+  cameraMenuSeatNo?: number | null;
+  cameraBusyState?: "off" | "live" | null;
+  localVideoStream?: MediaStream | null;
+  remoteVideoStreams?: Record<string, MediaStream>;
   onShareSeat?: (seatNo: number) => void;
+  onToggleCameraMenu?: (seatNo: number | null) => void;
+  onToggleLiveCamera?: (nextState: "off" | "live") => void;
 };
 
 const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => {
@@ -31,14 +39,76 @@ const seatPolar = (seatNo: number, seatCount: number, radiusPercent: number) => 
   };
 };
 
+const hasUsableVideoTrack = (stream: MediaStream | null | undefined) =>
+  Boolean(stream?.getVideoTracks().some((track) => track.readyState !== "ended"));
+
+function RoundtableSeatVideo({
+  stream,
+  mirrored = false,
+}: {
+  stream: MediaStream;
+  mirrored?: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+
+    const play = () => {
+      void video.play().catch(() => {
+        // Mobile browsers can defer autoplay until the next allowed repaint.
+      });
+    };
+
+    if (video.readyState >= 1) {
+      play();
+      return;
+    }
+
+    const handleLoadedMetadata = () => {
+      play();
+    };
+
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      if (video.srcObject === stream) {
+        video.srcObject = null;
+      }
+    };
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      className={`roundtable-seat-video${mirrored ? " is-mirrored" : ""}`}
+      autoPlay
+      muted
+      playsInline
+    />
+  );
+}
+
 export default function RoundtableSeatCircle({
   seats,
   flareToken,
   eyeTargetSeatNo,
+  cameraMenuSeatNo = null,
+  cameraBusyState = null,
+  localVideoStream = null,
+  remoteVideoStreams = {},
   onShareSeat,
+  onToggleCameraMenu,
+  onToggleLiveCamera,
 }: RoundtableSeatCircleProps) {
   const seatCount = Math.max(1, seats.length);
   const [pointerEyeVector, setPointerEyeVector] = useState<{ x: number; y: number } | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
   const rouletteRef = useRef<HTMLDivElement | null>(null);
 
   const setEyeFromClientPoint = useCallback((clientX: number, clientY: number) => {
@@ -106,8 +176,36 @@ export default function RoundtableSeatCircle({
 
   const eyeVector = pointerEyeVector ?? fallbackEyeVector;
 
+  useEffect(() => {
+    if (!cameraMenuSeatNo) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (sectionRef.current?.contains(target)) return;
+      onToggleCameraMenu?.(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onToggleCameraMenu?.(null);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [cameraMenuSeatNo, onToggleCameraMenu]);
+
   return (
-    <section className="roundtable-seat-circle roundtable-roulette-shell" aria-label="Roulette roundtable seats">
+    <section
+      ref={sectionRef}
+      className="roundtable-seat-circle roundtable-roulette-shell"
+      aria-label="Roulette roundtable seats"
+    >
       <div
         ref={rouletteRef}
         className="roundtable-roulette"
@@ -176,12 +274,35 @@ export default function RoundtableSeatCircle({
         <div className="roundtable-seat-token-ring">
           {seats.map((seat) => {
             const position = seatPolar(seat.seatNo, seatCount, 43);
+            const seatVideoStream = seat.isMe
+              ? localVideoStream
+              : seat.memberId
+                ? remoteVideoStreams[seat.memberId] ?? null
+                : null;
+            const showsLiveVideo = hasUsableVideoTrack(seatVideoStream);
+            const isCameraMenuOpen = cameraMenuSeatNo === seat.seatNo;
+            const cameraActionLabel = seat.isCameraLive
+              ? cameraBusyState === "off"
+                ? "Stopping..."
+                : "Stop live camera"
+              : cameraBusyState === "live"
+                ? "Starting..."
+                : "Start live camera";
             const tokenClassName = [
               "roundtable-seat-token",
               seat.isActive ? "is-active" : "",
               seat.isQueued ? "is-queued" : "",
               seat.isMe ? "is-me" : "",
               seat.isEmpty ? "is-empty" : "",
+              showsLiveVideo ? "has-video" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            const descriptor = [
+              `${seat.displayName}.`,
+              `Seat ${seat.seatNo}.`,
+              `${seat.stateLabel}.`,
+              showsLiveVideo ? "Live camera on." : "",
             ]
               .filter(Boolean)
               .join(" ");
@@ -191,8 +312,8 @@ export default function RoundtableSeatCircle({
                 key={`token-${seat.seatNo}`}
                 className={tokenClassName}
                 role="group"
-                aria-label={`${seat.displayName}. Seat ${seat.seatNo}. ${seat.stateLabel}.`}
-                title={`${seat.displayName} · Seat ${seat.seatNo} · ${seat.stateLabel}`}
+                aria-label={descriptor}
+                title={descriptor.replaceAll(". ", " · ").replace(/\.$/, "")}
                 style={
                   {
                     left: `${position.x}%`,
@@ -209,13 +330,49 @@ export default function RoundtableSeatCircle({
                     aria-label={`Share invite link for seat ${seat.seatNo}`}
                     title={`Share invite link for seat ${seat.seatNo}`}
                   >
-                    {seat.initials || "?"}
+                    {seat.avatarLabel || "?"}
                   </button>
                 ) : (
                   <span className="roundtable-seat-avatar" aria-hidden>
-                    {seat.initials || "?"}
+                    {showsLiveVideo && seatVideoStream ? (
+                      <RoundtableSeatVideo stream={seatVideoStream} mirrored={seat.isMe} />
+                    ) : (
+                      seat.avatarLabel || "?"
+                    )}
                   </span>
                 )}
+                {seat.canToggleCamera ? (
+                  <div className="roundtable-seat-media-anchor">
+                    <button
+                      type="button"
+                      className={`roundtable-seat-plus${isCameraMenuOpen ? " is-open" : ""}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleCameraMenu?.(isCameraMenuOpen ? null : seat.seatNo);
+                      }}
+                      aria-label={isCameraMenuOpen ? "Close seat camera menu" : "Open seat camera menu"}
+                      aria-expanded={isCameraMenuOpen}
+                    >
+                      +
+                    </button>
+                    {isCameraMenuOpen ? (
+                      <div className="roundtable-seat-media-menu" role="menu" aria-label="Seat camera options">
+                        <button
+                          type="button"
+                          className="roundtable-seat-media-action"
+                          role="menuitem"
+                          disabled={cameraBusyState !== null}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onToggleLiveCamera?.(seat.isCameraLive ? "off" : "live");
+                          }}
+                        >
+                          {cameraActionLabel}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {seat.shareStatus ? (
                   <span className="roundtable-seat-feedback" aria-live="polite">
                     {seat.shareStatus}
