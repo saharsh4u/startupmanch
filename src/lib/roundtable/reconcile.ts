@@ -49,7 +49,8 @@ const getLatestHeartbeatByMember = async (sessionId: string, memberIds: string[]
     .limit(1000);
 
   if (error) {
-    throw new Error(error.message);
+    console.error("roundtable heartbeat lookup failed", error.message);
+    return null;
   }
 
   const unresolved = new Set(memberIds);
@@ -108,6 +109,9 @@ const cleanupStaleMembers = async (session: RoundtableSessionRow) => {
     session.id,
     joinedRows.map((row) => row.id)
   );
+  if (!heartbeatByMemberId) {
+    return false;
+  }
 
   const staleIds = joinedRows
     .filter((row) => {
