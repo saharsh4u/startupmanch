@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { PITCH_OPEN_EVENT_TYPE, ROUNDTABLE_VIDEO_RAIL_SOURCE } from "@/lib/pitches/leaderboard";
+import {
+  PITCH_OPEN_EVENT_TYPE,
+  ROUNDTABLE_VIDEO_OPEN_FALLBACK_MESSAGE,
+  ROUNDTABLE_VIDEO_RAIL_SOURCE,
+} from "@/lib/pitches/leaderboard";
 
 export const runtime = "nodejs";
 
@@ -18,6 +22,9 @@ const asTrimmedString = (value: unknown, maxLength: number) => {
   if (!normalized) return null;
   return normalized.slice(0, maxLength);
 };
+
+const isMissingAnalyticsTable = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("public.analytics");
 
 export async function POST(request: NextRequest) {
   let payload: OpenPayload;
@@ -39,7 +46,7 @@ export async function POST(request: NextRequest) {
 
   const { data: pitchRow, error: pitchError } = await supabaseAdmin
     .from("pitches")
-    .select("id, status, type")
+    .select("id, startup_id, status, type")
     .eq("id", pitchId)
     .maybeSingle();
 
@@ -64,7 +71,22 @@ export async function POST(request: NextRequest) {
   });
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    if (!isMissingAnalyticsTable(insertError.message)) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    const { error: fallbackInsertError } = await supabaseAdmin.from("contact_requests").insert({
+      pitch_id: pitchId,
+      startup_id: pitchRow.startup_id ?? null,
+      name: null,
+      email: null,
+      message: ROUNDTABLE_VIDEO_OPEN_FALLBACK_MESSAGE,
+      offer_amount: null,
+    });
+
+    if (fallbackInsertError) {
+      return NextResponse.json({ error: fallbackInsertError.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

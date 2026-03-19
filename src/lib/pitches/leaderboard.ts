@@ -1,5 +1,6 @@
 export const PITCH_OPEN_EVENT_TYPE = "pitch_open";
 export const ROUNDTABLE_VIDEO_RAIL_SOURCE = "roundtable_video_rail";
+export const ROUNDTABLE_VIDEO_OPEN_FALLBACK_MESSAGE = "__system_roundtable_video_open__";
 
 export type VideoLeaderboardEntry = {
   rank: number;
