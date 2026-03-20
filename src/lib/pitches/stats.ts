@@ -33,6 +33,13 @@ type AnalyticsGuestVoteRow = {
   created_at: string;
 };
 
+type RoundtableTopicGuestVoteRow = {
+  title: string;
+  description: string | null;
+  created_by_guest_id: string | null;
+  created_at: string;
+};
+
 const emptyStat = (pitchId: string): PitchVoteStat => ({
   pitchId,
   inCount: 0,
@@ -49,6 +56,11 @@ const isMissingGuestVotesTableError = (message: string | null | undefined) =>
 const isMissingAnalyticsTableError = (message: string | null | undefined) =>
   (message ?? "").toLowerCase().includes("public.analytics");
 
+const isMissingRoundtableTopicsTableError = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("public.roundtable_topics");
+
+const GUEST_VOTE_TOPIC_PREFIX = "__pitch_guest_vote__:";
+
 const toTimeMs = (value: string | null | undefined) => {
   const timestamp = Date.parse(value ?? "");
   return Number.isFinite(timestamp) ? timestamp : 0;
@@ -64,6 +76,15 @@ const finalizeStat = (stat: PitchVoteStat) => ({
   commentCount: 0,
   score: stat.inCount * 2 - stat.outCount,
 });
+
+const buildGuestVoteTopicTitle = (pitchId: string) => `${GUEST_VOTE_TOPIC_PREFIX}${pitchId}`;
+
+const readPitchIdFromGuestVoteTopic = (title: string | null | undefined) => {
+  const normalized = title?.trim() ?? "";
+  if (!normalized.startsWith(GUEST_VOTE_TOPIC_PREFIX)) return null;
+  const pitchId = normalized.slice(GUEST_VOTE_TOPIC_PREFIX.length).trim();
+  return pitchId || null;
+};
 
 let ensuredGuestVotesTable = false;
 
@@ -113,6 +134,61 @@ const loadGuestVotesViaDatabase = async (pitchIds: string[], startsAtIso?: strin
 
   const { rows } = await db.query<PitchGuestVoteRow>(query, params);
   return rows ?? [];
+};
+
+const loadGuestVotesViaRoundtableTopics = async (pitchIds: string[], startsAtIso?: string | null) => {
+  if (!pitchIds.length) return [] as Array<{
+    pitchId: string;
+    guestKey: string;
+    vote: VoteType;
+    createdAt: string;
+  }>;
+
+  let query = supabaseAdmin
+    .from("roundtable_topics")
+    .select("title,description,created_by_guest_id,created_at")
+    .in(
+      "title",
+      pitchIds.map(buildGuestVoteTopicTitle)
+    );
+
+  if (startsAtIso) {
+    query = query.gte("created_at", startsAtIso);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    if (isMissingRoundtableTopicsTableError(error.message)) {
+      return [];
+    }
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as RoundtableTopicGuestVoteRow[])
+    .map((row) => {
+      const pitchId = readPitchIdFromGuestVoteTopic(row.title);
+      const guestKey = row.created_by_guest_id?.trim() ?? "";
+      const vote = row.description?.trim();
+      if (!pitchId || !guestKey || !isVoteType(vote)) {
+        return null;
+      }
+      return {
+        pitchId,
+        guestKey,
+        vote,
+        createdAt: row.created_at,
+      };
+    })
+    .filter(
+      (
+        value
+      ): value is {
+        pitchId: string;
+        guestKey: string;
+        vote: VoteType;
+        createdAt: string;
+      } => Boolean(value)
+    );
 };
 
 export const loadPitchVoteStatsMap = async (
@@ -243,6 +319,29 @@ export const loadPitchVoteStatsMap = async (
     }
   }
 
+  const topicFallbackVotes = await loadGuestVotesViaRoundtableTopics(
+    normalizedPitchIds,
+    options?.startsAtIso
+  );
+  for (const row of topicFallbackVotes) {
+    const key = `${row.pitchId}:${row.guestKey}`;
+    const next = {
+      pitchId: row.pitchId,
+      guestKey: row.guestKey,
+      vote: row.vote,
+      sortMs: toTimeMs(row.createdAt),
+      sortId: 0,
+    };
+    const existing = latestGuestVotesByPitchAndGuest.get(key);
+    if (
+      !existing ||
+      next.sortMs > existing.sortMs ||
+      (next.sortMs === existing.sortMs && next.sortId > existing.sortId)
+    ) {
+      latestGuestVotesByPitchAndGuest.set(key, next);
+    }
+  }
+
   for (const vote of latestGuestVotesByPitchAndGuest.values()) {
     const stat = stats.get(vote.pitchId);
     if (!stat) continue;
@@ -291,18 +390,59 @@ export const upsertGuestPitchVote = async (params: {
     throw new Error(guestVoteError.message);
   }
   if (guestVoteError) {
-    await ensureGuestVotesTable();
-    await db.query(
-      `
-        insert into public.pitch_guest_votes (pitch_id, guest_key, vote, created_at)
-        values ($1::uuid, $2::text, $3::public.vote_type, $4::timestamptz)
-        on conflict (pitch_id, guest_key)
-        do update set
-          vote = excluded.vote,
-          created_at = excluded.created_at
-      `,
-      [params.pitchId, params.guestKey, params.vote, createdAt]
-    );
+    try {
+      await ensureGuestVotesTable();
+      await db.query(
+        `
+          insert into public.pitch_guest_votes (pitch_id, guest_key, vote, created_at)
+          values ($1::uuid, $2::text, $3::public.vote_type, $4::timestamptz)
+          on conflict (pitch_id, guest_key)
+          do update set
+            vote = excluded.vote,
+            created_at = excluded.created_at
+        `,
+        [params.pitchId, params.guestKey, params.vote, createdAt]
+      );
+      guestVotesPersisted = true;
+    } catch {
+      guestVotesPersisted = false;
+    }
+  }
+
+  if (!guestVotesPersisted) {
+    const title = buildGuestVoteTopicTitle(params.pitchId);
+    const { data: existingRows, error: existingRowsError } = await supabaseAdmin
+      .from("roundtable_topics")
+      .select("id")
+      .eq("title", title)
+      .eq("created_by_guest_id", params.guestKey);
+
+    if (existingRowsError && !isMissingRoundtableTopicsTableError(existingRowsError.message)) {
+      throw new Error(existingRowsError.message);
+    }
+
+    const existingIds = ((existingRows ?? []) as Array<{ id: string }>).map((row) => row.id);
+    if (existingIds.length) {
+      const { error: deleteError } = await supabaseAdmin
+        .from("roundtable_topics")
+        .delete()
+        .in("id", existingIds);
+      if (deleteError && !isMissingRoundtableTopicsTableError(deleteError.message)) {
+        throw new Error(deleteError.message);
+      }
+    }
+
+    const { error: topicInsertError } = await supabaseAdmin.from("roundtable_topics").insert({
+      title,
+      description: params.vote,
+      created_by_profile_id: null,
+      created_by_guest_id: params.guestKey,
+    });
+
+    if (topicInsertError) {
+      throw new Error(topicInsertError.message);
+    }
+
     guestVotesPersisted = true;
   }
 
