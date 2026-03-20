@@ -1,3 +1,4 @@
+import { db } from "@/lib/db";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export type PitchVoteStat = {
@@ -45,6 +46,9 @@ const isVoteType = (value: unknown): value is VoteType => value === "in" || valu
 const isMissingGuestVotesTableError = (message: string | null | undefined) =>
   (message ?? "").toLowerCase().includes("pitch_guest_votes");
 
+const isMissingAnalyticsTableError = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("public.analytics");
+
 const toTimeMs = (value: string | null | undefined) => {
   const timestamp = Date.parse(value ?? "");
   return Number.isFinite(timestamp) ? timestamp : 0;
@@ -60,6 +64,56 @@ const finalizeStat = (stat: PitchVoteStat) => ({
   commentCount: 0,
   score: stat.inCount * 2 - stat.outCount,
 });
+
+let ensuredGuestVotesTable = false;
+
+const ensureGuestVotesTable = async () => {
+  if (ensuredGuestVotesTable) return;
+  await db.query(`
+    create table if not exists public.pitch_guest_votes (
+      id uuid primary key default gen_random_uuid(),
+      pitch_id uuid not null references public.pitches(id) on delete cascade,
+      guest_key text not null,
+      vote public.vote_type not null,
+      created_at timestamptz not null default now(),
+      unique (pitch_id, guest_key)
+    );
+  `);
+  await db.query(`
+    create index if not exists pitch_guest_votes_pitch_created_idx
+      on public.pitch_guest_votes (pitch_id, created_at desc);
+  `);
+  ensuredGuestVotesTable = true;
+};
+
+const loadGuestVotesViaDatabase = async (pitchIds: string[], startsAtIso?: string | null) => {
+  if (!pitchIds.length) return [] as PitchGuestVoteRow[];
+  await ensureGuestVotesTable();
+  const params = startsAtIso ? [pitchIds, startsAtIso] : [pitchIds];
+  const query = startsAtIso
+    ? `
+        select
+          pitch_id::text as pitch_id,
+          guest_key,
+          vote::text as vote,
+          created_at::text as created_at
+        from public.pitch_guest_votes
+        where pitch_id = any($1::uuid[])
+          and created_at >= $2::timestamptz
+      `
+    : `
+        select
+          pitch_id::text as pitch_id,
+          guest_key,
+          vote::text as vote,
+          created_at::text as created_at
+        from public.pitch_guest_votes
+        where pitch_id = any($1::uuid[])
+      `;
+
+  const { rows } = await db.query<PitchGuestVoteRow>(query, params);
+  return rows ?? [];
+};
 
 export const loadPitchVoteStatsMap = async (
   pitchIds: string[],
@@ -128,7 +182,11 @@ export const loadPitchVoteStatsMap = async (
     throw new Error(guestVotesError.message);
   }
 
-  for (const row of (guestVotes ?? []) as PitchGuestVoteRow[]) {
+  const resolvedGuestVotes = guestVotesError
+    ? await loadGuestVotesViaDatabase(normalizedPitchIds, options?.startsAtIso)
+    : ((guestVotes ?? []) as PitchGuestVoteRow[]);
+
+  for (const row of resolvedGuestVotes) {
     if (!row.pitch_id || !row.guest_key || !isVoteType(row.vote)) continue;
     const key = `${row.pitch_id}:${row.guest_key}`;
     const next = {
@@ -158,7 +216,7 @@ export const loadPitchVoteStatsMap = async (
   }
 
   const { data: analyticsVotes, error: analyticsVotesError } = await analyticsVotesQuery;
-  if (analyticsVotesError) {
+  if (analyticsVotesError && !isMissingAnalyticsTableError(analyticsVotesError.message)) {
     throw new Error(analyticsVotesError.message);
   }
 
@@ -228,9 +286,24 @@ export const upsertGuestPitchVote = async (params: {
       }
     );
 
-  const guestVotesPersisted = !guestVoteError;
+  let guestVotesPersisted = !guestVoteError;
   if (guestVoteError && !isMissingGuestVotesTableError(guestVoteError.message)) {
     throw new Error(guestVoteError.message);
+  }
+  if (guestVoteError) {
+    await ensureGuestVotesTable();
+    await db.query(
+      `
+        insert into public.pitch_guest_votes (pitch_id, guest_key, vote, created_at)
+        values ($1::uuid, $2::text, $3::public.vote_type, $4::timestamptz)
+        on conflict (pitch_id, guest_key)
+        do update set
+          vote = excluded.vote,
+          created_at = excluded.created_at
+      `,
+      [params.pitchId, params.guestKey, params.vote, createdAt]
+    );
+    guestVotesPersisted = true;
   }
 
   const { error: analyticsError } = await supabaseAdmin.from("analytics").insert({
@@ -248,7 +321,7 @@ export const upsertGuestPitchVote = async (params: {
     throw new Error(analyticsError.message);
   }
 
-  if (analyticsError) {
+  if (analyticsError && !isMissingAnalyticsTableError(analyticsError.message)) {
     console.error("guest pitch vote analytics insert failed", analyticsError.message);
   }
 };
