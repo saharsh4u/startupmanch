@@ -49,11 +49,6 @@ export async function POST(
     if (!memberRow) {
       return NextResponse.json({ error: "Member not found in this session." }, { status: 404 });
     }
-    if (memberRow.state !== "joined") {
-      const response = NextResponse.json({ ok: true, member_id: params.memberId }, { status: 200 });
-      return withGuestCookie(response, actor.guestId);
-    }
-
     await deleteRoundtableMembers([params.memberId]);
 
     await supabaseAdmin

@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "crypto";
+import { ROUND_TABLE_PRESENCE } from "@/lib/roundtable/constants";
+import { readRoundtableReconnectToken, verifyRoundtableReconnectToken } from "@/lib/roundtable/reconnect-cookie";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { RoundtableActor, RoundtableMemberRow } from "@/lib/roundtable/types";
 
@@ -51,10 +53,26 @@ export const getRoundtableActor = async (request: Request, displayName?: string 
   };
 };
 
+const toMs = (value: string | null | undefined) => {
+  if (!value) return NaN;
+  return Date.parse(value);
+};
+
+export const isReconnectGraceActive = (leftAt: string | null | undefined, nowMs = Date.now()) => {
+  const leftAtMs = toMs(leftAt);
+  return Number.isFinite(leftAtMs) && nowMs - leftAtMs < ROUND_TABLE_PRESENCE.reconnectGraceMs;
+};
+
+export const getReconnectGraceExpiryIso = (disconnectedAt: string | null | undefined, nowMs = Date.now()) => {
+  const disconnectedAtMs = toMs(disconnectedAt);
+  const anchorMs = Number.isFinite(disconnectedAtMs) ? disconnectedAtMs : nowMs;
+  return new Date(anchorMs + ROUND_TABLE_PRESENCE.reconnectGraceMs).toISOString();
+};
+
 export const getMemberForActor = async (sessionId: string, actor: RoundtableActor) => {
   let query = supabaseAdmin
     .from("roundtable_members")
-    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
     .eq("session_id", sessionId)
     .eq("state", "joined");
 
@@ -90,7 +108,7 @@ export const getMemberForActor = async (sessionId: string, actor: RoundtableActo
 export const getLatestJoinedMemberForActor = async (actor: RoundtableActor) => {
   let query = supabaseAdmin
     .from("roundtable_members")
-    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
     .eq("state", "joined");
 
   if (actor.profileId) {
@@ -111,6 +129,43 @@ export const getLatestJoinedMemberForActor = async (actor: RoundtableActor) => {
     ...(data as Omit<RoundtableMemberRow, "camera_state">),
     camera_state: "off",
   } satisfies RoundtableMemberRow;
+};
+
+export const getReconnectReservationForRequest = async (request: Request, sessionId: string) => {
+  const token = readRoundtableReconnectToken(request);
+  const reservation = verifyRoundtableReconnectToken(token);
+  if (!reservation || reservation.session_id !== sessionId) {
+    return null;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("roundtable_members")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
+    .eq("id", reservation.member_id)
+    .eq("session_id", sessionId)
+    .in("state", ["joined", "left"])
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) return null;
+
+  const member = {
+    ...(data as Omit<RoundtableMemberRow, "camera_state">),
+    camera_state: "off",
+  } satisfies RoundtableMemberRow;
+
+  if (member.seat_no !== reservation.seat_no) {
+    return null;
+  }
+
+  if (member.state === "left" && !isReconnectGraceActive(member.left_at)) {
+    return null;
+  }
+
+  return member;
 };
 
 export const logRoundtableEvent = async (
@@ -150,17 +205,21 @@ export const deleteRoundtableMembers = async (memberIds: string[]) => {
 };
 
 export const deleteSessionIfEmpty = async (sessionId: string) => {
-  const { count, error: countError } = await supabaseAdmin
+  const { data: members, error: membersError } = await supabaseAdmin
     .from("roundtable_members")
-    .select("id", { count: "exact", head: true })
+    .select("id, state, left_at")
     .eq("session_id", sessionId)
-    .eq("state", "joined");
+    .in("state", ["joined", "left"]);
 
-  if (countError) {
-    throw new Error(countError.message);
+  if (membersError) {
+    throw new Error(membersError.message);
   }
 
-  if ((count ?? 0) > 0) return false;
+  const activeMemberCount = (members ?? []).filter((member) => {
+    const state = String(member.state ?? "");
+    return state === "joined" || (state === "left" && isReconnectGraceActive(String(member.left_at ?? "")));
+  }).length;
+  if (activeMemberCount > 0) return false;
 
   const { data: session, error: sessionError } = await supabaseAdmin
     .from("roundtable_sessions")

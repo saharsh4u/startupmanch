@@ -10,6 +10,7 @@ import type {
   RoundtableTopicRow,
   RoundtableTurnRow,
 } from "@/lib/roundtable/types";
+import { isReconnectGraceActive } from "@/lib/roundtable/server";
 import { normalizeRoundtableVisibility, sanitizeRoundtableTags } from "@/lib/roundtable/visibility";
 
 const withFallbackTags = (tags: string[] | null | undefined) => (Array.isArray(tags) ? tags : []);
@@ -155,14 +156,15 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
     RoundtableSessionRow & { roundtable_topics: RoundtableTopicRow | RoundtableTopicRow[] | null }
   >;
   const sessionIds = sessions.map((session) => session.id);
-  const seatsTaken = new Map<string, number>();
+  const joinedCounts = new Map<string, number>();
+  const reservedCounts = new Map<string, number>();
 
   if (sessionIds.length) {
     const { data: members, error: membersError } = await supabaseAdmin
       .from("roundtable_members")
-      .select("session_id")
+      .select("session_id, state, left_at")
       .in("session_id", sessionIds)
-      .eq("state", "joined");
+      .in("state", ["joined", "left"]);
 
     if (membersError) {
       throw new Error(membersError.message);
@@ -170,13 +172,23 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
 
     for (const member of members ?? []) {
       const sessionId = String(member.session_id);
-      seatsTaken.set(sessionId, (seatsTaken.get(sessionId) ?? 0) + 1);
+      const state = String(member.state ?? "");
+      if (state === "joined") {
+        joinedCounts.set(sessionId, (joinedCounts.get(sessionId) ?? 0) + 1);
+      } else if (state === "left" && isReconnectGraceActive(String(member.left_at ?? ""))) {
+        reservedCounts.set(sessionId, (reservedCounts.get(sessionId) ?? 0) + 1);
+      }
     }
   }
 
   const summaries = sessions
-    .map((session) => buildSessionSummary(session, seatsTaken.get(session.id) ?? 0))
-    .filter((session) => session.visibility === "public" && session.seats_taken > 0);
+    .map((session) =>
+      buildSessionSummary(
+        session,
+        (joinedCounts.get(session.id) ?? 0) + (reservedCounts.get(session.id) ?? 0)
+      )
+    )
+    .filter((session) => session.visibility === "public" && (joinedCounts.get(session.session_id) ?? 0) > 0);
 
   return {
     sessions: summaries,
@@ -208,16 +220,20 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
 
   const { data: membersData, error: membersError } = await supabaseAdmin
     .from("roundtable_members")
-    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
     .eq("session_id", sessionId)
-    .eq("state", "joined")
+    .in("state", ["joined", "left"])
     .order("seat_no", { ascending: true });
 
   if (membersError) {
     throw new Error(membersError.message);
   }
 
-  const rawMembers = (membersData ?? []) as Omit<RoundtableMemberRow, "camera_state">[];
+  const rawRows = (membersData ?? []) as Omit<RoundtableMemberRow, "camera_state">[];
+  const reservedSeatNos = rawRows
+    .filter((member) => member.state === "left" && isReconnectGraceActive(member.left_at))
+    .map((member) => member.seat_no);
+  const rawMembers = rawRows.filter((member) => member.state === "joined");
   const cameraStateByMemberId = await getMemberCameraStates(
     sessionId,
     rawMembers.map((member) => member.id)
@@ -226,6 +242,7 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
     ...member,
     camera_state: cameraStateByMemberId.get(member.id) ?? "off",
   })) as RoundtableMemberRow[];
+  const joinedMemberIds = new Set(members.map((member) => member.id));
   const nameByMemberId = new Map<string, string>(members.map((member) => [member.id, member.display_name]));
 
   const { data: turnsData, error: turnsError } = await supabaseAdmin
@@ -242,15 +259,17 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
   const turns = (turnsData ?? []) as RoundtableTurnRow[];
   const queue = turns
     .filter((turn) => turn.status === "queued")
+    .filter((turn) => joinedMemberIds.has(turn.member_id))
     .map((turn) => ({
       ...turn,
       member_display_name: nameByMemberId.get(turn.member_id) ?? "Guest",
     }));
 
-  const activeTurn = turns.find((turn) => turn.status === "active") ?? null;
+  const activeTurn = turns.find((turn) => turn.status === "active" && joinedMemberIds.has(turn.member_id)) ?? null;
   const recentTurns = turns
     .filter((turn) => ["submitted", "expired", "skipped"].includes(turn.status))
     .filter((turn) => !turn.hidden_for_abuse)
+    .filter((turn) => joinedMemberIds.has(turn.member_id))
     .slice(-20)
     .reverse()
     .map((turn) => ({
@@ -268,16 +287,19 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
     throw new Error(scoresError.message);
   }
 
-  const scores = ((scoresData ?? []) as RoundtableScoreRow[]).map((score) => ({
-    ...score,
-    member_display_name: nameByMemberId.get(score.member_id) ?? "Guest",
-  }));
+  const scores = ((scoresData ?? []) as RoundtableScoreRow[])
+    .filter((score) => joinedMemberIds.has(score.member_id))
+    .map((score) => ({
+      ...score,
+      member_display_name: nameByMemberId.get(score.member_id) ?? "Guest",
+    }));
 
-  const summary = buildSessionSummary(session, members.length);
+  const summary = buildSessionSummary(session, members.length + reservedSeatNos.length);
   const rawTags = withFallbackTags(topic?.tags);
 
   return {
     viewer_member_id: null,
+    viewer_reconnect_seat_no: null,
     viewer_can_manage_members: false,
     session: summary,
     topic: {
@@ -287,6 +309,7 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
       tags: sanitizeRoundtableTags(rawTags),
     },
     members,
+    reserved_seat_nos: reservedSeatNos,
     queue,
     active_turn: activeTurn
       ? {

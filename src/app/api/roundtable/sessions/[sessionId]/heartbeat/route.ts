@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { setRoundtableReconnectCookie } from "@/lib/roundtable/reconnect-cookie";
 import { resolveActor } from "@/lib/roundtable/api";
 import { getMemberForActor, logRoundtableEvent } from "@/lib/roundtable/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -27,11 +28,23 @@ export async function POST(
     );
 
     await supabaseAdmin
+      .from("roundtable_members")
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq("id", member.id)
+      .eq("state", "joined");
+
+    await supabaseAdmin
       .from("roundtable_sessions")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", params.sessionId);
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const response = NextResponse.json({ ok: true }, { status: 200 });
+    setRoundtableReconnectCookie(response, {
+      sessionId: params.sessionId,
+      memberId: member.id,
+      seatNo: member.seat_no,
+    });
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to refresh presence.";
     return NextResponse.json({ error: message }, { status: 500 });

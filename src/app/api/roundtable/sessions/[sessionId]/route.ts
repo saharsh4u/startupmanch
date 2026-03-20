@@ -4,7 +4,7 @@ import { resolveActor } from "@/lib/roundtable/api";
 import { verifyRoundtableInviteToken } from "@/lib/roundtable/invite-token";
 import { getSessionSnapshot } from "@/lib/roundtable/queries";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
-import { getMemberForActor } from "@/lib/roundtable/server";
+import { getMemberForActor, getReconnectReservationForRequest } from "@/lib/roundtable/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getOperatorAuthContext, requireRole } from "@/lib/supabase/auth";
 
@@ -25,14 +25,19 @@ export async function GET(
 
     const invite = verifyRoundtableInviteToken(new URL(request.url).searchParams.get("invite"));
     let viewerMemberId: string | null = null;
+    let viewerReconnectSeatNo: number | null = null;
     let viewerCanManageMembers = false;
     try {
       const actor = await resolveActor(request);
       const viewerMember = await getMemberForActor(params.sessionId, actor);
       viewerMemberId = viewerMember?.id ?? null;
+      if (!viewerMemberId) {
+        const reconnectReservation = await getReconnectReservationForRequest(request, params.sessionId);
+        viewerReconnectSeatNo = reconnectReservation?.seat_no ?? null;
+      }
 
       const hasValidInvite = Boolean(invite && invite.session_id === params.sessionId);
-      if (snapshot.session.visibility === "private" && !viewerMemberId && !hasValidInvite) {
+      if (snapshot.session.visibility === "private" && !viewerMemberId && !viewerReconnectSeatNo && !hasValidInvite) {
         const response = NextResponse.json(
           { error: "Private room access requires a valid invite." },
           { status: 403 }
@@ -68,6 +73,7 @@ export async function GET(
       {
         ...snapshot,
         viewer_member_id: viewerMemberId,
+        viewer_reconnect_seat_no: viewerReconnectSeatNo,
         viewer_can_manage_members: viewerCanManageMembers,
       },
       { status: 200 }

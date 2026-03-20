@@ -1,6 +1,12 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
-import { deleteRoundtableMembers, deleteSessionIfEmpty, logRoundtableEvent } from "@/lib/roundtable/server";
+import {
+  deleteRoundtableMembers,
+  deleteSessionIfEmpty,
+  isReconnectGraceActive,
+  logRoundtableEvent,
+  nowIso,
+} from "@/lib/roundtable/server";
 import type { RoundtableActor } from "@/lib/roundtable/types";
 
 type JoinErrorCode =
@@ -67,13 +73,14 @@ export const joinRoundtableSession = async (params: {
   sessionId: string;
   actor: RoundtableActor;
   requestedSeatNo?: number | null;
+  reconnectMemberId?: string | null;
 }): Promise<JoinSessionResult> => {
   try {
     if (params.actor.profileId || params.actor.guestId) {
       let priorMembershipQuery = supabaseAdmin
         .from("roundtable_members")
-        .select("id, session_id")
-        .eq("state", "joined");
+        .select("id, session_id, state, left_at")
+        .in("state", ["joined", "left"]);
 
       if (params.actor.profileId) {
         priorMembershipQuery = priorMembershipQuery.eq("profile_id", params.actor.profileId);
@@ -92,6 +99,10 @@ export const joinRoundtableSession = async (params: {
       }
 
       const staleRows = (priorMemberships ?? [])
+        .filter((row) => {
+          const state = String(row.state ?? "");
+          return state === "joined" || (state === "left" && isReconnectGraceActive(String(row.left_at ?? "")));
+        })
         .map((row) => ({ id: String(row.id), sessionId: String(row.session_id) }))
         .filter((row) => row.sessionId && row.sessionId !== params.sessionId);
 
@@ -142,6 +153,90 @@ export const joinRoundtableSession = async (params: {
     const maxSeats = Number(session.max_seats) || 5;
 
     for (let attempt = 1; attempt <= MAX_JOIN_RETRY_ATTEMPTS; attempt += 1) {
+      if (params.reconnectMemberId) {
+        const { data: reconnectRow, error: reconnectError } = await supabaseAdmin
+          .from("roundtable_members")
+          .select("id, seat_no, display_name, state, left_at")
+          .eq("id", params.reconnectMemberId)
+          .eq("session_id", params.sessionId)
+          .in("state", ["joined", "left"])
+          .maybeSingle();
+
+        if (reconnectError) {
+          return {
+            ok: false,
+            status: 500,
+            code: "join_failed",
+            error: reconnectError.message,
+            metadata: { attempt, resolved_from: "reconnect_lookup" },
+          };
+        }
+
+        const reconnectState = String(reconnectRow?.state ?? "");
+        const reconnectAllowed =
+          Boolean(reconnectRow?.id) &&
+          (reconnectState === "joined" ||
+            (reconnectState === "left" && isReconnectGraceActive(String(reconnectRow?.left_at ?? ""))));
+
+        if (reconnectAllowed && reconnectRow?.id) {
+          const displayName = reconnectRow.display_name?.trim() || params.actor.displayName?.trim() || "Guest";
+          const updates = {
+            seat_no: reconnectRow.seat_no,
+            profile_id: params.actor.profileId,
+            guest_id: params.actor.guestId,
+            display_name: displayName,
+            state: "joined" as const,
+            last_seen_at: nowIso(),
+            left_at: null,
+          };
+
+          const { data: reclaimedRow, error: reclaimError } = await supabaseAdmin
+            .from("roundtable_members")
+            .update(updates)
+            .eq("id", reconnectRow.id)
+            .select("id, seat_no")
+            .single();
+
+          if (reclaimError || !reclaimedRow?.id) {
+            return {
+              ok: false,
+              status: 500,
+              code: "join_failed",
+              error: reclaimError?.message ?? "Unable to reclaim previous seat.",
+              metadata: { attempt, resolved_from: "reconnect_update" },
+            };
+          }
+
+          await supabaseAdmin
+            .from("roundtable_sessions")
+            .update({ updated_at: nowIso() })
+            .eq("id", params.sessionId);
+
+          await reconcileSession(params.sessionId);
+
+          await logRoundtableEvent(
+            "roundtable_session_reconnected",
+            {
+              session_id: params.sessionId,
+              member_id: reclaimedRow.id,
+              seat_no: reclaimedRow.seat_no,
+            },
+            params.actor.profileId
+          );
+
+          return {
+            ok: true,
+            status: 200,
+            code: "already_joined",
+            member: { id: reclaimedRow.id, seat_no: reclaimedRow.seat_no },
+            attempt,
+            metadata: {
+              resolved_from: "reconnect_cookie",
+            },
+          };
+        }
+      }
+
       let existingQuery = supabaseAdmin
         .from("roundtable_members")
         .select("id, seat_no, display_name, joined_at")
@@ -209,9 +304,9 @@ export const joinRoundtableSession = async (params: {
 
       const { data: occupiedRows, error: occupiedError } = await supabaseAdmin
         .from("roundtable_members")
-        .select("seat_no")
+        .select("seat_no, state, left_at")
         .eq("session_id", params.sessionId)
-        .eq("state", "joined");
+        .in("state", ["joined", "left"]);
 
       if (occupiedError) {
         return {
@@ -225,6 +320,10 @@ export const joinRoundtableSession = async (params: {
 
       const occupied = new Set(
         (occupiedRows ?? [])
+          .filter((row) => {
+            const state = String(row.state ?? "");
+            return state === "joined" || (state === "left" && isReconnectGraceActive(String(row.left_at ?? "")));
+          })
           .map((row) => Number(row.seat_no))
           .filter((seatNo) => Number.isInteger(seatNo) && seatNo >= 1 && seatNo <= maxSeats)
       );
@@ -266,7 +365,7 @@ export const joinRoundtableSession = async (params: {
 
       const { data: seatRecord, error: seatRecordError } = await supabaseAdmin
         .from("roundtable_members")
-        .select("id, state")
+        .select("id, state, left_at")
         .eq("session_id", params.sessionId)
         .eq("seat_no", seatNo)
         .maybeSingle();
@@ -288,6 +387,10 @@ export const joinRoundtableSession = async (params: {
           continue;
         }
 
+        if (seatRecord.state === "left" && isReconnectGraceActive(String(seatRecord.left_at ?? ""))) {
+          continue;
+        }
+
         await deleteRoundtableMembers([seatRecord.id]);
       }
 
@@ -300,6 +403,7 @@ export const joinRoundtableSession = async (params: {
           guest_id: params.actor.guestId,
           display_name: params.actor.displayName,
           state: "joined",
+          last_seen_at: nowIso(),
         })
         .select("id, seat_no")
         .single();

@@ -102,6 +102,7 @@ export type RoundtableLeaderboardEntry = {
 
 export type RoundtableSessionSnapshot = {
   viewer_member_id: string | null;
+  viewer_reconnect_seat_no: number | null;
   viewer_can_manage_members: boolean;
   session: RoundtableSessionSummary;
   topic: {
@@ -111,6 +112,7 @@ export type RoundtableSessionSnapshot = {
     tags: string[];
   };
   members: RoundtableMemberRow[];
+  reserved_seat_nos: number[];
   queue: Array<RoundtableTurnRow & { member_display_name: string }>;
   active_turn: (RoundtableTurnRow & { member_display_name: string }) | null;
   recent_turns: Array<RoundtableTurnRow & { member_display_name: string }>;

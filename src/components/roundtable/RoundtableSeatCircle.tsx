@@ -9,6 +9,7 @@ export type RoundtableSeatViewModel = {
   isQueued: boolean;
   isMe: boolean;
   isEmpty: boolean;
+  isReserved?: boolean;
   isCameraLive: boolean;
   stateLabel: string;
   canShareInvite?: boolean;
@@ -237,6 +238,7 @@ export default function RoundtableSeatCircle({
                   seat.isActive ? "is-active" : "",
                   seat.isQueued ? "is-queued" : "",
                   seat.isEmpty ? "is-empty" : "",
+                  seat.isReserved ? "is-reserved" : "",
                 ]
                   .filter(Boolean)
                   .join(" ");
@@ -294,6 +296,7 @@ export default function RoundtableSeatCircle({
               seat.isQueued ? "is-queued" : "",
               seat.isMe ? "is-me" : "",
               seat.isEmpty ? "is-empty" : "",
+              seat.isReserved ? "is-reserved" : "",
               showsLiveVideo ? "has-video" : "",
             ]
               .filter(Boolean)

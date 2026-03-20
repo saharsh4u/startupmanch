@@ -2,9 +2,10 @@ import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { ROUND_TABLE_LIMITS } from "@/lib/roundtable/constants";
 import { verifyRoundtableInviteToken } from "@/lib/roundtable/invite-token";
+import { setRoundtableReconnectCookie } from "@/lib/roundtable/reconnect-cookie";
 import { joinRoundtableSession } from "@/lib/roundtable/join-session";
 import { getSessionSnapshot } from "@/lib/roundtable/queries";
-import { logRoundtableEvent } from "@/lib/roundtable/server";
+import { getReconnectReservationForRequest, logRoundtableEvent } from "@/lib/roundtable/server";
 import { parseJsonSafely, requireCaptcha, requireRateLimit, resolveActor, withGuestCookie } from "@/lib/roundtable/api";
 
 type JoinPayload = {
@@ -55,7 +56,8 @@ export async function POST(
 
   const invite = verifyRoundtableInviteToken(payload.invite_token ?? null);
   const hasValidInvite = Boolean(invite && invite.session_id === params.sessionId);
-  if (snapshot.session.visibility === "private" && !hasValidInvite) {
+  const reconnectReservation = await getReconnectReservationForRequest(request, params.sessionId);
+  if (snapshot.session.visibility === "private" && !hasValidInvite && !reconnectReservation) {
     return NextResponse.json(
       { error: "This private room requires a valid invite.", code: "invite_required" },
       { status: 403 }
@@ -122,6 +124,11 @@ export async function POST(
     );
 
     const response = NextResponse.json({ ok: true, member_id: member.id, seat_no: member.seat_no }, { status });
+    setRoundtableReconnectCookie(response, {
+      sessionId: params.sessionId,
+      memberId: member.id,
+      seatNo: member.seat_no,
+    });
     return withGuestCookie(response, actor?.guestId ?? null);
   };
 
@@ -150,7 +157,8 @@ export async function POST(
     const result = await joinRoundtableSession({
       sessionId: params.sessionId,
       actor,
-      requestedSeatNo: Number.isInteger(payload.seat_no) ? Number(payload.seat_no) : null,
+      requestedSeatNo,
+      reconnectMemberId: reconnectReservation?.id ?? null,
     });
 
     if (!result.ok) {

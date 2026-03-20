@@ -213,6 +213,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const lastVoiceRecoveryAtRef = useRef(0);
   const invitePrefillKeyRef = useRef<string | null>(null);
   const inviteAutoJoinKeyRef = useRef<string | null>(null);
+  const reconnectAutoJoinKeyRef = useRef<string | null>(null);
 
   const actorId = useMemo(() => ensureGuestId(), []);
   const inviteContext = useMemo<RoundtableInviteContext>(() => {
@@ -321,6 +322,12 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return snapshot.members.find((member) => member.id === snapshot.viewer_member_id) ?? null;
   }, [snapshot]);
 
+  useEffect(() => {
+    if (!currentMember) return;
+    const normalizedDisplayName = setDisplayName(currentMember.display_name);
+    setDisplayNameState((current) => (current === normalizedDisplayName ? current : normalizedDisplayName));
+  }, [currentMember]);
+
   const preferredInviteSeatNo = useMemo(() => {
     if (!snapshot) return inviteContext.preferred_seat_no;
     const preferredSeatNo = inviteContext.preferred_seat_no;
@@ -355,9 +362,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     [snapshot?.members]
   );
 
-  const seatsTaken = snapshot?.session.seats_taken ?? 0;
   const maxSeats = snapshot?.session.max_seats ?? 5;
-  const isRoomFull = seatsTaken >= maxSeats;
+  const reservedSeatSet = useMemo(
+    () => new Set((snapshot?.reserved_seat_nos ?? []).filter((seatNo) => Number.isInteger(seatNo))),
+    [snapshot?.reserved_seat_nos]
+  );
 
   const seats = useMemo<RoundtableSeatViewModel[]>(() => {
     if (!snapshot) return [];
@@ -370,10 +379,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     return Array.from({ length: snapshot.session.max_seats }, (_, index) => {
       const seatNo = index + 1;
       const member = bySeat.get(seatNo) ?? null;
+      const isReserved = !member && reservedSeatSet.has(seatNo);
       const isActive = Boolean(member && member.id === currentMember?.id && !isMyMicMuted);
       const isQueued = false;
       const isMe = Boolean(member && member.id === currentMember?.id);
-      const isEmpty = !member;
+      const isEmpty = !member && !isReserved;
       const localCameraLive = isMe && streamHasLiveVideo(localCameraStream);
       const remoteCameraLive = member?.id ? streamHasLiveVideo(remoteMediaStreams[member.id] ?? null) : false;
       const isCameraLive = Boolean(member && (localCameraLive || remoteCameraLive || member.camera_state === "live"));
@@ -387,14 +397,27 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         isQueued,
         isMe,
         isEmpty,
+        isReserved,
         isCameraLive,
-        stateLabel: isActive ? "Speaking" : isCameraLive ? "Live camera" : member ? "Open mic" : "Available",
+        stateLabel: isActive ? "Speaking" : isCameraLive ? "Live camera" : member ? "Open mic" : isReserved ? "Reserved" : "Available",
         canShareInvite: Boolean(currentMember && isEmpty),
         canToggleCamera: Boolean(member && currentMember && member.id === currentMember.id),
         shareStatus: shareFeedback?.seatNo === seatNo ? shareFeedback.message : null,
       };
     });
-  }, [currentMember, isMyMicMuted, localCameraStream, remoteMediaStreams, shareFeedback, snapshot]);
+  }, [currentMember, isMyMicMuted, localCameraStream, remoteMediaStreams, reservedSeatSet, shareFeedback, snapshot]);
+
+  const availableSeatNos = useMemo(
+    () => seats.filter((seat) => seat.isEmpty).map((seat) => seat.seatNo),
+    [seats]
+  );
+  const isRoomFull = availableSeatNos.length === 0;
+
+  useEffect(() => {
+    if (seatChoice === "auto") return;
+    if (availableSeatNos.includes(seatChoice)) return;
+    setSeatChoice(availableSeatNos[0] ?? "auto");
+  }, [availableSeatNos, seatChoice]);
 
   const remoteAudioEntries = useMemo(
     () =>
@@ -921,11 +944,11 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   useEffect(() => {
     if (!currentMember) return;
 
-    const leaveNow = () => {
+    const disconnectNow = () => {
       stopMicStream();
       stopLocalCameraStream();
       closeAllPeerConnections();
-      void fetch(`/api/roundtable/sessions/${sessionId}/leave`, {
+      void fetch(`/api/roundtable/sessions/${sessionId}/disconnect`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -934,13 +957,15 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
         body: JSON.stringify({ display_name: displayName }),
         keepalive: true,
       }).catch(() => {
-        // If leave beacon misses, heartbeat-based cleanup removes stale presence.
+        // If disconnect beacon misses, heartbeat-based cleanup preserves the seat briefly.
       });
     };
 
-    window.addEventListener("pagehide", leaveNow);
+    window.addEventListener("pagehide", disconnectNow);
+    window.addEventListener("beforeunload", disconnectNow);
     return () => {
-      window.removeEventListener("pagehide", leaveNow);
+      window.removeEventListener("pagehide", disconnectNow);
+      window.removeEventListener("beforeunload", disconnectNow);
     };
   }, [actorId, closeAllPeerConnections, currentMember, displayName, sessionId, stopLocalCameraStream, stopMicStream]);
 
@@ -1506,6 +1531,21 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     snapshot,
   ]);
 
+  useEffect(() => {
+    if (currentMember) {
+      reconnectAutoJoinKeyRef.current = null;
+      return;
+    }
+    const reconnectSeatNo = snapshot?.viewer_reconnect_seat_no ?? null;
+    if (!reconnectSeatNo) return;
+
+    const attemptKey = `${sessionId}:${reconnectSeatNo}`;
+    if (reconnectAutoJoinKeyRef.current === attemptKey) return;
+    reconnectAutoJoinKeyRef.current = attemptKey;
+
+    void handleJoinWithSeatPreference(reconnectSeatNo, false);
+  }, [currentMember, handleJoinWithSeatPreference, sessionId, snapshot?.viewer_reconnect_seat_no]);
+
   const inviteNotice = useMemo(() => {
     if (inviteContext.source !== "invite" || currentMember) {
       return null;
@@ -1567,7 +1607,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   }
 
   const canJoinSeat = !currentMember && !isRoomFull;
-  const seatOptions = Array.from({ length: snapshot.session.max_seats }, (_, index) => index + 1);
+  const seatOptions = availableSeatNos;
   const cameraBusyState =
     busyAction === "camera-live" ? "live" : busyAction === "camera-off" ? "off" : null;
 

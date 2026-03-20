@@ -1,5 +1,5 @@
 import type { RoundtableActor, RoundtableSessionVisibility } from "@/lib/roundtable/types";
-import { deleteRoundtableMembers, deleteSessionIfEmpty } from "@/lib/roundtable/server";
+import { deleteRoundtableMembers, deleteSessionIfEmpty, isReconnectGraceActive } from "@/lib/roundtable/server";
 import { applyVisibilityTag } from "@/lib/roundtable/visibility";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -14,8 +14,8 @@ export const createRoundtableSession = async (params: {
   if (params.actor.profileId || params.actor.guestId) {
     let priorMembershipQuery = supabaseAdmin
       .from("roundtable_members")
-      .select("id, session_id")
-      .eq("state", "joined");
+      .select("id, session_id, state, left_at")
+      .in("state", ["joined", "left"]);
 
     if (params.actor.profileId) {
       priorMembershipQuery = priorMembershipQuery.eq("profile_id", params.actor.profileId);
@@ -28,10 +28,15 @@ export const createRoundtableSession = async (params: {
       throw new Error(priorMembershipError.message);
     }
 
-    const rows = (priorMemberships ?? []).map((row) => ({
-      id: String(row.id),
-      sessionId: String(row.session_id),
-    }));
+    const rows = (priorMemberships ?? [])
+      .filter((row) => {
+        const state = String(row.state ?? "");
+        return state === "joined" || (state === "left" && isReconnectGraceActive(String(row.left_at ?? "")));
+      })
+      .map((row) => ({
+        id: String(row.id),
+        sessionId: String(row.session_id),
+      }));
     if (rows.length) {
       await deleteRoundtableMembers(rows.map((row) => row.id));
       for (const staleSessionId of Array.from(new Set(rows.map((row) => row.sessionId)))) {
@@ -85,6 +90,7 @@ export const createRoundtableSession = async (params: {
       guest_id: params.actor.guestId,
       display_name: params.actor.displayName,
       state: "joined",
+      last_seen_at: new Date().toISOString(),
     })
     .select("id")
     .single();

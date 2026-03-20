@@ -1,5 +1,12 @@
 import { ROUND_TABLE_PRESENCE } from "@/lib/roundtable/constants";
-import { deleteRoundtableMembers, deleteSessionIfEmpty, logRoundtableEvent, nowIso } from "@/lib/roundtable/server";
+import {
+  deleteRoundtableMembers,
+  deleteSessionIfEmpty,
+  getReconnectGraceExpiryIso,
+  isReconnectGraceActive,
+  logRoundtableEvent,
+  nowIso,
+} from "@/lib/roundtable/server";
 import type { RoundtableSessionRow, RoundtableTurnRow } from "@/lib/roundtable/types";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -37,52 +44,24 @@ const resolveQueuedHandForMember = async (sessionId: string, memberId: string) =
   }
 };
 
-const getLatestHeartbeatByMember = async (sessionId: string, memberIds: string[]) => {
-  const latestByMemberId = new Map<string, number>();
-  if (!memberIds.length) return latestByMemberId;
-
-  const { data, error } = await supabaseAdmin
-    .from("analytics")
-    .select("metadata, created_at")
-    .eq("event_type", "roundtable_member_heartbeat")
-    .order("created_at", { ascending: false })
-    .limit(1000);
-
-  if (error) {
-    console.error("roundtable heartbeat lookup failed", error.message);
-    return null;
-  }
-
-  const unresolved = new Set(memberIds);
-  for (const row of data ?? []) {
-    if (!unresolved.size) break;
-    const metadata = row.metadata as Record<string, unknown> | null;
-    if (!metadata || String(metadata.session_id ?? "") !== sessionId) continue;
-    const memberId = String(metadata.member_id ?? "");
-    if (!unresolved.has(memberId)) continue;
-
-    const createdAtMs = toMs(String(row.created_at ?? ""));
-    if (Number.isFinite(createdAtMs)) {
-      latestByMemberId.set(memberId, createdAtMs);
-      unresolved.delete(memberId);
-    }
-  }
-
-  return latestByMemberId;
-};
-
-const purgeLegacyNonJoinedMembers = async (sessionId: string) => {
+const purgeDetachedMembers = async (sessionId: string) => {
   const { data, error } = await supabaseAdmin
     .from("roundtable_members")
-    .select("id")
+    .select("id, state, left_at")
     .eq("session_id", sessionId)
-    .neq("state", "joined");
+    .in("state", ["left", "kicked"]);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const ids = (data ?? []).map((row) => String(row.id)).filter(Boolean);
+  const ids = (data ?? [])
+    .filter((row) => {
+      const state = String(row.state ?? "");
+      return state === "kicked" || (state === "left" && !isReconnectGraceActive(String(row.left_at ?? "")));
+    })
+    .map((row) => String(row.id))
+    .filter(Boolean);
   if (ids.length) {
     await deleteRoundtableMembers(ids);
   }
@@ -91,7 +70,7 @@ const purgeLegacyNonJoinedMembers = async (sessionId: string) => {
 const cleanupStaleMembers = async (session: RoundtableSessionRow) => {
   const { data, error } = await supabaseAdmin
     .from("roundtable_members")
-    .select("id, joined_at")
+    .select("id, joined_at, last_seen_at")
     .eq("session_id", session.id)
     .eq("state", "joined");
 
@@ -99,32 +78,41 @@ const cleanupStaleMembers = async (session: RoundtableSessionRow) => {
     throw new Error(error.message);
   }
 
-  const joinedRows = (data ?? []) as Array<{ id: string; joined_at: string }>;
+  const joinedRows = (data ?? []) as Array<{ id: string; joined_at: string; last_seen_at: string | null }>;
   if (!joinedRows.length) {
     await deleteSessionIfEmpty(session.id);
     return true;
   }
 
-  const heartbeatByMemberId = await getLatestHeartbeatByMember(
-    session.id,
-    joinedRows.map((row) => row.id)
-  );
-  if (!heartbeatByMemberId) {
-    return false;
-  }
+  const nowMs = Date.now();
+  const staleRows = joinedRows.filter((row) => {
+    const lastSeenMs = toMs(row.last_seen_at) || toMs(row.joined_at);
+    return !Number.isFinite(lastSeenMs) || nowMs - lastSeenMs >= ROUND_TABLE_PRESENCE.staleAfterMs;
+  });
 
-  const staleIds = joinedRows
-    .filter((row) => {
-      const lastSeenMs = heartbeatByMemberId.get(row.id) ?? toMs(row.joined_at);
-      return !Number.isFinite(lastSeenMs) || Date.now() - lastSeenMs >= ROUND_TABLE_PRESENCE.staleAfterMs;
-    })
-    .map((row) => row.id);
+  if (staleRows.length) {
+    for (const row of staleRows) {
+      const lastSeenMs = toMs(row.last_seen_at) || toMs(row.joined_at);
+      const disconnectedAtIso = Number.isFinite(lastSeenMs) ? new Date(lastSeenMs).toISOString() : nowIso();
+      const { error: updateError } = await supabaseAdmin
+        .from("roundtable_members")
+        .update({
+          state: "left",
+          left_at: disconnectedAtIso,
+          last_seen_at: disconnectedAtIso,
+        })
+        .eq("id", row.id)
+        .eq("state", "joined");
 
-  if (staleIds.length) {
-    await deleteRoundtableMembers(staleIds);
-    await logRoundtableEvent("roundtable_stale_members_purged", {
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+    }
+
+    await logRoundtableEvent("roundtable_stale_members_disconnected", {
       session_id: session.id,
-      member_ids: staleIds,
+      member_ids: staleRows.map((row) => row.id),
+      reconnect_expires_at: staleRows.map((row) => getReconnectGraceExpiryIso(row.last_seen_at ?? row.joined_at, nowMs)),
     });
   }
 
@@ -265,7 +253,7 @@ export const reconcileSession = async (sessionId: string) => {
   const session = sessionData as RoundtableSessionRow;
   if (session.status === "ended" || session.status === "cancelled") return;
 
-  await purgeLegacyNonJoinedMembers(session.id);
+  await purgeDetachedMembers(session.id);
   const deletedAfterCleanup = await cleanupStaleMembers(session);
   if (deletedAfterCleanup) return;
 

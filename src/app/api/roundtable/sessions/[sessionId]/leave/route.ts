@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clearRoundtableReconnectCookie } from "@/lib/roundtable/reconnect-cookie";
 import { deleteRoundtableMembers, deleteSessionIfEmpty, getMemberForActor, logRoundtableEvent } from "@/lib/roundtable/server";
 import { parseJsonSafely, resolveActor, withGuestCookie } from "@/lib/roundtable/api";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
@@ -41,6 +42,7 @@ export async function POST(
     }, actor.profileId);
 
     const response = NextResponse.json({ ok: true }, { status: 200 });
+    clearRoundtableReconnectCookie(response);
     return withGuestCookie(response, actor.guestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to leave session.";

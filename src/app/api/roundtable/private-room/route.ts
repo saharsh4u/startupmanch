@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createRoundtableSession } from "@/lib/roundtable/create-session";
+import { setRoundtableReconnectCookie } from "@/lib/roundtable/reconnect-cookie";
 import { logRoundtableEvent } from "@/lib/roundtable/server";
 import { parseJsonSafely, resolveActor, withGuestCookie } from "@/lib/roundtable/api";
 import { reconcileOpenSessions } from "@/lib/roundtable/reconcile";
@@ -44,6 +45,11 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
+    setRoundtableReconnectCookie(response, {
+      sessionId: created.sessionId,
+      memberId: created.memberId,
+      seatNo: 1,
+    });
     return withGuestCookie(response, actor.guestId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create private roundtable.";

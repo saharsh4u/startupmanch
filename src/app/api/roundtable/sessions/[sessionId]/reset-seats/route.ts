@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteRoundtableMembers, deleteSessionIfEmpty } from "@/lib/roundtable/server";
+import { deleteRoundtableMembers, deleteSessionIfEmpty, isReconnectGraceActive } from "@/lib/roundtable/server";
 import { resolveActor, withGuestCookie } from "@/lib/roundtable/api";
 import { reconcileSession } from "@/lib/roundtable/reconcile";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -38,15 +38,21 @@ export async function POST(
 
     const { data: joinedRows, error: joinedRowsError } = await supabaseAdmin
       .from("roundtable_members")
-      .select("id")
+      .select("id, state, left_at")
       .eq("session_id", params.sessionId)
-      .eq("state", "joined");
+      .in("state", ["joined", "left"]);
 
     if (joinedRowsError) {
       return NextResponse.json({ error: joinedRowsError.message }, { status: 500 });
     }
 
-    const joinedIds = (joinedRows ?? []).map((row) => String(row.id)).filter(Boolean);
+    const joinedIds = (joinedRows ?? [])
+      .filter((row) => {
+        const state = String(row.state ?? "");
+        return state === "joined" || (state === "left" && isReconnectGraceActive(String(row.left_at ?? "")));
+      })
+      .map((row) => String(row.id))
+      .filter(Boolean);
 
     if (joinedIds.length) {
       await deleteRoundtableMembers(joinedIds);
