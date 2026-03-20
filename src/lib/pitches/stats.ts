@@ -258,9 +258,17 @@ export const loadPitchVoteStatsMap = async (
     throw new Error(guestVotesError.message);
   }
 
-  const resolvedGuestVotes = guestVotesError
-    ? await loadGuestVotesViaDatabase(normalizedPitchIds, options?.startsAtIso)
-    : ((guestVotes ?? []) as PitchGuestVoteRow[]);
+  let resolvedGuestVotes = (guestVotes ?? []) as PitchGuestVoteRow[];
+  if (guestVotesError) {
+    try {
+      resolvedGuestVotes = await loadGuestVotesViaDatabase(
+        normalizedPitchIds,
+        options?.startsAtIso
+      );
+    } catch {
+      resolvedGuestVotes = [];
+    }
+  }
 
   for (const row of resolvedGuestVotes) {
     if (!row.pitch_id || !row.guest_key || !isVoteType(row.vote)) continue;
