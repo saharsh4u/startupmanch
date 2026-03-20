@@ -220,7 +220,7 @@ export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableS
 
   const { data: membersData, error: membersError } = await supabaseAdmin
     .from("roundtable_members")
-    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
     .eq("session_id", sessionId)
     .in("state", ["joined", "left"])
     .order("seat_no", { ascending: true });

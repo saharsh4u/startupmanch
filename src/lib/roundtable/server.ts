@@ -72,7 +72,7 @@ export const getReconnectGraceExpiryIso = (disconnectedAt: string | null | undef
 export const getMemberForActor = async (sessionId: string, actor: RoundtableActor) => {
   let query = supabaseAdmin
     .from("roundtable_members")
-    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
     .eq("session_id", sessionId)
     .eq("state", "joined");
 
@@ -108,7 +108,7 @@ export const getMemberForActor = async (sessionId: string, actor: RoundtableActo
 export const getLatestJoinedMemberForActor = async (actor: RoundtableActor) => {
   let query = supabaseAdmin
     .from("roundtable_members")
-    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
     .eq("state", "joined");
 
   if (actor.profileId) {
@@ -140,7 +140,7 @@ export const getReconnectReservationForRequest = async (request: Request, sessio
 
   const { data, error } = await supabaseAdmin
     .from("roundtable_members")
-    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, last_seen_at, left_at")
+    .select("id, session_id, seat_no, profile_id, guest_id, display_name, state, joined_at, left_at")
     .eq("id", reservation.member_id)
     .eq("session_id", sessionId)
     .in("state", ["joined", "left"])

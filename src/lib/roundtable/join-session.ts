@@ -186,7 +186,6 @@ export const joinRoundtableSession = async (params: {
             guest_id: params.actor.guestId,
             display_name: displayName,
             state: "joined" as const,
-            last_seen_at: nowIso(),
             left_at: null,
           };
 
@@ -403,7 +402,6 @@ export const joinRoundtableSession = async (params: {
           guest_id: params.actor.guestId,
           display_name: params.actor.displayName,
           state: "joined",
-          last_seen_at: nowIso(),
         })
         .select("id, seat_no")
         .single();

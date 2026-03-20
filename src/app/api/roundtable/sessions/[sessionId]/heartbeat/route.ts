@@ -28,12 +28,6 @@ export async function POST(
     );
 
     await supabaseAdmin
-      .from("roundtable_members")
-      .update({ last_seen_at: new Date().toISOString() })
-      .eq("id", member.id)
-      .eq("state", "joined");
-
-    await supabaseAdmin
       .from("roundtable_sessions")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", params.sessionId);

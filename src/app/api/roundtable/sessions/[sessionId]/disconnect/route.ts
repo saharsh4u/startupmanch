@@ -30,7 +30,6 @@ export async function POST(
       .update({
         state: "left",
         left_at: disconnectedAt,
-        last_seen_at: disconnectedAt,
       })
       .eq("id", member.id)
       .eq("state", "joined");

@@ -90,7 +90,6 @@ export const createRoundtableSession = async (params: {
       guest_id: params.actor.guestId,
       display_name: params.actor.displayName,
       state: "joined",
-      last_seen_at: new Date().toISOString(),
     })
     .select("id")
     .single();
