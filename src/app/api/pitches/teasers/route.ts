@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { applyNoStoreCache } from "@/lib/http/cache";
+import { applyNoStoreCache, applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
 import {
   isExternalMediaUrl,
@@ -9,7 +9,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const APPROVED_LIMIT = 8;
 const PENDING_LIMIT = 12;
@@ -246,6 +245,9 @@ export async function GET() {
     pending,
     server_time: new Date().toISOString(),
   });
-  applyNoStoreCache(response);
+  applyPublicEdgeCache(response, {
+    sMaxAgeSeconds: 30,
+    staleWhileRevalidateSeconds: 120,
+  });
   return response;
 }

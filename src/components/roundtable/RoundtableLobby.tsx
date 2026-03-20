@@ -5,15 +5,17 @@ import RoundtableCreateTopicForm from "@/components/roundtable/RoundtableCreateT
 import RoundtableSessionCard from "@/components/roundtable/RoundtableSessionCard";
 import type { RoundtableLobbyResponse } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
+import { useDeferredMount } from "@/lib/ui/useDeferredMount";
 
 export default function RoundtableLobby() {
   const [data, setData] = useState<RoundtableLobbyResponse>({ sessions: [], leaderboard: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const enableLiveLobbyUpdates = useDeferredMount({ timeoutMs: 1200 });
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch("/api/roundtable/lobby", { cache: "no-store" });
+      const response = await fetch("/api/roundtable/lobby");
       const payload = (await response.json()) as RoundtableLobbyResponse & { error?: string };
       if (!response.ok) {
         throw new Error(payload.error ?? "Unable to load lobby.");
@@ -32,13 +34,18 @@ export default function RoundtableLobby() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!enableLiveLobbyUpdates) return;
     const timer = window.setInterval(() => {
       void load();
     }, 15000);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [enableLiveLobbyUpdates, load]);
 
   useEffect(() => {
+    if (!enableLiveLobbyUpdates) return;
     if (!hasBrowserSupabaseEnv) return;
     const channel = supabaseBrowser
       .channel("roundtable-lobby")
@@ -53,7 +60,7 @@ export default function RoundtableLobby() {
     return () => {
       void supabaseBrowser.removeChannel(channel);
     };
-  }, [load]);
+  }, [enableLiveLobbyUpdates, load]);
 
   const sessions = useMemo(
     () =>

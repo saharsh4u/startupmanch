@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import { loadPitchVoteStatsMap } from "@/lib/pitches/stats";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
-import { applyNoStoreCache } from "@/lib/http/cache";
+import { applyNoStoreCache, applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
 import {
   isExternalMediaUrl,
@@ -13,7 +13,6 @@ import { pitches as fallbackPitches } from "@/data/pitches";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const validTabs = new Set(["trending", "fresh", "food", "fashion", "category"]);
 const validModes = new Set(["week", "feed"]);
@@ -185,7 +184,10 @@ const fallbackFeedResponse = (options: {
     { status: options.status ?? 200 }
   );
 
-  applyNoStoreCache(response);
+  applyPublicEdgeCache(response, {
+    sMaxAgeSeconds: 30,
+    staleWhileRevalidateSeconds: 120,
+  });
 
   return response;
 };
@@ -570,7 +572,10 @@ export async function GET(request: Request) {
     next_shuffle_at: shuffleWindow?.nextShuffleAt ?? null,
   });
 
-  applyNoStoreCache(response);
+  applyPublicEdgeCache(response, {
+    sMaxAgeSeconds: 30,
+    staleWhileRevalidateSeconds: 120,
+  });
 
   return response;
 }

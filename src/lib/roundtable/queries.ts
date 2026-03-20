@@ -3,6 +3,7 @@ import type {
   RoundtableLeaderboardEntry,
   RoundtableLobbyResponse,
   RoundtableMemberRow,
+  RoundtablePreviewResponse,
   RoundtableScoreRow,
   RoundtableSessionRow,
   RoundtableSessionSnapshot,
@@ -41,6 +42,9 @@ const buildSessionSummary = (
     created_at: session.created_at,
   };
 };
+
+const pickPrioritySession = (sessions: RoundtableSessionSummary[]) =>
+  sessions.find((session) => session.status === "live") ?? sessions[0] ?? null;
 
 const getMemberCameraStates = async (sessionId: string, memberIds: string[]) => {
   const stateByMemberId = new Map<string, RoundtableMemberRow["camera_state"]>();
@@ -138,7 +142,9 @@ export const getWeeklyLeaderboard = async (): Promise<RoundtableLeaderboardEntry
     .slice(0, 10);
 };
 
-export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
+export const getLobbyData = async (
+  options?: { includeLeaderboard?: boolean }
+): Promise<RoundtableLobbyResponse> => {
   const { data, error } = await supabaseAdmin
     .from("roundtable_sessions")
     .select(
@@ -192,11 +198,100 @@ export const getLobbyData = async (): Promise<RoundtableLobbyResponse> => {
 
   return {
     sessions: summaries,
-    leaderboard: await getWeeklyLeaderboard(),
+    leaderboard: options?.includeLeaderboard === false ? [] : await getWeeklyLeaderboard(),
   };
 };
 
 export const getHomepageSessionId = async (): Promise<string | null> => null;
+
+export const getPublicRoundtablePreview = async (): Promise<RoundtablePreviewResponse> => {
+  const lobby = await getLobbyData({ includeLeaderboard: false });
+  const summary = pickPrioritySession(lobby.sessions);
+
+  if (!summary) {
+    return {
+      summary: null,
+      preview: null,
+    };
+  }
+
+  const { data: membersData, error: membersError } = await supabaseAdmin
+    .from("roundtable_members")
+    .select("id, seat_no, display_name, state, left_at")
+    .eq("session_id", summary.session_id)
+    .in("state", ["joined", "left"])
+    .order("seat_no", { ascending: true });
+
+  if (membersError) {
+    throw new Error(membersError.message);
+  }
+
+  const { data: turnsData, error: turnsError } = await supabaseAdmin
+    .from("roundtable_turns")
+    .select("member_id, status")
+    .eq("session_id", summary.session_id)
+    .in("status", ["queued", "active"])
+    .order("created_at", { ascending: true })
+    .limit(40);
+
+  if (turnsError) {
+    throw new Error(turnsError.message);
+  }
+
+  const members = (membersData ?? []) as Array<
+    Pick<RoundtableMemberRow, "id" | "seat_no" | "display_name" | "state" | "left_at">
+  >;
+  const joinedMembers = members.filter((member) => member.state === "joined");
+  const reservedSeatNos = new Set(
+    members
+      .filter((member) => member.state === "left" && isReconnectGraceActive(member.left_at))
+      .map((member) => member.seat_no)
+  );
+  const queuedMemberIds = new Set(
+    ((turnsData ?? []) as Array<{ member_id: string; status: string }>)
+      .filter((turn) => turn.status === "queued")
+      .map((turn) => turn.member_id)
+  );
+  const activeSpeakerId =
+    ((turnsData ?? []) as Array<{ member_id: string; status: string }>).find(
+      (turn) => turn.status === "active"
+    )?.member_id ?? null;
+
+  return {
+    summary,
+    preview: {
+      active_speaker_seat_no:
+        joinedMembers.find((member) => member.id === activeSpeakerId)?.seat_no ?? null,
+      queue_count: queuedMemberIds.size,
+      seats: Array.from({ length: summary.max_seats }, (_, index) => {
+        const seatNo = index + 1;
+        const member = joinedMembers.find((candidate) => candidate.seat_no === seatNo) ?? null;
+        const isReserved = reservedSeatNos.has(seatNo);
+        const isActive = Boolean(member && member.id === activeSpeakerId);
+        const isQueued = Boolean(member && queuedMemberIds.has(member.id) && member.id !== activeSpeakerId);
+
+        return {
+          seat_no: seatNo,
+          display_name: member?.display_name ?? (isReserved ? "Reserved seat" : "Open seat"),
+          avatar_label: member?.display_name?.trim().charAt(0).toUpperCase() || "OS",
+          is_active: isActive,
+          is_queued: isQueued,
+          is_empty: !member,
+          is_reserved: isReserved,
+          state_label: isActive
+            ? "Speaking"
+            : isQueued
+              ? "Queued"
+              : member
+                ? "Ready"
+                : isReserved
+                  ? "Reserved"
+                  : "Available",
+        };
+      }),
+    },
+  };
+};
 
 export const getSessionSnapshot = async (sessionId: string): Promise<RoundtableSessionSnapshot | null> => {
   const { data: sessionData, error: sessionError } = await supabaseAdmin

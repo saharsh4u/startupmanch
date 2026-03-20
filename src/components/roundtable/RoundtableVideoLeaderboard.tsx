@@ -8,7 +8,7 @@ type RoundtableVideoLeaderboardProps = {
   limit?: number;
 };
 
-const REFRESH_INTERVAL_MS = 8_000;
+const REFRESH_INTERVAL_MS = 15_000;
 
 const formatOpenCount = (value: number) => new Intl.NumberFormat("en-US").format(value);
 
@@ -25,7 +25,6 @@ export default function RoundtableVideoLeaderboard({
   const load = useCallback(async () => {
     try {
       const response = await fetch(`/api/pitches/leaderboard?limit=${limit}`, {
-        cache: "no-store",
       });
 
       if (!response.ok) {

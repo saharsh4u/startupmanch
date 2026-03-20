@@ -5,6 +5,7 @@ import AdMobileStrip from "@/components/AdMobileStrip";
 import AdColumn from "@/components/AdColumn";
 import { leftAdSlots, rightAdSlots, type AdSlot } from "@/data/ads";
 import { isAdvertiseItem } from "@/lib/ads";
+import { useDeferredMount } from "@/lib/ui/useDeferredMount";
 
 type LiveAdsPayload = {
   left?: AdSlot[];
@@ -78,16 +79,18 @@ export default function AdRailsScaffold({
   const [leftSlots, setLeftSlots] = useState<AdSlot[]>(leftAdSlots);
   const [rightSlots, setRightSlots] = useState<AdSlot[]>(rightAdSlots);
   const [activeFlipPair, setActiveFlipPair] = useState<FlipPair | null>(null);
+  const deferredAdsReady = useDeferredMount({ timeoutMs: 900 });
 
   const leftFlippableIndexes = useMemo(() => getFlippableIndexes(leftSlots), [leftSlots]);
   const rightFlippableIndexes = useMemo(() => getFlippableIndexes(rightSlots), [rightSlots]);
 
   useEffect(() => {
+    if (!deferredAdsReady) return;
     let cancelled = false;
 
     const load = async () => {
       try {
-        const response = await fetch("/api/ads/live", { cache: "no-store" });
+        const response = await fetch("/api/ads/live");
         if (!response.ok) return;
 
         const payload = (await response.json()) as LiveAdsPayload;
@@ -108,9 +111,13 @@ export default function AdRailsScaffold({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [deferredAdsReady]);
 
   useEffect(() => {
+    if (!deferredAdsReady) {
+      setActiveFlipPair(null);
+      return;
+    }
     if (typeof window === "undefined") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setActiveFlipPair(null);
@@ -162,11 +169,11 @@ export default function AdRailsScaffold({
       if (resetTimer) clearTimeout(resetTimer);
       setActiveFlipPair(null);
     };
-  }, [leftFlippableIndexes, rightFlippableIndexes]);
+  }, [deferredAdsReady, leftFlippableIndexes, rightFlippableIndexes]);
 
   return (
     <main className={mainClassName}>
-      <AdMobileStrip slots={leftSlots} side="left" position="top" />
+      {deferredAdsReady ? <AdMobileStrip slots={leftSlots} side="left" position="top" /> : null}
       <div className="layout-grid">
         <AdColumn
           slots={leftSlots}
@@ -180,7 +187,7 @@ export default function AdRailsScaffold({
           activeFlipIndexes={activeFlipPair ? [activeFlipPair.right] : []}
         />
       </div>
-      <AdMobileStrip slots={rightSlots} side="right" position="bottom" />
+      {deferredAdsReady ? <AdMobileStrip slots={rightSlots} side="right" position="bottom" /> : null}
     </main>
   );
 }

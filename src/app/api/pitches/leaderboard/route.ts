@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { applyNoStoreCache } from "@/lib/http/cache";
+import { applyNoStoreCache, applyPublicEdgeCache } from "@/lib/http/cache";
 import {
   PITCH_OPEN_EVENT_TYPE,
   ROUNDTABLE_VIDEO_OPEN_TOPIC_PREFIX,
@@ -12,7 +12,6 @@ import { isExternalMediaUrl } from "@/lib/video/instagram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const PITCH_PAGE_SIZE = 200;
 const ANALYTICS_PAGE_SIZE = 1000;
@@ -227,7 +226,10 @@ export async function GET(request: Request) {
     };
 
     const response = NextResponse.json(payload, { status: 200 });
-    applyNoStoreCache(response);
+    applyPublicEdgeCache(response, {
+      sMaxAgeSeconds: 15,
+      staleWhileRevalidateSeconds: 60,
+    });
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load video leaderboard.";

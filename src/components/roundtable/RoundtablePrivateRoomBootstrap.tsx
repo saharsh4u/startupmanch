@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import AdRailsScaffold from "@/components/AdRailsScaffold";
-import TopNav from "@/components/TopNav";
 import { ensureGuestId, getDisplayName } from "@/lib/roundtable/client-identity";
+import styles from "@/components/roundtable/RoundtablePrivateRoomBootstrap.module.css";
 
 type PrivateRoomResponse = {
   ok?: boolean;
@@ -62,29 +61,27 @@ export default function RoundtablePrivateRoomBootstrap() {
   }, [actorId, router]);
 
   return (
-    <AdRailsScaffold mainClassName="page roundtable-page inner-rails-page">
-      <div className="roundtable-page-shell">
-        <TopNav context="inner" showPostPitch />
-        <div className="anchor-block">
-          <div className="roundtable-shell">
-            <section className="roundtable-panel">
-              <h3>{error ? "Unable to create private room" : "Starting your private roundtable..."}</h3>
-              <p>{error ?? "Creating a fresh private room for this tab."}</p>
-              {error ? (
-                <button
-                  type="button"
-                  className="roundtable-cta"
-                  onClick={() => {
-                    window.location.reload();
-                  }}
-                >
-                  Retry
-                </button>
-              ) : null}
-            </section>
-          </div>
+    <main className={styles.shell}>
+      <section className={styles.panel} aria-live="polite">
+        <div className={styles.brand}>
+          <span className={styles.brandMark}>✦</span>
+          <span>StartupManch</span>
         </div>
-      </div>
-    </AdRailsScaffold>
+        {!error ? <div className={styles.loader} aria-hidden /> : null}
+        <h1>{error ? "Unable to create private room" : "Starting your private roundtable..."}</h1>
+        <p>{error ?? "Creating a fresh private room for this tab."}</p>
+        {error ? (
+          <button
+            type="button"
+            className={styles.retry}
+            onClick={() => {
+              window.location.reload();
+            }}
+          >
+            Retry
+          </button>
+        ) : null}
+      </section>
+    </main>
   );
 }

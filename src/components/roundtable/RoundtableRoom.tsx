@@ -1,11 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
-import RoundtableHomepageVideoRail from "@/components/roundtable/RoundtableHomepageVideoRail";
 import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
-import RoundtableVideoLeaderboard from "@/components/roundtable/RoundtableVideoLeaderboard";
 import { ROUND_TABLE_PRESENCE } from "@/lib/roundtable/constants";
 import { ensureGuestId, getDisplayName, setDisplayName } from "@/lib/roundtable/client-identity";
 import {
@@ -15,6 +14,23 @@ import {
 } from "@/lib/roundtable/client-media";
 import type { RoundtableInviteContext, RoundtableSessionSnapshot } from "@/lib/roundtable/types";
 import { hasBrowserSupabaseEnv, supabaseBrowser } from "@/lib/supabase/client";
+import { useDeferredMount } from "@/lib/ui/useDeferredMount";
+
+const RoundtableHomepageVideoRail = dynamic(
+  () => import("@/components/roundtable/RoundtableHomepageVideoRail"),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
+
+const RoundtableVideoLeaderboard = dynamic(
+  () => import("@/components/roundtable/RoundtableVideoLeaderboard"),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 type RoundtableRoomProps = {
   sessionId: string;
@@ -191,6 +207,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
   const [seatChoice, setSeatChoice] = useState<number | "auto">("auto");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [videoLeaderboardRefreshToken, setVideoLeaderboardRefreshToken] = useState(0);
+  const showDeferredMediaRail = useDeferredMount({ timeoutMs: 900 });
   const [isMyMicMuted, setIsMyMicMuted] = useState(true);
   const [micError, setMicError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -1568,18 +1585,24 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
     preferredInviteSeatNo,
   ]);
 
+  const deferredMediaRail = showDeferredMediaRail ? (
+    <>
+      <RoundtableHomepageVideoRail
+        sessionId={sessionId}
+        participantId={currentMember?.id ?? actorId}
+        onPitchOpened={() => {
+          setVideoLeaderboardRefreshToken((current) => current + 1);
+        }}
+      />
+      <RoundtableVideoLeaderboard refreshToken={videoLeaderboardRefreshToken} />
+    </>
+  ) : null;
+
   if (loading) {
     return (
       <div className="roundtable-shell">
         <section className="roundtable-panel">Loading session...</section>
-        <RoundtableHomepageVideoRail
-          sessionId={sessionId}
-          participantId={actorId}
-          onPitchOpened={() => {
-            setVideoLeaderboardRefreshToken((current) => current + 1);
-          }}
-        />
-        <RoundtableVideoLeaderboard refreshToken={videoLeaderboardRefreshToken} />
+        {deferredMediaRail}
       </div>
     );
   }
@@ -1594,14 +1617,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
             Retry
           </button>
         </section>
-        <RoundtableHomepageVideoRail
-          sessionId={sessionId}
-          participantId={actorId}
-          onPitchOpened={() => {
-            setVideoLeaderboardRefreshToken((current) => current + 1);
-          }}
-        />
-        <RoundtableVideoLeaderboard refreshToken={videoLeaderboardRefreshToken} />
+        {deferredMediaRail}
       </div>
     );
   }
@@ -1794,14 +1810,7 @@ export default function RoundtableRoom({ sessionId }: RoundtableRoomProps) {
           />
         ))}
       </div>
-      <RoundtableHomepageVideoRail
-        sessionId={sessionId}
-        participantId={currentMember?.id ?? actorId}
-        onPitchOpened={() => {
-          setVideoLeaderboardRefreshToken((current) => current + 1);
-        }}
-      />
-      <RoundtableVideoLeaderboard refreshToken={videoLeaderboardRefreshToken} />
+      {deferredMediaRail}
     </div>
   );
 }

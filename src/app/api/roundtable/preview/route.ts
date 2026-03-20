@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getLobbyData } from "@/lib/roundtable/queries";
 import { applyNoStoreCache, applyPublicEdgeCache } from "@/lib/http/cache";
+import { getPublicRoundtablePreview } from "@/lib/roundtable/queries";
 import { reconcileOpenSessions } from "@/lib/roundtable/reconcile";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await reconcileOpenSessions(40);
-    const payload = await getLobbyData();
+    const payload = await getPublicRoundtablePreview();
     const response = NextResponse.json(payload, { status: 200 });
     applyPublicEdgeCache(response, {
       sMaxAgeSeconds: 15,
@@ -17,7 +17,8 @@ export async function GET() {
     });
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to load roundtable lobby.";
+    const message =
+      error instanceof Error ? error.message : "Unable to load roundtable preview.";
     const response = NextResponse.json({ error: message }, { status: 500 });
     applyNoStoreCache(response);
     return response;

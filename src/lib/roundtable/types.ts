@@ -130,6 +130,28 @@ export type RoundtableLobbyResponse = {
   leaderboard: RoundtableLeaderboardEntry[];
 };
 
+export type RoundtablePreviewSeat = {
+  seat_no: number;
+  display_name: string;
+  avatar_label: string;
+  is_active: boolean;
+  is_queued: boolean;
+  is_empty: boolean;
+  is_reserved: boolean;
+  state_label: string;
+};
+
+export type RoundtablePreviewResponse = {
+  summary: RoundtableSessionSummary | null;
+  preview:
+    | {
+        active_speaker_seat_no: number | null;
+        queue_count: number;
+        seats: RoundtablePreviewSeat[];
+      }
+    | null;
+};
+
 export type RoundtableInviteContext = {
   source: "invite" | null;
   preferred_seat_no: number | null;

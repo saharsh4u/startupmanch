@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import type { MouseEvent } from "react";
-import { usePathname } from "next/navigation";
-import { isMobileViewport, prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
-import { POST_PITCH_FALLBACK_HREF, openPostPitchFlow } from "@/lib/post-pitch";
+import { usePathname, useRouter } from "next/navigation";
+import { prefersReducedMotion, scrollToAnchorId } from "@/lib/anchor-scroll";
+import {
+  POST_PITCH_FALLBACK_HREF,
+  POST_PITCH_OPEN_EVENT,
+} from "@/lib/post-pitch";
 
 type TopNavProps = {
   context?: "home" | "inner";
@@ -21,6 +24,7 @@ export default function TopNav({
   onPostPitch,
 }: TopNavProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const shouldUseBrowserDefault = (event: MouseEvent<HTMLAnchorElement>) =>
     event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -33,21 +37,7 @@ export default function TopNav({
       const didScroll = scrollToAnchorId("leaderboard-block", { behavior, updateHash: true });
       if (didScroll) return;
     }
-    window.location.assign(`${MARKETPLACE_HREF}#leaderboard-block`);
-  };
-
-  const handleAllVideosClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (shouldUseBrowserDefault(event)) return;
-    event.preventDefault();
-    if (pathname === MARKETPLACE_HREF) return;
-    window.location.assign(MARKETPLACE_HREF);
-  };
-
-  const handleAboutClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (shouldUseBrowserDefault(event)) return;
-    event.preventDefault();
-    if (pathname === ABOUT_HREF) return;
-    window.location.assign(ABOUT_HREF);
+    router.push(`${MARKETPLACE_HREF}#leaderboard-block`);
   };
 
   return (
@@ -58,7 +48,7 @@ export default function TopNav({
           <span className="brand-wordmark">StartupManch</span>
         </Link>
         <div className="site-nav-links">
-          <Link href={MARKETPLACE_HREF} onClick={handleAllVideosClick}>
+          <Link href={MARKETPLACE_HREF} aria-current={pathname === MARKETPLACE_HREF ? "page" : undefined}>
             All videos
           </Link>
           <Link
@@ -67,7 +57,7 @@ export default function TopNav({
           >
             Leaderboard
           </Link>
-          <Link href={ABOUT_HREF} onClick={handleAboutClick}>
+          <Link href={ABOUT_HREF} aria-current={pathname === ABOUT_HREF ? "page" : undefined}>
             About
           </Link>
         </div>
@@ -81,7 +71,11 @@ export default function TopNav({
                 onPostPitch();
                 return;
               }
-              openPostPitchFlow();
+              if (pathname === "/") {
+                window.dispatchEvent(new CustomEvent(POST_PITCH_OPEN_EVENT));
+                return;
+              }
+              router.push(POST_PITCH_FALLBACK_HREF);
             }}
           >
             Post It Free.

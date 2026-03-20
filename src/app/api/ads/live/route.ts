@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
 import { leftAdSlots, rightAdSlots } from "@/data/ads";
 import { buildLiveAdSlots, type ActiveAdCampaign } from "@/lib/ads";
+import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const fallbackResponse = () => {
   const built = buildLiveAdSlots([], leftAdSlots, rightAdSlots);
-  return NextResponse.json({
+  const response = NextResponse.json({
     source: "static",
     left: built.left,
     right: built.right,
     spotsLeft: built.spotsLeft,
   });
+  applyPublicEdgeCache(response, {
+    sMaxAgeSeconds: 60,
+    staleWhileRevalidateSeconds: 300,
+  });
+  return response;
 };
 
 export async function GET() {
@@ -39,12 +46,17 @@ export async function GET() {
     const occupiedCount = Math.max(0, occupiedResponse.count ?? campaigns.length);
     const built = buildLiveAdSlots(campaigns, leftAdSlots, rightAdSlots, occupiedCount);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       source: campaigns.length || occupiedCount > 0 ? "db" : "static",
       left: built.left,
       right: built.right,
       spotsLeft: built.spotsLeft,
     });
+    applyPublicEdgeCache(response, {
+      sMaxAgeSeconds: 60,
+      staleWhileRevalidateSeconds: 300,
+    });
+    return response;
   } catch {
     return fallbackResponse();
   }

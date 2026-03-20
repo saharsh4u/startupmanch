@@ -1,9 +1,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import RoundtableSeatCircle, { type RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
+import type { StreamHomeRoundtablePreviewModel } from "@/components/home/StreamHomeRoundtablePreviewSection";
+import type { RoundtableSeatViewModel } from "@/components/roundtable/RoundtableSeatCircle";
 import {
   buildHomepageFeedUrl,
   getHomepageRailPitches,
@@ -13,23 +15,36 @@ import {
   selectFeaturedHomepagePitch,
   toPlayableHomepagePitches,
 } from "@/lib/homepage/pitches";
-import type {
-  RoundtableLobbyResponse,
-  RoundtableSessionSnapshot,
-  RoundtableSessionSummary,
-} from "@/lib/roundtable/types";
+import type { RoundtablePreviewResponse, RoundtableSessionSummary } from "@/lib/roundtable/types";
+import { useDeferredMount } from "@/lib/ui/useDeferredMount";
 
 const HERO_FALLBACK_TITLE = "StartupManch TV";
 const HERO_FALLBACK_TAGLINE =
   "A mobile-first home for founder videos, live roundtables, and rolling community stories.";
-const ROUNDTABLE_POLL_MS = 20_000;
+const ROUNDTABLE_POLL_MS = 30_000;
 const STREAMING_HOME_HREF = "/roundtable";
 const ROUNDTABLE_HOME_HREF = "/";
 const ROUNDTABLE_LOBBY_HREF = "/roundtable/lobby";
 
+const StreamHomeRoundtablePreviewSection = dynamic(
+  () => import("@/components/home/StreamHomeRoundtablePreviewSection"),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
+
+const StreamHomeLoopSection = dynamic(
+  () => import("@/components/home/StreamHomeLoopSection"),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
+
 type RoundtablePreviewState = {
   summary: RoundtableSessionSummary | null;
-  snapshot: RoundtableSessionSnapshot | null;
+  preview: RoundtablePreviewResponse["preview"];
   loading: boolean;
   error: string | null;
 };
@@ -97,59 +112,11 @@ const roundtableFallbackSeats: RoundtableSeatViewModel[] = [
   },
 ];
 
-const toSeatLetter = (displayName: string) => displayName.trim().charAt(0).toUpperCase() || "?";
-
-const pickPrioritySession = (sessions: RoundtableSessionSummary[]) =>
-  sessions.find((session) => session.status === "live") ?? sessions[0] ?? null;
-
 const formatRoundtableStatus = (status: RoundtableSessionSummary["status"] | null) => {
   if (status === "live") return "Live now";
   if (status === "lobby") return "Waiting room";
   return "Preview";
 };
-
-function StreamingRailCard({ pitch }: { pitch: HomepagePitch }) {
-  const directVideoUrl = pitch.videoMp4Url ?? pitch.video ?? null;
-  const hlsUrl = pitch.videoHlsUrl ?? null;
-  const hasDirectVideo = hasDirectPlayableUpload(pitch);
-
-  return (
-    <article className="stream-home-rail-card" aria-hidden="true">
-      <div className="stream-home-rail-media">
-        {pitch.poster ? (
-          <img
-            className="stream-home-rail-poster"
-            src={pitch.poster}
-            alt=""
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <div className="stream-home-rail-poster stream-home-rail-poster-fallback" />
-        )}
-        {hasDirectVideo ? (
-          <video
-            className="stream-home-rail-video"
-            muted
-            playsInline
-            autoPlay
-            loop
-            preload="metadata"
-          >
-            {hlsUrl ? <source src={hlsUrl} type="application/vnd.apple.mpegurl" /> : null}
-            {directVideoUrl ? <source src={directVideoUrl} type="video/mp4" /> : null}
-          </video>
-        ) : null}
-        <div className="stream-home-rail-overlay" />
-      </div>
-      <div className="stream-home-rail-copy">
-        <span className="stream-home-rail-kicker">{pitch.category ?? "Founder Video"}</span>
-        <h3>{pitch.name}</h3>
-        <p>{pitch.tagline}</p>
-      </div>
-    </article>
-  );
-}
 
 export default function HomeStreamingPage() {
   const [pitches, setPitches] = useState<HomepagePitch[]>([]);
@@ -157,12 +124,13 @@ export default function HomeStreamingPage() {
   const [pitchError, setPitchError] = useState<string | null>(null);
   const [roundtableState, setRoundtableState] = useState<RoundtablePreviewState>({
     summary: null,
-    snapshot: null,
-    loading: true,
+    preview: null,
+    loading: false,
     error: null,
   });
   const [isRailPaused, setIsRailPaused] = useState(false);
   const railPauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deferredSectionsReady = useDeferredMount({ timeoutMs: 700 });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,7 +139,6 @@ export default function HomeStreamingPage() {
       try {
         setPitchLoading(true);
         const response = await fetch(buildHomepageFeedUrl(), {
-          cache: "no-store",
           signal: controller.signal,
         });
 
@@ -200,6 +167,7 @@ export default function HomeStreamingPage() {
   }, []);
 
   useEffect(() => {
+    if (!deferredSectionsReady) return;
     let cancelled = false;
 
     const loadRoundtablePreview = async () => {
@@ -209,21 +177,18 @@ export default function HomeStreamingPage() {
           loading: true,
         }));
 
-        const lobbyResponse = await fetch("/api/roundtable/lobby", {
-          cache: "no-store",
-        });
-        const lobbyPayload = (await lobbyResponse.json()) as RoundtableLobbyResponse & { error?: string };
+        const previewResponse = await fetch("/api/roundtable/preview");
+        const previewPayload = (await previewResponse.json()) as RoundtablePreviewResponse & { error?: string };
 
-        if (!lobbyResponse.ok) {
-          throw new Error(lobbyPayload.error ?? "Unable to load roundtable preview.");
+        if (!previewResponse.ok) {
+          throw new Error(previewPayload.error ?? "Unable to load roundtable preview.");
         }
 
-        const summary = pickPrioritySession(Array.isArray(lobbyPayload.sessions) ? lobbyPayload.sessions : []);
-        if (!summary) {
+        if (!previewPayload.summary || !previewPayload.preview) {
           if (!cancelled) {
             setRoundtableState({
               summary: null,
-              snapshot: null,
+              preview: null,
               loading: false,
               error: null,
             });
@@ -231,19 +196,10 @@ export default function HomeStreamingPage() {
           return;
         }
 
-        const snapshotResponse = await fetch(`/api/roundtable/sessions/${summary.session_id}`, {
-          cache: "no-store",
-        });
-        const snapshotPayload = (await snapshotResponse.json()) as RoundtableSessionSnapshot & { error?: string };
-
-        if (!snapshotResponse.ok) {
-          throw new Error(snapshotPayload.error ?? "Unable to load roundtable room.");
-        }
-
         if (!cancelled) {
           setRoundtableState({
-            summary,
-            snapshot: snapshotPayload,
+            summary: previewPayload.summary,
+            preview: previewPayload.preview,
             loading: false,
             error: null,
           });
@@ -252,7 +208,7 @@ export default function HomeStreamingPage() {
         if (cancelled) return;
         setRoundtableState((current) => ({
           summary: current.summary,
-          snapshot: current.snapshot,
+          preview: current.preview,
           loading: false,
           error:
             errorValue instanceof Error ? errorValue.message : "Unable to load roundtable preview.",
@@ -269,7 +225,7 @@ export default function HomeStreamingPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [deferredSectionsReady]);
 
   useEffect(
     () => () => {
@@ -291,10 +247,10 @@ export default function HomeStreamingPage() {
   const heroHasDirectVideo = featuredPitch ? hasDirectPlayableUpload(featuredPitch) : false;
 
   const roundtablePreview = useMemo(() => {
-    const snapshot = roundtableState.snapshot;
+    const previewData = roundtableState.preview;
     const summary = roundtableState.summary;
 
-    if (!snapshot || !summary) {
+    if (!previewData || !summary) {
       return {
         seats: roundtableFallbackSeats,
         activeSpeakerSeatNo: 1,
@@ -311,43 +267,32 @@ export default function HomeStreamingPage() {
       };
     }
 
-    const joinedMembers = snapshot.members
-      .filter((member) => member.state === "joined")
-      .sort((left, right) => left.seat_no - right.seat_no);
-    const queuedMemberIds = new Set(snapshot.queue.map((turn) => turn.member_id));
-    const activeSpeakerId = snapshot.active_turn?.member_id ?? null;
-    const activeSpeakerSeatNo =
-      joinedMembers.find((member) => member.id === activeSpeakerId)?.seat_no ?? null;
-    const firstQueuedSeatNo =
-      joinedMembers.find((member) => queuedMemberIds.has(member.id))?.seat_no ?? null;
-    const firstOccupiedSeatNo = joinedMembers[0]?.seat_no ?? 1;
-
-    const seats = Array.from({ length: summary.max_seats }, (_, index) => {
-      const seatNo = index + 1;
-      const member = joinedMembers.find((candidate) => candidate.seat_no === seatNo) ?? null;
-      const isActive = Boolean(member && member.id === activeSpeakerId);
-      const isQueued = Boolean(member && queuedMemberIds.has(member.id) && member.id !== activeSpeakerId);
-      const isEmpty = !member;
-
-      return {
-        seatNo,
-        memberId: member?.id ?? null,
-        displayName: member?.display_name ?? "Open seat",
-        avatarLabel: member ? toSeatLetter(member.display_name) : "OS",
-        isActive,
-        isQueued,
-        isMe: false,
-        isEmpty,
-        isCameraLive: false,
-        stateLabel: isActive ? "Speaking" : isQueued ? "Queued" : member ? "Ready" : "Available",
-      } satisfies RoundtableSeatViewModel;
-    });
+    const seats = previewData.seats.map((seat) => ({
+      seatNo: seat.seat_no,
+      memberId: null,
+      displayName: seat.display_name,
+      avatarLabel: seat.avatar_label,
+      isActive: seat.is_active,
+      isQueued: seat.is_queued,
+      isMe: false,
+      isEmpty: seat.is_empty,
+      isReserved: seat.is_reserved,
+      isCameraLive: false,
+      stateLabel: seat.state_label,
+    })) satisfies RoundtableSeatViewModel[];
+    const activeSpeaker = previewData.seats.find(
+      (seat) => seat.seat_no === previewData.active_speaker_seat_no
+    );
+    const firstQueuedSeatNo = previewData.seats.find((seat) => seat.is_queued)?.seat_no ?? null;
+    const firstOccupiedSeatNo =
+      previewData.seats.find((seat) => !seat.is_empty)?.seat_no ?? 1;
 
     return {
       seats,
-      activeSpeakerSeatNo,
-      eyeTargetSeatNo: activeSpeakerSeatNo ?? firstQueuedSeatNo ?? firstOccupiedSeatNo,
-      flareToken: snapshot.active_turn?.id ?? summary.session_id,
+      activeSpeakerSeatNo: previewData.active_speaker_seat_no,
+      eyeTargetSeatNo:
+        previewData.active_speaker_seat_no ?? firstQueuedSeatNo ?? firstOccupiedSeatNo,
+      flareToken: `${summary.session_id}:${previewData.active_speaker_seat_no ?? "idle"}`,
       headline: summary.topic_title,
       description:
         summary.topic_description ??
@@ -357,14 +302,14 @@ export default function HomeStreamingPage() {
       metadata: [
         `${summary.seats_taken}/${summary.max_seats} seats taken`,
         `${summary.turn_duration_sec}s turns`,
-        snapshot.queue.length ? `${snapshot.queue.length} queued` : "Queue open",
+        previewData.queue_count ? `${previewData.queue_count} queued` : "Queue open",
       ],
       tags: summary.tags.length ? summary.tags : ["startup", "roundtable"],
-      helper: snapshot.active_turn
-        ? `${snapshot.active_turn.member_display_name} is speaking now.`
+      helper: activeSpeaker
+        ? `${activeSpeaker.display_name} is speaking now.`
         : "Room is open for the next speaker.",
     };
-  }, [roundtableState.snapshot, roundtableState.summary]);
+  }, [roundtableState.preview, roundtableState.summary]);
 
   const pauseRail = (pauseMs = 1800) => {
     setIsRailPaused(true);
@@ -380,6 +325,19 @@ export default function HomeStreamingPage() {
   const heroCtaHref = roundtablePreview.href;
   const heroCtaLabel =
     roundtableState.summary?.status === "live" ? "Join Live Roundtable" : "Open Roundtable Lobby";
+  const roundtableStatusNote = roundtableState.error ?? "Live room snapshot";
+  const roundtablePreviewModel: StreamHomeRoundtablePreviewModel = {
+    seats: roundtablePreview.seats,
+    eyeTargetSeatNo: roundtablePreview.eyeTargetSeatNo,
+    flareToken: roundtablePreview.flareToken,
+    headline: roundtablePreview.headline,
+    description: roundtablePreview.description,
+    href: roundtablePreview.href,
+    statusLabel: roundtablePreview.statusLabel,
+    metadata: roundtablePreview.metadata,
+    tags: roundtablePreview.tags,
+    helper: roundtablePreview.helper,
+  };
 
   return (
     <main className="stream-home">
@@ -468,84 +426,22 @@ export default function HomeStreamingPage() {
         </div>
       </section>
 
-      <section id="home-roundtable" className="stream-home-section stream-home-roundtable">
-        <div className="stream-home-section-head">
-          <div>
-            <p className="stream-home-kicker">Roundtable preview</p>
-            <h2>{roundtablePreview.headline}</h2>
-            <p>{roundtablePreview.description}</p>
-          </div>
-          <div className="stream-home-status-stack">
-            <span className="stream-home-status-pill">{roundtablePreview.statusLabel}</span>
-            <span className="stream-home-status-note">
-              {roundtableState.loading ? "Refreshing live room..." : roundtableState.error ?? "Live room snapshot"}
-            </span>
-          </div>
-        </div>
+      {deferredSectionsReady ? (
+        <StreamHomeRoundtablePreviewSection
+          preview={roundtablePreviewModel}
+          isLoading={roundtableState.loading}
+          statusNote={roundtableStatusNote}
+          lobbyHref={ROUNDTABLE_LOBBY_HREF}
+          ctaLabel={roundtableState.summary?.status === "live" ? "Enter This Room" : "Open Lobby"}
+        />
+      ) : null}
 
-        <div className="stream-home-roundtable-grid">
-          <div className="stream-home-roundtable-visual">
-            <RoundtableSeatCircle
-              seats={roundtablePreview.seats}
-              flareToken={roundtablePreview.flareToken}
-              eyeTargetSeatNo={roundtablePreview.eyeTargetSeatNo}
-            />
-          </div>
-          <div className="stream-home-roundtable-copy">
-            <div className="stream-home-metadata-grid" aria-label="Roundtable details">
-              {roundtablePreview.metadata.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
-            </div>
-            <div className="stream-home-tag-row" aria-label="Roundtable tags">
-              {roundtablePreview.tags.map((tag) => (
-                <span key={tag}>#{tag}</span>
-              ))}
-            </div>
-            <p className="stream-home-roundtable-helper">{roundtablePreview.helper}</p>
-            <div className="stream-home-roundtable-actions">
-              <Link href={roundtablePreview.href} className="stream-home-primary-cta">
-                {roundtableState.summary?.status === "live" ? "Enter This Room" : "Open Lobby"}
-              </Link>
-              <Link href={ROUNDTABLE_LOBBY_HREF} className="stream-home-secondary-cta">
-                View Lobby
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {railPitches.length ? (
-        <section id="home-video-loop" className="stream-home-section stream-home-loop" aria-label="Looping founder videos">
-          <div className="stream-home-section-head stream-home-loop-head">
-            <div>
-              <p className="stream-home-kicker">Continuous loop</p>
-              <h2>Videos rolling right to left</h2>
-              <p>One featured story at the top, then the rest flowing underneath in a seamless strip.</p>
-            </div>
-          </div>
-
-          <div
-            className={`stream-home-marquee${isRailPaused ? " is-paused" : ""}`}
-            onPointerDown={() => pauseRail(2200)}
-            onTouchStart={() => pauseRail(2200)}
-            onFocusCapture={() => pauseRail(2200)}
-            onMouseEnter={() => pauseRail(2000)}
-          >
-            <div className="stream-home-marquee-track">
-              <div className="stream-home-marquee-segment">
-                {railPitches.map((pitch) => (
-                  <StreamingRailCard key={`primary-${pitch.id}`} pitch={pitch} />
-                ))}
-              </div>
-              <div className="stream-home-marquee-segment" aria-hidden="true">
-                {railPitches.map((pitch) => (
-                  <StreamingRailCard key={`clone-${pitch.id}`} pitch={pitch} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+      {deferredSectionsReady && railPitches.length ? (
+        <StreamHomeLoopSection
+          railPitches={railPitches}
+          isPaused={isRailPaused}
+          onPause={pauseRail}
+        />
       ) : null}
     </main>
   );

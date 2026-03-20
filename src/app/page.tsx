@@ -2,10 +2,6 @@ import type { Metadata } from "next";
 import RoundtablePrivateRoomBootstrap from "@/components/roundtable/RoundtablePrivateRoomBootstrap";
 import { toAbsoluteSiteUrl } from "@/lib/site";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export const metadata: Metadata = {
   title: "Roundtable Room | StartupManch",
   description: "Open a private StartupManch roundtable room and invite friends or founders in.",
