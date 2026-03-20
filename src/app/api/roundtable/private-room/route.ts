@@ -3,7 +3,6 @@ import { createRoundtableSession } from "@/lib/roundtable/create-session";
 import { setRoundtableReconnectCookie } from "@/lib/roundtable/reconnect-cookie";
 import { logRoundtableEvent } from "@/lib/roundtable/server";
 import { parseJsonSafely, resolveActor, withGuestCookie } from "@/lib/roundtable/api";
-import { reconcileOpenSessions } from "@/lib/roundtable/reconcile";
 
 export const runtime = "nodejs";
 
@@ -16,8 +15,6 @@ export async function POST(request: Request) {
   const actor = await resolveActor(request, payload.display_name ?? null);
 
   try {
-    await reconcileOpenSessions();
-
     const created = await createRoundtableSession({
       actor,
       title: "Private roundtable",

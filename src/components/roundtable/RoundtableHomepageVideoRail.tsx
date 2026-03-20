@@ -131,7 +131,6 @@ const mapPitch = (item: ApiPitch, index: number): PitchShow => {
     category: item.category ?? null,
     upvotes: asNumber(item.in_count),
     downvotes: asNumber(item.out_count),
-    comments: asNumber(item.comment_count),
     score: asNumber(item.score),
     isFallback: false,
   };

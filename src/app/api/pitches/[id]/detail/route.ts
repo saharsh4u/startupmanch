@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { loadPitchVoteStat } from "@/lib/pitches/stats";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
 import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
@@ -140,11 +141,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     }
   }
 
-  const { data: statsRow } = await supabaseAdmin
-    .from("pitch_stats")
-    .select("in_count, out_count, comment_count")
-    .eq("pitch_id", id)
-    .single();
+  const stats = await loadPitchVoteStat(id);
 
   let founder = { display_name: null as string | null, city: null as string | null };
   if (startup.founder_id) {
@@ -185,9 +182,9 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     },
     founder,
     stats: {
-      in_count: statsRow?.in_count ?? 0,
-      out_count: statsRow?.out_count ?? 0,
-      comment_count: statsRow?.comment_count ?? 0,
+      in_count: stats.inCount,
+      out_count: stats.outCount,
+      comment_count: 0,
     },
   };
 

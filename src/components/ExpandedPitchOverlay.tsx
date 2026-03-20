@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WheelEvent } from "react";
 import type { PitchShow } from "./PitchShowCard";
+import {
+  broadcastPitchVoteSync,
+  createPitchVoteSyncSenderId,
+  subscribeToPitchVoteSync,
+} from "@/lib/pitches/vote-sync";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Props = {
@@ -11,14 +16,6 @@ type Props = {
   index: number;
   setIndex: (idx: number) => void;
   onClose: () => void;
-};
-
-type PitchComment = {
-  id: string;
-  body: string;
-  parent_id: string | null;
-  created_at: string;
-  user_id: string;
 };
 
 type SocialLinks = {
@@ -155,6 +152,7 @@ const resolveInstagramMedia = async (instagramUrl: string) => {
 export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const syncSenderIdRef = useRef(createPitchVoteSyncSenderId());
   const wheelBuffer = useRef(0);
   const wheelCooldown = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wheelLock = useRef(false);
@@ -177,11 +175,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
 
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [engagementError, setEngagementError] = useState<string | null>(null);
-  const [commentsOpen, setCommentsOpen] = useState(true);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [comments, setComments] = useState<PitchComment[]>([]);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [localInCount, setLocalInCount] = useState(0);
+  const [localOutCount, setLocalOutCount] = useState(0);
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabaseBrowser.auth.getSession();
@@ -319,13 +314,41 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   useEffect(() => {
     fallbackAttemptedRef.current = false;
     setEngagementError(null);
-    setCommentsOpen(true);
-    setComments([]);
-    setCommentDraft("");
+    setLocalInCount(Number(pitch?.upvotes ?? 0) || 0);
+    setLocalOutCount(Number(pitch?.downvotes ?? 0) || 0);
     setActiveVideoSrc(feedVideoSrc ?? null);
     setInstagramResolved(null);
     clearUpNext();
-  }, [clearUpNext, pitchId, feedVideoSrc]);
+  }, [clearUpNext, feedVideoSrc, pitch?.downvotes, pitch?.upvotes, pitchId]);
+
+  useEffect(() => {
+    if (!detail?.stats) return;
+    setLocalInCount(Number(detail.stats.in_count ?? 0) || 0);
+    setLocalOutCount(Number(detail.stats.out_count ?? 0) || 0);
+  }, [detail?.stats]);
+
+  useEffect(
+    () =>
+      subscribeToPitchVoteSync((payload) => {
+        if (payload.pitchId !== pitchId) return;
+        setLocalInCount(payload.inCount);
+        setLocalOutCount(payload.outCount);
+        setDetail((current) =>
+          current
+            ? {
+                ...current,
+                stats: {
+                  ...current.stats,
+                  in_count: payload.inCount,
+                  out_count: payload.outCount,
+                  comment_count: 0,
+                },
+              }
+            : current
+        );
+      }),
+    [pitchId]
+  );
 
   useEffect(() => {
     if (feedVideoSrc || detailVideoSrc || activeVideoSrc) return;
@@ -414,40 +437,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
   }, [canFetchPitchDetails, pitchId]);
 
   useEffect(() => {
-    if (!commentsOpen) return;
-    if (!canFetchPitchDetails) return;
-    const abort = new AbortController();
-    let active = true;
-
-    const loadComments = async () => {
-      setCommentsLoading(true);
-      try {
-        const res = await fetch(`/api/pitches/${pitchId}/comments`, {
-          cache: "no-store",
-          signal: abort.signal,
-        });
-        if (!res.ok) throw new Error("Unable to load comments");
-        const payload = (await res.json()) as { comments?: PitchComment[] };
-        if (!active) return;
-        setComments(Array.isArray(payload.comments) ? payload.comments : []);
-      } catch (err) {
-        if (!active) return;
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setComments([]);
-      } finally {
-        if (!active) return;
-        setCommentsLoading(false);
-      }
-    };
-
-    loadComments();
-    return () => {
-      active = false;
-      abort.abort();
-    };
-  }, [canFetchPitchDetails, commentsOpen, pitchId]);
-
-  useEffect(() => {
     if (activeVideoSrc) return;
     if (!detailVideoSrc) return;
     setActiveVideoSrc(detailVideoSrc);
@@ -502,18 +491,11 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     }, 420);
   };
 
-  const website = detail?.startup.website ?? null;
-  const normalizedWebsite = useMemo(() => {
-    if (!website) return null;
-    return toExternalUrl(website);
-  }, [website]);
   const instagramUrl = useMemo(
     () => toExternalUrl(detail?.startup.social_links?.instagram ?? detail?.pitch.instagram_url ?? null),
     [detail?.pitch.instagram_url, detail?.startup.social_links?.instagram]
   );
 
-  const founderName = detail?.founder.display_name ?? pitch.name ?? "Founder";
-  const founderCity = detail?.startup.city ?? detail?.founder.city ?? "—";
   const startupName = detail?.startup.name?.trim() || pitch.name || "Startup";
   const startupProfileId = detail?.startup.id ?? pitch.startupId ?? null;
   const startupOneLiner = detail?.startup.one_liner?.trim() || pitch.tagline || null;
@@ -526,17 +508,8 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
       : `${founderStory.slice(0, 200).trim()}...`
     : null;
 
-  const foundedDisplay = useMemo(() => {
-    if (!detail?.pitch.created_at) return "—";
-    return new Date(detail.pitch.created_at).toLocaleDateString(undefined, {
-      month: "short",
-      year: "numeric",
-    });
-  }, [detail?.pitch.created_at]);
-
-  const inCount = detail?.stats.in_count ?? (Number(pitch.upvotes ?? 0) || 0);
-  const outCount = detail?.stats.out_count ?? (Number(pitch.downvotes ?? 0) || 0);
-  const commentCount = detail?.stats.comment_count ?? (Number(pitch.comments ?? 0) || 0);
+  const inCount = localInCount;
+  const outCount = localOutCount;
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
@@ -558,31 +531,57 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     }
   };
 
-  const handleVisit = () => {
-    if (!normalizedWebsite) return;
-    window.open(normalizedWebsite, "_blank", "noopener,noreferrer");
-  };
-
   const handleVote = useCallback(
     async (vote: "in" | "out") => {
       setEngagementError(null);
       if (!canFetchPitchDetails) return;
       try {
         const token = await getAccessToken();
+        const headers: Record<string, string> = {
+          "content-type": "application/json",
+        };
         if (!token) {
-          setEngagementError("Sign in to vote.");
-          return;
+          // Guests can vote without signing in.
+        } else {
+          headers.Authorization = `Bearer ${token}`;
         }
         const res = await fetch(`/api/pitches/${pitchId}/vote`, {
           method: "POST",
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
           body: JSON.stringify({ vote }),
         });
         if (!res.ok) {
           setEngagementError("Unable to vote.");
+          return;
+        }
+        const payload = (await res.json()) as {
+          stats?: { in_count?: number; out_count?: number };
+        };
+        const nextInCount = payload?.stats?.in_count;
+        const nextOutCount = payload?.stats?.out_count;
+        if (typeof nextInCount === "number" && typeof nextOutCount === "number") {
+          setLocalInCount(nextInCount);
+          setLocalOutCount(nextOutCount);
+          setDetail((current) =>
+            current
+              ? {
+                  ...current,
+                  stats: {
+                    ...current.stats,
+                    in_count: nextInCount,
+                    out_count: nextOutCount,
+                    comment_count: 0,
+                  },
+                }
+              : current
+          );
+          broadcastPitchVoteSync({
+            senderId: syncSenderIdRef.current,
+            pitchId,
+            inCount: nextInCount,
+            outCount: nextOutCount,
+            sentAt: Date.now(),
+          });
           return;
         }
         await refreshDetail();
@@ -592,45 +591,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
     },
     [canFetchPitchDetails, getAccessToken, pitchId, refreshDetail]
   );
-
-  const handleSubmitComment = useCallback(async () => {
-    setEngagementError(null);
-    if (!canFetchPitchDetails) return;
-    const body = commentDraft.trim();
-    if (body.length < 2) return;
-
-    try {
-      setCommentSubmitting(true);
-      const token = await getAccessToken();
-      if (!token) {
-        setEngagementError("Sign in to comment.");
-        return;
-      }
-      const res = await fetch(`/api/pitches/${pitchId}/comments`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ body }),
-      });
-      if (!res.ok) {
-        setEngagementError("Unable to post comment.");
-        return;
-      }
-      const payload = (await res.json()) as { comment?: PitchComment };
-      if (payload?.comment) {
-        setComments((prev) => [...prev, payload.comment as PitchComment]);
-      }
-      setCommentDraft("");
-      setCommentsOpen(true);
-      await refreshDetail();
-    } catch {
-      setEngagementError("Unable to post comment.");
-    } finally {
-      setCommentSubmitting(false);
-    }
-  }, [canFetchPitchDetails, commentDraft, getAccessToken, pitchId, refreshDetail]);
 
   const showInstagramEmbedFallback = !videoSrc && !videoUnavailable && Boolean(resolvedInstagramEmbedSrc);
   const showVideoFallback = (!videoSrc && !showInstagramEmbedFallback) || videoUnavailable;
@@ -721,13 +681,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
           </div>
 
           <div className="expand-info expand-info-mobile" aria-label="Founder and startup details">
-            <div className="expand-meta-toprow">
-              <div className="pitch-show-badge">Video</div>
-              <span className="expand-counter" aria-live="polite">
-                {index + 1} / {pitches.length}
-              </span>
-            </div>
-
             {detailLoading ? <p className="trust-note">Loading details…</p> : null}
             {detailError ? <p className="trust-note error">Details unavailable.</p> : null}
 
@@ -749,14 +702,6 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
             </div>
 
             <div className="trust-actions">
-              <button
-                type="button"
-                className="trust-action primary"
-                onClick={handleVisit}
-                disabled={!normalizedWebsite}
-              >
-                Visit site
-              </button>
               <button type="button" className="trust-action ghost" onClick={handleShare}>
                 Share
               </button>
@@ -804,86 +749,9 @@ export default function ExpandedPitchOverlay({ pitches, index, setIndex, onClose
               >
                 ▼ <span>{outCount}</span>
               </button>
-              <button
-                type="button"
-                className="expand-engage-btn"
-                onClick={() => setCommentsOpen((current) => !current)}
-                disabled={!canFetchPitchDetails}
-                aria-label="Toggle comments"
-              >
-                💬 <span>{commentCount}</span>
-              </button>
             </div>
 
             {engagementError ? <p className="trust-note error">{engagementError}</p> : null}
-
-            {commentsOpen ? (
-              <div className="expand-comments" aria-label="Comments">
-                <div className="expand-comments-header">
-                  <h5>Comments</h5>
-                  {commentsLoading ? <span className="trust-note">Loading…</span> : null}
-                </div>
-                <div className="expand-comments-list">
-                  {!commentsLoading && comments.length === 0 ? (
-                    <p className="trust-note">No comments yet.</p>
-                  ) : null}
-                  {comments.map((comment) => (
-                    <div key={comment.id} className="expand-comment">
-                      <p className="expand-comment-body">{comment.body}</p>
-                      <p className="expand-comment-meta">
-                        {new Date(comment.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <div className="expand-comments-form">
-                  <textarea
-                    value={commentDraft}
-                    onChange={(e) => setCommentDraft(e.target.value)}
-                    placeholder="Write a comment…"
-                    aria-label="Write a comment"
-                    rows={3}
-                  />
-                  <button
-                    type="button"
-                    className="trust-action secondary expand-comment-submit"
-                    onClick={() => void handleSubmitComment()}
-                    disabled={commentSubmitting || commentDraft.trim().length < 2}
-                  >
-                    Post comment
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="trust-meta">
-              <div className="founder-card">
-                <div className="founder-avatar">
-                  {detail?.startup.founder_photo_url ? (
-                    <div
-                      className="founder-avatar-img"
-                      style={{ backgroundImage: `url(${detail.startup.founder_photo_url})` }}
-                    />
-                  ) : (
-                    <span>{founderName.slice(0, 1)}</span>
-                  )}
-                </div>
-                <div>
-                  <h4>{founderName}</h4>
-                  <p>{founderCity}</p>
-                </div>
-              </div>
-              <div className="trust-meta-data">
-                <div>
-                  <p className="metric-label">Founded</p>
-                  <p className="metric-value">{foundedDisplay}</p>
-                </div>
-                <div>
-                  <p className="metric-label">Country</p>
-                  <p className="metric-value">{founderCity}</p>
-                </div>
-              </div>
-            </div>
 
             {founderStoryText ? (
               <div className="trust-founder-story">

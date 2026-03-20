@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchLiveUsdInrRates, normalizeSupportedCurrency, toDualCurrency } from "@/lib/fx/live-rates";
+import { loadPitchVoteStatsMap } from "@/lib/pitches/stats";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { buildMuxPlaybackUrls } from "@/lib/video/mux/server";
@@ -112,9 +113,6 @@ const parseTimeMs = (value: string | null | undefined) => {
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
-const isMissingRankingsRpc = (message: string) =>
-  message.includes("Could not find the function public.fetch_startup_rankings");
-
 const isMissingRevenueTables = (message: string | null | undefined) => {
   const normalized = (message ?? "").toLowerCase();
   return (
@@ -143,46 +141,6 @@ const isMissingVideoColumns = (message: string | null | undefined) => {
     normalized.includes("video_processing_status") ||
     normalized.includes("video_mux_playback_id")
   );
-};
-
-const resolveAllTimeRankViaRpc = async (startupId: string) => {
-  for (let page = 0; page < RANK_MAX_PAGES; page += 1) {
-    const offset = page * RANK_PAGE_SIZE;
-    const { data, error } = await supabaseAdmin.rpc("fetch_startup_rankings", {
-      p_window: "all",
-      p_limit: RANK_PAGE_SIZE,
-      p_offset: offset,
-    });
-
-    if (error) {
-      if (isMissingRankingsRpc(error.message)) {
-        return null;
-      }
-      throw new Error(error.message);
-    }
-
-    const rows = (data ?? []) as RankingRow[];
-    if (!rows.length) {
-      return { rank: null as number | null, total: 0 };
-    }
-
-    const match = rows.find((row) => row.startup_id === startupId);
-    if (match) {
-      return {
-        rank: Number(match.rank ?? 0) || null,
-        total: Number(match.total_count ?? 0) || 0,
-      };
-    }
-
-    if (rows.length < RANK_PAGE_SIZE) {
-      return {
-        rank: null as number | null,
-        total: Number(rows[0]?.total_count ?? rows.length) || rows.length,
-      };
-    }
-  }
-
-  return { rank: null as number | null, total: 0 };
 };
 
 const resolveAllTimeRankFallback = async (startupId: string) => {
@@ -237,7 +195,6 @@ const resolveAllTimeRankFallback = async (startupId: string) => {
       startup_name: string;
       upvotes: number;
       downvotes: number;
-      comments: number;
       score: number;
       latest_pitch_at_ms: number;
     }
@@ -250,7 +207,6 @@ const resolveAllTimeRankFallback = async (startupId: string) => {
       startup_name: startup.name,
       upvotes: 0,
       downvotes: 0,
-      comments: 0,
       score: 0,
       latest_pitch_at_ms: latestByStartup.get(id) ?? 0,
     });
@@ -258,35 +214,25 @@ const resolveAllTimeRankFallback = async (startupId: string) => {
 
   for (let index = 0; index < pitchIds.length; index += RANK_FALLBACK_CHUNK_SIZE) {
     const chunk = pitchIds.slice(index, index + RANK_FALLBACK_CHUNK_SIZE);
-    const { data: statRows, error: statError } = await supabaseAdmin
-      .from("pitch_stats")
-      .select("pitch_id,in_count,out_count,comment_count")
-      .in("pitch_id", chunk);
-
-    if (statError) {
-      throw new Error(statError.message);
-    }
-
-    for (const stat of (statRows ?? []) as PitchStatRow[]) {
-      const startupId = pitchToStartup.get(stat.pitch_id);
+    const statsByPitchId = await loadPitchVoteStatsMap(chunk);
+    for (const stat of statsByPitchId.values()) {
+      const startupId = pitchToStartup.get(stat.pitchId);
       if (!startupId) continue;
       const aggregate = aggregates.get(startupId);
       if (!aggregate) continue;
-      aggregate.upvotes += asNumber(stat.in_count);
-      aggregate.downvotes += asNumber(stat.out_count);
-      aggregate.comments += asNumber(stat.comment_count);
+      aggregate.upvotes += stat.inCount;
+      aggregate.downvotes += stat.outCount;
     }
   }
 
   const ranked = Array.from(aggregates.values())
     .map((row) => {
-      const score = row.upvotes * 2 - row.downvotes + row.comments * 1.5;
+      const score = row.upvotes * 2 - row.downvotes;
       return { ...row, score };
     })
     .sort((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
       if (right.upvotes !== left.upvotes) return right.upvotes - left.upvotes;
-      if (right.comments !== left.comments) return right.comments - left.comments;
       if (right.latest_pitch_at_ms !== left.latest_pitch_at_ms) {
         return right.latest_pitch_at_ms - left.latest_pitch_at_ms;
       }
@@ -300,11 +246,7 @@ const resolveAllTimeRankFallback = async (startupId: string) => {
   };
 };
 
-const resolveAllTimeRank = async (startupId: string) => {
-  const rpcRank = await resolveAllTimeRankViaRpc(startupId);
-  if (rpcRank) return rpcRank;
-  return resolveAllTimeRankFallback(startupId);
-};
+const resolveAllTimeRank = async (startupId: string) => resolveAllTimeRankFallback(startupId);
 
 const getWatchCount = async (startupId: string) => {
   const { count } = await supabaseAdmin

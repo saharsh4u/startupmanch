@@ -5071,13 +5071,12 @@ html[data-theme="light"] .theme-toggle-thumb {
 }
 
 .rankings-row {
-  grid-template-columns: 52px minmax(180px, 1.35fr) minmax(120px, 1fr) 84px 94px 88px 84px 96px;
+  grid-template-columns: 52px minmax(180px, 1.35fr) minmax(120px, 1fr) 84px 94px 84px 96px;
 }
 
 .rankings-row .metric-cell,
 .rankings-row .metric-upvotes,
 .rankings-row .metric-downvotes,
-.rankings-row .metric-comments,
 .rankings-row .metric-score {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -5096,7 +5095,7 @@ html[data-theme="light"] .theme-toggle-thumb {
 }
 
 .rankings-table--modal .rankings-row {
-  grid-template-columns: 56px minmax(220px, 1.45fr) minmax(140px, 1fr) 90px 102px 96px 90px 110px;
+  grid-template-columns: 56px minmax(220px, 1.45fr) minmax(140px, 1fr) 90px 102px 90px 110px;
 }
 
 .rankings-modal {
@@ -5162,7 +5161,7 @@ html[data-theme="light"] .theme-toggle-thumb {
 
 @media (max-width: 1120px) {
   .rankings-row {
-    grid-template-columns: 52px minmax(168px, 1.4fr) 84px 94px 88px 84px;
+    grid-template-columns: 52px minmax(168px, 1.4fr) 84px 94px 84px;
   }
 
   .rankings-row .industry-cell,
@@ -5171,7 +5170,7 @@ html[data-theme="light"] .theme-toggle-thumb {
   }
 
   .rankings-table--modal .rankings-row {
-    grid-template-columns: 52px minmax(220px, 1.5fr) minmax(130px, 1fr) 84px 94px 88px 84px;
+    grid-template-columns: 52px minmax(220px, 1.5fr) minmax(130px, 1fr) 84px 94px 84px;
   }
 }
 
@@ -5203,7 +5202,6 @@ html[data-theme="light"] .theme-toggle-thumb {
 
   .rankings-row .industry-cell,
   .rankings-row .metric-downvotes,
-  .rankings-row .metric-comments,
   .rankings-row .spark {
     display: none;
   }

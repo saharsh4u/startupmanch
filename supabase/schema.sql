@@ -132,6 +132,15 @@ create table if not exists public.pitch_votes (
   unique (pitch_id, voter_id)
 );
 
+create table if not exists public.pitch_guest_votes (
+  id uuid primary key default gen_random_uuid(),
+  pitch_id uuid not null references public.pitches(id) on delete cascade,
+  guest_key text not null,
+  vote public.vote_type not null,
+  created_at timestamptz not null default now(),
+  unique (pitch_id, guest_key)
+);
+
 create table if not exists public.pitch_comments (
   id uuid primary key default gen_random_uuid(),
   pitch_id uuid not null references public.pitches(id) on delete cascade,
@@ -239,24 +248,37 @@ to authenticated
 using (public.is_admin());
 
 create or replace view public.pitch_stats as
+with all_votes as (
+  select pitch_id, vote
+  from public.pitch_votes
+  union all
+  select pitch_id, vote
+  from public.pitch_guest_votes
+)
 select
   p.id as pitch_id,
-  count(v.id) filter (where v.vote = 'in')::int as in_count,
-  count(v.id) filter (where v.vote = 'out')::int as out_count,
-  count(c.id)::int as comment_count
+  count(v.pitch_id) filter (where v.vote = 'in')::int as in_count,
+  count(v.pitch_id) filter (where v.vote = 'out')::int as out_count,
+  0::int as comment_count
 from public.pitches p
-left join public.pitch_votes v on v.pitch_id = p.id
-left join public.pitch_comments c on c.pitch_id = p.id
+left join all_votes v on v.pitch_id = p.id
 group by p.id;
 
 create or replace view public.pitch_stats_7d as
+with recent_votes as (
+  select pitch_id, vote, created_at
+  from public.pitch_votes
+  union all
+  select pitch_id, vote, created_at
+  from public.pitch_guest_votes
+)
 select
   p.id as pitch_id,
-  count(v.id) filter (where v.vote = 'in')::int as in_count,
-  count(v.id) filter (where v.vote = 'out')::int as out_count,
-  count(v.id)::int as total_votes
+  count(v.pitch_id) filter (where v.vote = 'in')::int as in_count,
+  count(v.pitch_id) filter (where v.vote = 'out')::int as out_count,
+  count(v.pitch_id)::int as total_votes
 from public.pitches p
-left join public.pitch_votes v
+left join recent_votes v
   on v.pitch_id = p.id
   and v.created_at >= now() - interval '7 days'
 where p.created_at >= now() - interval '7 days'
@@ -346,10 +368,9 @@ as $$
       pitch_id,
       in_count,
       out_count,
-      comment_count,
+      0::int as comment_count,
       (coalesce(in_count, 0) * 2
-        - coalesce(out_count, 0)
-        + coalesce(comment_count, 0) * 1.5) as score
+        - coalesce(out_count, 0)) as score
     from public.pitch_stats
   ),
   stats_week as (
@@ -421,6 +442,7 @@ alter table public.profiles enable row level security;
 alter table public.startups enable row level security;
 alter table public.pitches enable row level security;
 alter table public.pitch_votes enable row level security;
+alter table public.pitch_guest_votes enable row level security;
 alter table public.pitch_comments enable row level security;
 alter table public.investor_requests enable row level security;
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
+import { loadPitchVoteStatsMap } from "@/lib/pitches/stats";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getAuthContext, requireRole } from "@/lib/supabase/auth";
 import { applyNoStoreCache } from "@/lib/http/cache";
@@ -74,13 +75,6 @@ type StartupMetaRow = {
 type ProfileMetaRow = {
   id: string;
   display_name: string | null;
-};
-
-type PitchStatsRow = {
-  pitch_id: string;
-  in_count: number | null;
-  out_count: number | null;
-  comment_count: number | null;
 };
 
 const SHUFFLE_WINDOW_MS = 3 * 60 * 1000;
@@ -291,32 +285,7 @@ export async function GET(request: Request) {
     const paged = shuffledRows.slice(offset, offset + limit);
     const pageIds = paged.map((item) => item.id);
 
-    const statsByPitchId = new Map<string, PitchStatsRow>();
-    if (pageIds.length) {
-      const { data: statRows, error: statError } = await supabaseAdmin
-        .from("pitch_stats")
-        .select("pitch_id,in_count,out_count,comment_count")
-        .in("pitch_id", pageIds);
-      if (statError) {
-        if (isSupabaseRestrictedError(statError.message)) {
-          return fallbackFeedResponse({
-            mode: safeMode,
-            tab: resolvedTab,
-            categoryFilter,
-            offset,
-            limit,
-            shuffleWindow,
-          });
-        }
-        return NextResponse.json({ error: statError.message }, { status: 500 });
-      }
-      for (const stat of (statRows ?? []) as PitchStatsRow[]) {
-        statsByPitchId.set(stat.pitch_id, stat);
-      }
-    }
-
     rows = paged.map((item) => {
-      const stats = statsByPitchId.get(item.id);
       return {
         pitch_id: item.id,
         startup_id: item.startup_id,
@@ -329,9 +298,9 @@ export async function GET(request: Request) {
         poster_path: item.poster_path,
         created_at: item.created_at,
         approved_at: item.approved_at,
-        in_count: asNumber(stats?.in_count),
-        out_count: asNumber(stats?.out_count),
-        comment_count: asNumber(stats?.comment_count),
+        in_count: 0,
+        out_count: 0,
+        comment_count: 0,
         score: 0,
       };
     });
@@ -373,6 +342,32 @@ export async function GET(request: Request) {
     rows = (data ?? []) as PitchFeedItem[];
   }
   const pitchIds = rows.map((item) => item.pitch_id);
+  if (pitchIds.length) {
+    const voteStatsByPitchId = await loadPitchVoteStatsMap(pitchIds);
+    rows = rows.map((item) => {
+      const voteStats = voteStatsByPitchId.get(item.pitch_id);
+      return {
+        ...item,
+        in_count: voteStats?.inCount ?? asNumber(item.in_count),
+        out_count: voteStats?.outCount ?? asNumber(item.out_count),
+        comment_count: 0,
+        score: voteStats?.score ?? asNumber(item.in_count) * 2 - asNumber(item.out_count),
+      };
+    });
+
+    if (!shouldShuffleByWindow) {
+      rows.sort((left, right) => {
+        if (resolvedTab === "fresh") {
+          return Date.parse(right.created_at) - Date.parse(left.created_at);
+        }
+        const scoreDelta = asNumber(right.score) - asNumber(left.score);
+        if (scoreDelta !== 0) return scoreDelta;
+        const upvoteDelta = asNumber(right.in_count) - asNumber(left.in_count);
+        if (upvoteDelta !== 0) return upvoteDelta;
+        return Date.parse(right.created_at) - Date.parse(left.created_at);
+      });
+    }
+  }
 
   const videoStateByPitchId = new Map<string, PitchVideoStateRow>();
   const startupIds = new Set<string>();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { applyPublicEdgeCache } from "@/lib/http/cache";
+import { loadPitchVoteStatsMap } from "@/lib/pitches/stats";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -9,18 +10,6 @@ const DEFAULT_WINDOW = "7d";
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
 const FALLBACK_CHUNK_SIZE = 250;
-
-type RankingRpcRow = {
-  rank: number | null;
-  startup_id: string;
-  startup_name: string;
-  category: string | null;
-  upvotes: number | null;
-  downvotes: number | null;
-  comments: number | null;
-  score: number | string | null;
-  total_count: number | null;
-};
 
 type RankingApiRow = {
   rank: number;
@@ -51,15 +40,6 @@ type PitchRow = {
   startup_id: string;
   approved_at: string | null;
   created_at: string;
-};
-
-type VoteRow = {
-  pitch_id: string;
-  vote: "in" | "out" | string;
-};
-
-type CommentRow = {
-  pitch_id: string;
 };
 
 type FallbackStartupAggregate = {
@@ -131,9 +111,6 @@ const mapApiRow = (
   updated_at: null,
 });
 
-const isMissingRankingsRpc = (message: string) =>
-  message.includes("Could not find the function public.fetch_startup_rankings");
-
 const loadFallbackRankings = async (window: string, limit: number, offset: number) => {
   const { data: startups, error: startupsError } = await supabaseAdmin
     .from("startups")
@@ -202,57 +179,26 @@ const loadFallbackRankings = async (window: string, limit: number, offset: numbe
   const pitchIdChunks = chunkArray(pitchIds, FALLBACK_CHUNK_SIZE);
 
   for (const pitchIdChunk of pitchIdChunks) {
-    let votesQuery = supabaseAdmin
-      .from("pitch_votes")
-      .select("pitch_id,vote")
-      .in("pitch_id", pitchIdChunk);
-    if (startsAtIso) {
-      votesQuery = votesQuery.gte("created_at", startsAtIso);
-    }
-
-    const { data: votes, error: votesError } = await votesQuery;
-    if (votesError) throw new Error(votesError.message);
-
-    for (const vote of (votes ?? []) as VoteRow[]) {
-      const startupId = pitchToStartup.get(vote.pitch_id);
+    const pitchStats = await loadPitchVoteStatsMap(pitchIdChunk, { startsAtIso });
+    for (const voteStat of pitchStats.values()) {
+      const startupId = pitchToStartup.get(voteStat.pitchId);
       if (!startupId) continue;
       const aggregate = startupAggregates.get(startupId);
       if (!aggregate) continue;
-      if (vote.vote === "in") aggregate.upvotes += 1;
-      if (vote.vote === "out") aggregate.downvotes += 1;
-    }
-
-    let commentsQuery = supabaseAdmin
-      .from("pitch_comments")
-      .select("pitch_id")
-      .in("pitch_id", pitchIdChunk);
-    if (startsAtIso) {
-      commentsQuery = commentsQuery.gte("created_at", startsAtIso);
-    }
-
-    const { data: comments, error: commentsError } = await commentsQuery;
-    if (commentsError) throw new Error(commentsError.message);
-
-    for (const comment of (comments ?? []) as CommentRow[]) {
-      const startupId = pitchToStartup.get(comment.pitch_id);
-      if (!startupId) continue;
-      const aggregate = startupAggregates.get(startupId);
-      if (!aggregate) continue;
-      aggregate.comments += 1;
+      aggregate.upvotes += voteStat.inCount;
+      aggregate.downvotes += voteStat.outCount;
     }
   }
 
   const ranked = Array.from(startupAggregates.values())
     .map((aggregate) => ({
       ...aggregate,
-      score: roundToTwo(
-        aggregate.upvotes * 2 - aggregate.downvotes + aggregate.comments * 1.5
-      ),
+      comments: 0,
+      score: roundToTwo(aggregate.upvotes * 2 - aggregate.downvotes),
     }))
     .sort((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
       if (right.upvotes !== left.upvotes) return right.upvotes - left.upvotes;
-      if (right.comments !== left.comments) return right.comments - left.comments;
       if (right.latest_pitch_at_ms !== left.latest_pitch_at_ms) {
         return right.latest_pitch_at_ms - left.latest_pitch_at_ms;
       }
@@ -298,74 +244,24 @@ export async function GET(request: Request) {
   const limit = parseLimit(searchParams.get("limit"));
   const offset = parseOffset(searchParams.get("offset"));
 
-  const { data, error } = await supabaseAdmin.rpc("fetch_startup_rankings", {
-    p_window: window,
-    p_limit: limit,
-    p_offset: offset,
-  });
-
-  if (error) {
-    if (isMissingRankingsRpc(error.message)) {
-      try {
-        const fallback = await loadFallbackRankings(window, limit, offset);
-        const response = NextResponse.json({
-          window,
-          simulated: false,
-          limit,
-          offset,
-          total: fallback.total,
-          data: fallback.rows,
-          source: "fallback",
-        });
-        applyPublicEdgeCache(response, {
-          sMaxAgeSeconds: 120,
-          staleWhileRevalidateSeconds: 300,
-        });
-        return response;
-      } catch (fallbackError) {
-        const message =
-          fallbackError instanceof Error
-            ? fallbackError.message
-            : "Unable to load rankings.";
-        return NextResponse.json({ error: message }, { status: 500 });
-      }
-    }
-
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const rows = (data ?? []) as RankingRpcRow[];
-  const mapped: RankingApiRow[] = rows.map((row) => {
-    const score = asNumber(row.score);
-    const totalCount = asNumber(row.total_count);
-    const startupName = row.startup_name ?? "Startup";
-    return mapApiRow({
-      rank: asNumber(row.rank),
-      startup_id: row.startup_id,
-      startup_name: startupName,
-      category: row.category,
-      upvotes: asNumber(row.upvotes),
-      downvotes: asNumber(row.downvotes),
-      comments: asNumber(row.comments),
-      score,
-      total_count: totalCount,
+  try {
+    const fallback = await loadFallbackRankings(window, limit, offset);
+    const response = NextResponse.json({
+      window,
+      simulated: false,
+      limit,
+      offset,
+      total: fallback.total,
+      data: fallback.rows,
+      source: "application",
     });
-  });
-
-  const total = mapped[0]?.total_count ?? 0;
-
-  const response = NextResponse.json({
-    window,
-    simulated: false,
-    limit,
-    offset,
-    total,
-    data: mapped,
-    source: "rpc",
-  });
-  applyPublicEdgeCache(response, {
-    sMaxAgeSeconds: 120,
-    staleWhileRevalidateSeconds: 300,
-  });
-  return response;
+    applyPublicEdgeCache(response, {
+      sMaxAgeSeconds: 120,
+      staleWhileRevalidateSeconds: 300,
+    });
+    return response;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load rankings.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

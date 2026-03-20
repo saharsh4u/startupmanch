@@ -85,7 +85,6 @@ export const mapHomepagePitch = (item: ApiPitch, index: number): HomepagePitch =
     category: item.category ?? null,
     upvotes: asNumber(item.in_count),
     downvotes: asNumber(item.out_count),
-    comments: asNumber(item.comment_count),
     score: asNumber(item.score),
     monthlyRevenue: item.monthly_revenue ?? null,
     isFallback: false,

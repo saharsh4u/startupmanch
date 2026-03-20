@@ -5,7 +5,6 @@ export type RankingsRowItem = {
   category: string | null;
   upvotes: number;
   downvotes: number;
-  comments: number;
   score: number;
   total_count: number;
 };
@@ -28,11 +27,10 @@ const formatScore = (value: number) => {
 const sparklinePath = (row: RankingsRowItem, index: number) => {
   const base = [12, 18, 14, 20, 16, 22, 18, 26, 20, 28, 24, 30];
   const momentum = Math.max(-4, Math.min(8, row.upvotes - row.downvotes));
-  const commentLift = Math.min(6, Math.floor(row.comments / 2));
 
   const points = base.map((value, pointIndex) => {
     const lift = pointIndex % 2 === 0 ? 0 : 1;
-    const adjusted = Math.max(8, Math.min(34, value + momentum + commentLift + lift + (index % 3)));
+    const adjusted = Math.max(8, Math.min(34, value + momentum + lift + (index % 3)));
     return `${pointIndex * 10},${40 - adjusted}`;
   });
 
@@ -48,7 +46,6 @@ export default function RankingsTableRows({ rows, tableClassName }: RankingsTabl
         <span className="industry-cell">Category</span>
         <span className="metric-upvotes">Upvotes</span>
         <span className="metric-downvotes">Downvotes</span>
-        <span className="metric-comments">Comments</span>
         <span className="metric-score">Score</span>
         <span className="spark">Trend</span>
       </div>
@@ -65,7 +62,6 @@ export default function RankingsTableRows({ rows, tableClassName }: RankingsTabl
           <span className="industry-cell">{row.category ?? "General"}</span>
           <span className="metric-cell metric-upvotes">{row.upvotes}</span>
           <span className="metric-cell metric-downvotes">{row.downvotes}</span>
-          <span className="metric-cell metric-comments">{row.comments}</span>
           <span className="metric-cell metric-score">{formatScore(row.score)}</span>
           <svg className="spark" viewBox="0 0 110 40" preserveAspectRatio="none" aria-hidden="true">
             <path d={sparklinePath(row, index)} />
