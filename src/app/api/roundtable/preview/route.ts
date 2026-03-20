@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { applyNoStoreCache, applyPublicEdgeCache } from "@/lib/http/cache";
 import { getPublicRoundtablePreview } from "@/lib/roundtable/queries";
-import { reconcileOpenSessions } from "@/lib/roundtable/reconcile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    await reconcileOpenSessions(40);
     const payload = await getPublicRoundtablePreview();
     const response = NextResponse.json(payload, { status: 200 });
     applyPublicEdgeCache(response, {
